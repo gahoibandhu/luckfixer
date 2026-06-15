@@ -3,11 +3,8 @@ services:
     name: luckfixer-ephemeris
     runtime: python
     plan: free
-    # 👇 1. रेंडर को बताइए कि पाइथन कोड इस सबफ़ोल्डर के अंदर है
-    rootDirectory: ephemeris-service
     buildCommand: pip install -r requirements.txt
-    # 👇 2. अगर आपकी मेन पाइथन फाइल का नाम app.py है, तो यहाँ app:app करें (अगर main.py है तो main:app रहने दें)
-    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
