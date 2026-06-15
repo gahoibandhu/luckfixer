@@ -1,0 +1,118 @@
+/* app/globals.css */
+:root {
+  --color-background-primary: #ffffff;
+  --color-background-secondary: #f5f5f4;
+  --color-background-tertiary: #f0efe9;
+  --color-background-info: #e6f1fb;
+  --color-background-warning: #faeeda;
+  --color-text-primary: #1a1a18;
+  --color-text-secondary: #5f5e5a;
+  --color-text-tertiary: #888780;
+  --color-text-info: #185fa5;
+  --color-text-success: #3b6d11;
+  --color-text-warning: #854f0b;
+  --color-text-danger: #a32d2d;
+  --color-border-tertiary: rgba(0,0,0,0.08);
+  --color-border-secondary: rgba(0,0,0,0.15);
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background-primary: #1f1e1c;
+    --color-background-secondary: #2a2a27;
+    --color-background-tertiary: #161513;
+    --color-background-info: #042c53;
+    --color-background-warning: #412402;
+    --color-text-primary: #f1efe8;
+    --color-text-secondary: #b4b2a9;
+    --color-text-tertiary: #888780;
+    --color-text-info: #85b7eb;
+    --color-text-success: #97c459;
+    --color-text-warning: #fac775;
+    --color-text-danger: #f09595;
+    --color-border-tertiary: rgba(255,255,255,0.08);
+    --color-border-secondary: rgba(255,255,255,0.15);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--color-background-tertiary);
+  color: var(--color-text-primary);
+}
+
+input, select, button {
+  font-family: inherit;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  padding: 8px 10px;
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+}
+
+input:focus, select:focus {
+  outline: 2px solid var(--color-text-info);
+  outline-offset: 1px;
+}
+
+/* ── Mobile chat layout ────────────────────────────────────── */
+.lf-sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .lf-mobile-topbar {
+    display: flex !important;
+  }
+
+  .lf-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 30;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease-out;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.15);
+  }
+
+  .lf-sidebar-open {
+    transform: translateX(0);
+  }
+
+  .lf-sidebar-overlay {
+    display: block;
+  }
+
+  .lf-msg-bubble {
+    max-width: 88% !important;
+    font-size: 14px;
+  }
+}
+
+/* ── Logo — squircle shape with gentle breathing animation ───── */
+@keyframes lf-logo-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
+}
+
+.lf-logo-sm {
+  width: 36px;
+  height: 36px;
+  border-radius: 22%;
+  object-fit: cover;
+  flex-shrink: 0;
+  animation: lf-logo-breathe 3.5s ease-in-out infinite;
+}
+
+.lf-logo-lg {
+  width: 96px;
+  height: 96px;
+  border-radius: 22%;
+  object-fit: cover;
+  animation: lf-logo-breathe 3s ease-in-out infinite;
+}
+
