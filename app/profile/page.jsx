@@ -211,17 +211,29 @@ export default function ProfilePage() {
         <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-lg)', padding:'1.25rem', marginBottom:'1rem' }}>
           <p style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 12px' }}>नई कुंडली जोड़ें</p>
           <form onSubmit={addKundli} style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
-              <div><label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>Label</label><input value={newK.label} onChange={e => setNewK(k => ({...k, label:e.target.value}))} placeholder="मेरी कुंडली"/></div>
-              <div><label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>पूरा नाम *</label><input value={newK.full_name} onChange={e => setNewK(k => ({...k, full_name:e.target.value}))} required placeholder="नाम"/></div>
-              <div><label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म तिथि *</label><input type="date" value={newK.dob} onChange={e => setNewK(k => ({...k, dob:e.target.value}))} required/></div>
-              <div><label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म समय *</label><input type="time" value={newK.birth_time} onChange={e => setNewK(k => ({...k, birth_time:e.target.value}))} required/></div>
-              <div className="full" style={{ gridColumn:'1 / -1' }}>
-                <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म स्थान *</label>
+            <div className="lf-form-grid">
+              <div>
+                <label className="lf-label">Label</label>
+                <input value={newK.label} onChange={e => setNewK(k => ({...k, label:e.target.value}))} placeholder="मेरी कुंडली"/>
+              </div>
+              <div>
+                <label className="lf-label">पूरा नाम *</label>
+                <input value={newK.full_name} onChange={e => setNewK(k => ({...k, full_name:e.target.value}))} required placeholder="नाम"/>
+              </div>
+              <div>
+                <label className="lf-label">जन्म तिथि *</label>
+                <input type="date" value={newK.dob} onChange={e => setNewK(k => ({...k, dob:e.target.value}))} required/>
+              </div>
+              <div>
+                <label className="lf-label">जन्म समय *</label>
+                <input type="time" value={newK.birth_time} onChange={e => setNewK(k => ({...k, birth_time:e.target.value}))} required/>
+              </div>
+              <div style={{ gridColumn:'1 / -1' }}>
+                <label className="lf-label">जन्म स्थान *</label>
                 <div style={{ display:'flex', gap:'8px' }}>
                   <input value={newK.birth_place} onChange={e => { setNewK(k => ({...k, birth_place:e.target.value, latitude:'', longitude:''})); setGeoResults([]); }} required placeholder="जैसे: Delhi, India" style={{ flex:1 }}/>
-                  <button type="button" onClick={geocodePlace} disabled={geocoding} style={{ padding:'8px 14px', fontSize:'13px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', whiteSpace:'nowrap', color:'var(--color-text-primary)' }}>
-                    {geocoding ? 'खोज रहे हैं...' : 'खोजें'}
+                  <button type="button" onClick={geocodePlace} disabled={geocoding} style={{ padding:'8px 14px', fontSize:'13px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', whiteSpace:'nowrap', color:'var(--color-text-primary)', flexShrink:0 }}>
+                    {geocoding ? '...' : 'खोजें'}
                   </button>
                 </div>
                 {geoResults.length > 0 && (
@@ -238,19 +250,28 @@ export default function ProfilePage() {
                   </div>
                 )}
               </div>
-              <div><label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>Latitude</label><input type="number" step="0.0001" value={newK.latitude} onChange={e => setNewK(k => ({...k, latitude:e.target.value}))} placeholder="auto-fill होगा"/></div>
-              <div><label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>Longitude</label><input type="number" step="0.0001" value={newK.longitude} onChange={e => setNewK(k => ({...k, longitude:e.target.value}))} placeholder="auto-fill होगा"/></div>
-              <div><label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>Ayanamsa</label>
+              <div>
+                <label className="lf-label">Latitude</label>
+                <input type="number" step="0.0001" value={newK.latitude} onChange={e => setNewK(k => ({...k, latitude:e.target.value}))} placeholder="auto-fill"/>
+              </div>
+              <div>
+                <label className="lf-label">Longitude</label>
+                <input type="number" step="0.0001" value={newK.longitude} onChange={e => setNewK(k => ({...k, longitude:e.target.value}))} placeholder="auto-fill"/>
+              </div>
+              <div>
+                <label className="lf-label">Ayanamsa</label>
                 <select value={newK.ayanamsa} onChange={e => setNewK(k => ({...k, ayanamsa:e.target.value}))}>
-                  <option value="lahiri">Lahiri</option><option value="raman">Raman</option><option value="kp">KP</option>
+                  <option value="lahiri">Lahiri</option>
+                  <option value="raman">Raman</option>
+                  <option value="kp">KP</option>
                 </select>
               </div>
             </div>
             {geoError && <p style={{ fontSize:'12px', color:'var(--color-text-danger)', margin:0 }}>{geoError}</p>}
             {newK.latitude && newK.longitude && (
-              <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:0 }}>✓ स्थान मिल गया: {newK.latitude}, {newK.longitude}</p>
+              <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:0 }}>✓ {newK.latitude}, {newK.longitude}</p>
             )}
-            <button type="submit" disabled={analyzing} style={{ padding:'10px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>
+            <button type="submit" disabled={analyzing} style={{ padding:'12px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>
               {analyzing ? 'AI analysis चल रहा है...' : 'कुंडली Save करें'}
             </button>
           </form>
@@ -265,39 +286,53 @@ export default function ProfilePage() {
       ) : kundlis.map(k => {
         const a = k.planet_data?.analysis;
         const expanded = expandedKundli === k.id;
+        const num = k.planet_data?.numerology;
         return (
         <div key={k.id} style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', marginBottom:'8px', overflow:'hidden' }}>
-          <div onClick={() => setExpandedKundli(expanded ? null : k.id)} style={{ padding:'1rem 1.25rem', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <div>
-              <p style={{ fontWeight:'500', fontSize:'15px', margin:'0 0 3px', color:'var(--color-text-primary)' }}>{k.label || k.full_name}</p>
-              <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:0 }}>{k.dob} · {k.birth_time} · {k.birth_place}</p>
+
+          {/* Card header — name + score + chat button always visible */}
+          <div style={{ padding:'12px 14px', display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
+            <div style={{ flex:1, minWidth:0 }}>
+              <p style={{ fontWeight:'500', fontSize:'15px', margin:'0 0 2px', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.label || k.full_name}</p>
+              <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>{k.dob} · {k.birth_place}</p>
             </div>
-            <div style={{ textAlign:'right' }}>
-              <p style={{ fontWeight:'500', fontSize:'18px', margin:'0 0 2px', color: k.luck_score >= 60 ? 'var(--color-text-success)' : k.luck_score >= 40 ? 'var(--color-text-warning)' : 'var(--color-text-danger)' }}>{k.luck_score}</p>
-              <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>Luck Score</p>
-            </div>
+            <span style={{ fontWeight:'600', fontSize:'16px', color: k.luck_score >= 60 ? 'var(--color-text-success)' : k.luck_score >= 40 ? 'var(--color-text-warning)' : 'var(--color-text-danger)', flexShrink:0 }}>{k.luck_score}</span>
+            <button onClick={() => router.push(`/chat?kundliId=${k.id}`)} style={{ padding:'7px 14px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500', flexShrink:0 }}>
+              Chat
+            </button>
+            <button onClick={() => setExpandedKundli(expanded ? null : k.id)} style={{ padding:'7px 10px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'12px', color:'var(--color-text-secondary)', flexShrink:0 }}>
+              {expanded ? 'बंद करें ▲' : 'विश्लेषण ▼'}
+            </button>
+            <button onClick={() => deleteKundli(k.id)} title="हटाएं" style={{ background:'none', border:'none', cursor:'pointer', padding:'6px', color:'var(--color-text-tertiary)', flexShrink:0 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
           </div>
 
           {expanded && a && (
-            <div style={{ borderTop:'0.5px solid var(--color-border-tertiary)', padding:'1rem 1.25rem', display:'flex', flexDirection:'column', gap:'12px' }}>
-              {a.analytical_insight && (
-                <p style={{ fontSize:'13px', color:'var(--color-text-primary)', margin:0, lineHeight:'1.6' }}>{a.analytical_insight}</p>
-              )}
-              {a.key_yoga && (
-                <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>प्रमुख योग: <strong style={{ color:'var(--color-text-primary)' }}>{a.key_yoga}</strong></p>
-              )}
+            <div style={{ borderTop:'0.5px solid var(--color-border-tertiary)', padding:'1rem 1.25rem', display:'flex', flexDirection:'column', gap:'14px' }}>
+              {a.analytical_insight && <p style={{ fontSize:'13px', color:'var(--color-text-primary)', margin:0, lineHeight:'1.6' }}>{a.analytical_insight}</p>}
+              {a.key_yoga && <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>प्रमुख योग: <strong style={{ color:'var(--color-text-primary)' }}>{a.key_yoga}</strong></p>}
 
               {a.vedic_analysis && (
                 <AnalysisSection title="वैदिक विश्लेषण" color="var(--color-text-info)">
                   <p style={{ margin:'0 0 4px' }}>{a.vedic_analysis.lagna_summary}</p>
-                  <p style={{ margin:'0 0 4px' }}><strong>सबसे मजबूत:</strong> {a.vedic_analysis.strongest_planet}</p>
-                  <p style={{ margin:'0 0 4px' }}><strong>सबसे कमजोर:</strong> {a.vedic_analysis.weakest_planet}</p>
+                  <p style={{ margin:'0 0 4px' }}><strong>मजबूत:</strong> {a.vedic_analysis.strongest_planet}</p>
+                  <p style={{ margin:'0 0 4px' }}><strong>कमजोर:</strong> {a.vedic_analysis.weakest_planet}</p>
                   <p style={{ margin:0 }}>{a.vedic_analysis.dasha_hint}</p>
                 </AnalysisSection>
               )}
 
+              {(num || a.numerology_analysis) && (
+                <AnalysisSection title="अंक ज्योतिष" color="var(--color-text-warning)">
+                  {num && <p style={{ margin:'0 0 4px' }}>जीवन पथ: <strong>{num.lifePathNumber}</strong> — {num.lifePathMeaning?.title} · अभिव्यक्ति: <strong>{num.expressionNumber}</strong> · आत्मा: <strong>{num.soulUrgeNumber}</strong></p>}
+                  {num?.loShu?.missing?.length > 0 && <p style={{ margin:'0 0 4px', color:'var(--color-text-danger)' }}>⚠ अनुपस्थित अंक: {num.loShu.missing.join(', ')}</p>}
+                  {a.numerology_analysis?.life_path_summary && <p style={{ margin:'0 0 4px' }}>{a.numerology_analysis.life_path_summary}</p>}
+                  {a.numerology_analysis?.numerology_remedy && <p style={{ margin:0, fontWeight:'500' }}>उपाय: {a.numerology_analysis.numerology_remedy}</p>}
+                </AnalysisSection>
+              )}
+
               {a.lal_kitab_analysis && (
-                <AnalysisSection title="लाल किताब" color="var(--color-text-warning)">
+                <AnalysisSection title="लाल किताब" color="var(--color-text-danger)">
                   <p style={{ margin:'0 0 4px' }}>{a.lal_kitab_analysis.key_observation}</p>
                   <p style={{ margin:'0 0 4px' }}><strong>उपाय:</strong> {a.lal_kitab_analysis.remedy}</p>
                   <p style={{ margin:'0 0 4px' }}><strong>समय:</strong> {a.lal_kitab_analysis.timing}</p>
@@ -314,11 +349,22 @@ export default function ProfilePage() {
               )}
 
               {a.hora_analysis && (
-                <AnalysisSection title="होरा" color="var(--color-text-danger)">
-                  <p style={{ margin:'0 0 4px' }}><strong>आज के स्वामी:</strong> {a.hora_analysis.ruling_planet_today}</p>
+                <AnalysisSection title="होरा" color="var(--color-text-tertiary)">
+                  <p style={{ margin:'0 0 4px' }}><strong>आज:</strong> {a.hora_analysis.ruling_planet_today}</p>
                   <p style={{ margin:'0 0 4px' }}>{a.hora_analysis.best_activity_now}</p>
                   <p style={{ margin:0, color:'var(--color-text-tertiary)' }}>{a.hora_analysis.avoid_now}</p>
                 </AnalysisSection>
+              )}
+
+              {a.remedies && (
+                <div style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'12px', display:'flex', flexDirection:'column', gap:'8px' }}>
+                  <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'1px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:0 }}>उपाय — सभी प्रणालियाँ</p>
+                  {a.remedies.vedic?.mantra && <div><p style={{ fontSize:'11px', fontWeight:'600', color:'var(--color-text-info)', margin:'0 0 2px', textTransform:'uppercase' }}>वैदिक</p><p style={{ fontSize:'13px', margin:0 }}><strong>मंत्र:</strong> {a.remedies.vedic.mantra}{a.remedies.vedic.gem && <><br/><strong>रत्न:</strong> {a.remedies.vedic.gem}</>}</p></div>}
+                  {a.remedies.lal_kitab?.action && <div><p style={{ fontSize:'11px', fontWeight:'600', color:'var(--color-text-danger)', margin:'0 0 2px', textTransform:'uppercase' }}>लाल किताब</p><p style={{ fontSize:'13px', margin:0 }}>{a.remedies.lal_kitab.action}</p></div>}
+                  {a.remedies.nadi_karma?.seva && <div><p style={{ fontSize:'11px', fontWeight:'600', color:'var(--color-text-success)', margin:'0 0 2px', textTransform:'uppercase' }}>नाड़ी/कर्म</p><p style={{ fontSize:'13px', margin:0 }}>{a.remedies.nadi_karma.seva} {a.remedies.nadi_karma.duration && <span style={{ color:'var(--color-text-tertiary)' }}>({a.remedies.nadi_karma.duration})</span>}</p></div>}
+                  {a.remedies.numerology?.action && <div><p style={{ fontSize:'11px', fontWeight:'600', color:'var(--color-text-warning)', margin:'0 0 2px', textTransform:'uppercase' }}>अंक ज्योतिष</p><p style={{ fontSize:'13px', margin:0 }}>{a.remedies.numerology.action}</p></div>}
+                  {a.remedies.color_day_direction?.color && <div><p style={{ fontSize:'11px', fontWeight:'600', color:'var(--color-text-secondary)', margin:'0 0 2px', textTransform:'uppercase' }}>रंग / दिन / दिशा</p><p style={{ fontSize:'13px', margin:0 }}>{a.remedies.color_day_direction.color} · {a.remedies.color_day_direction.day} · {a.remedies.color_day_direction.direction}</p></div>}
+                </div>
               )}
 
               {a.actionable_seva_remedy && (
@@ -330,40 +376,18 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              {/* Feedback */}
               <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-                <span style={{ fontSize:'12px', color:'var(--color-text-tertiary)' }}>यह विश्लेषण कैसा था?</span>
-                <button onClick={() => sendFeedback(k.id, 'up')} disabled={feedbackSent[k.id]} style={{ background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'5px 10px', cursor: feedbackSent[k.id] ? 'default' : 'pointer', fontSize:'14px', opacity: feedbackSent[k.id] && feedbackSent[k.id] !== 'up' ? 0.4 : 1 }}>
-                  👍
-                </button>
-                <button onClick={() => sendFeedback(k.id, 'down')} disabled={feedbackSent[k.id]} style={{ background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'5px 10px', cursor: feedbackSent[k.id] ? 'default' : 'pointer', fontSize:'14px', opacity: feedbackSent[k.id] && feedbackSent[k.id] !== 'down' ? 0.4 : 1 }}>
-                  👎
-                </button>
+                <span style={{ fontSize:'12px', color:'var(--color-text-tertiary)' }}>विश्लेषण कैसा था?</span>
+                <button onClick={() => sendFeedback(k.id, 'up')} disabled={!!feedbackSent[k.id]} style={{ background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'5px 10px', cursor: feedbackSent[k.id] ? 'default' : 'pointer', fontSize:'14px', opacity: feedbackSent[k.id] && feedbackSent[k.id] !== 'up' ? 0.4 : 1 }}>👍</button>
+                <button onClick={() => sendFeedback(k.id, 'down')} disabled={!!feedbackSent[k.id]} style={{ background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'5px 10px', cursor: feedbackSent[k.id] ? 'default' : 'pointer', fontSize:'14px', opacity: feedbackSent[k.id] && feedbackSent[k.id] !== 'down' ? 0.4 : 1 }}>👎</button>
                 {feedbackSent[k.id] && <span style={{ fontSize:'12px', color:'var(--color-text-success)' }}>✓ धन्यवाद</span>}
-              </div>
-
-              <div style={{ display:'flex', gap:'8px' }}>
-                <button onClick={() => router.push(`/chat?kundliId=${k.id}`)} style={{ flex:1, padding:'8px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500' }}>
-                  इस कुंडली पर चैट करें
-                </button>
-                <button onClick={() => deleteKundli(k.id)} title="कुंडली हटाएं" style={{ padding:'8px 12px', background:'none', color:'var(--color-text-danger)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', display:'flex', alignItems:'center' }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
               </div>
             </div>
           )}
 
           {expanded && !a && (
             <div style={{ borderTop:'0.5px solid var(--color-border-tertiary)', padding:'1rem 1.25rem' }}>
-              <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)', margin:'0 0 8px' }}>विस्तृत विश्लेषण उपलब्ध नहीं — पुरानी कुंडली।</p>
-              <div style={{ display:'flex', gap:'8px' }}>
-                <button onClick={() => router.push(`/chat?kundliId=${k.id}`)} style={{ flex:1, padding:'8px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500' }}>
-                  इस कुंडली पर चैट करें
-                </button>
-                <button onClick={() => deleteKundli(k.id)} title="कुंडली हटाएं" style={{ padding:'8px 12px', background:'none', color:'var(--color-text-danger)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', display:'flex', alignItems:'center' }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
-              </div>
+              <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>विस्तृत विश्लेषण उपलब्ध नहीं — पुरानी कुंडली। नई बनाएं।</p>
             </div>
           )}
         </div>

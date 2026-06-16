@@ -92,8 +92,9 @@ def health():
 @app.post("/positions")
 def get_positions(req: PositionsRequest):
     try:
-        y, m, d = map(int, req.dob.split("-"))
-        h, mi = map(int, req.time.split(":"))
+        y, m, d = map(int, req.dob.split("-")[:3])
+        time_parts = req.time.split(":")
+        h, mi = int(time_parts[0]), int(time_parts[1])
 
         # Local Mean Time -> UT approximation using longitude
         # (matches the convention used by the other ephemeris tiers,

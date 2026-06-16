@@ -169,4 +169,3 @@ netlify deploy --prod    # if using CLI
 | Groq Llama3 70B | ~30 requests/minute |
 
 All Rs 0 for small-to-medium usage.
-"# luckfixer" 

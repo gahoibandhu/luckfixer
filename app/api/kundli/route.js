@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase-server';
 import { getLuckfixerResponse } from '@/lib/ai-engine';
 import { buildFactSheet } from '@/lib/astro-facts';
+import { buildNumerologySheet } from '@/lib/numerology';
 
 // GET — fetch all kundlis for logged-in user
 export async function GET() {
@@ -62,6 +63,7 @@ export async function POST(req) {
   // ── Deterministic core: compute the fact-sheet (exaltation, own-sign, ──
   // Vargottama, planetary war, dasha hint, remedial windows, etc.)
   const factSheet = await buildFactSheet(dob, birth_time, parseFloat(latitude), parseFloat(longitude), ayanamsa);
+  const numerology = buildNumerologySheet(full_name, dob);
 
   // ── AI layer: interpret the fact-sheet, do NOT recompute positions ────
   const systemPrompt = `You are Luckfixer 2.0's master analysis engine — combining classical Vedic astrology (Parashari), Lal Kitab, Nadi astrology (Bhrigu Nandi Nadi style), and Hora (planetary hour) timing systems.
@@ -74,12 +76,32 @@ CRITICAL RULES:
 - For lal_kitab_analysis.timing, use the remedialWindow.window value from the weakest planet's data in the fact sheet — weave it naturally into Hindi text.
 - All narrative content must be in Hindi (Devanagari), warm elder-brother tone, specific and actionable — not generic.
 
+REMEDY DETAIL MANDATE — every single remedy field must include ALL of the following (no vague remedies):
+1. कौन सा उपाय — exact action (e.g. "तांबे के लोटे में सूर्य को जल चढ़ाएं")
+2. कितनी मात्रा — exact quantity (e.g. "1 लोटा ≈ 250ml", "21 काले तिल", "108 बार जाप")
+3. कौन सा दिन — specific weekday (e.g. "रविवार", "शनिवार")
+4. कितने दिन — duration (e.g. "लगातार 40 दिन", "7 रविवार", "3 महीने")
+5. शुरू कब करें — best start (e.g. "अगले रविवार शुक्ल पक्ष की प्रथमा से", "अगली पूर्णिमा से")
+6. किस समय — exact time (e.g. "सूर्योदय के 30 मिनट के भीतर", "शाम 6-7 बजे दीपक जलाने के समय")
+7. दिशा — direction to face (e.g. "पूर्व दिशा में मुँह करके")
+8. मंत्र — what to chant with count (e.g. "ॐ सूर्याय नमः — 11 बार", "ॐ शं शनैश्चराय नमः — 108 बार")
+
 Return STRICT JSON only, no markdown, no backticks.`;
 
   const userPrompt = `Birth: ${full_name}, ${dob} ${birth_time}, ${birth_place}, Ayanamsa: ${ayanamsa}
 
 FACT SHEET (pre-computed, authoritative — do not recalculate):
 ${JSON.stringify(factSheet, null, 2)}
+
+NUMEROLOGY SHEET (pre-computed, use as-is):
+${JSON.stringify(numerology, null, 2)}
+
+IMPORTANT — remedies must cover ALL of these systems, not just Lal Kitab:
+1. Vedic Jyotish remedy (mantra/gem/yantra for weakest planet)
+2. Lal Kitab remedy (household object, specific action)
+3. Nadi/Karma remedy (behavioral correction, seva)
+4. Numerology remedy (based on missing Lo Shu numbers and Life Path)
+5. Color/Day/Direction therapy (based on weakest planet's planetary day)
 
 Return this exact JSON structure:
 {
@@ -115,11 +137,45 @@ Return this exact JSON structure:
     "avoid_now": "<1 sentence in Hindi - what to avoid today, especially relevant to factSheet.weakestPlanet>"
   },
 
+  "numerology_analysis": {
+    "life_path_summary": "<2-3 sentences in Hindi about numerology.lifePathNumber and its meaning for this person>",
+    "dominant_number": "<numerology.lifePathNumber as digit>",
+    "expression_insight": "<1 sentence in Hindi about name vibration — numerology.expressionNumber>",
+    "missing_numbers_warning": "<if numerology.loShu.missing is non-empty, mention the missing numbers and their impact in Hindi; else say 'सभी अंक संतुलित हैं'>",
+    "numerology_remedy": "<specific remedy in Hindi for the missing Lo Shu number(s) or weak Life Path energy>"
+  },
+
+  "remedies": {
+    "vedic": {
+      "mantra": "<specific mantra in Sanskrit/Hindi for factSheet.weakestPlanet with jaap count>",
+      "gem": "<recommended gemstone for factSheet.weakestPlanet, metal, and finger to wear>",
+      "yantra": "<relevant yantra name if applicable>"
+    },
+    "lal_kitab": {
+      "action": "<specific Lal Kitab household remedy for factSheet.weakestPlanet>",
+      "timing": "<must incorporate factSheet.weakestPlanet.remedialWindow.window>",
+      "reference": "<Lal Kitab chapter/principle>"
+    },
+    "nadi_karma": {
+      "seva": "<specific selfless service or behavioral change, in Hindi>",
+      "duration": "<how many days/weeks to practice>"
+    },
+    "numerology": {
+      "action": "<remedy for missing Lo Shu numbers or Life Path imbalance, in Hindi>",
+      "lucky_numbers": "<2-3 favorable numbers based on Life Path and Expression>"
+    },
+    "color_day_direction": {
+      "color": "<favorable color for factSheet.weakestPlanet, in Hindi>",
+      "day": "<best day of the week based on factSheet.weakestPlanet's planetary day>",
+      "direction": "<favorable direction to face during remedy/meditation>"
+    }
+  },
+
   "actionable_seva_remedy": {
-    "target_action": "<specific seva in Hindi, combining insights from all 4 systems, targeting factSheet.weakestPlanet>",
+    "target_action": "<single most powerful combined remedy from all systems, in Hindi>",
     "target_location_type": "<where to perform it, in Hindi>",
-    "karmic_logic": "<why this remedy works for this specific chart, referencing the fact sheet data, in Hindi>",
-    "shastric_reference": "<combined reference to Lal Kitab / BPHS / Phaladeepika / Nadi>"
+    "karmic_logic": "<why this works for this specific chart, referencing both fact sheet and numerology, in Hindi>",
+    "shastric_reference": "<combined reference to Lal Kitab / BPHS / Phaladeepika / Nadi / Ank Jyotish>"
   },
 
   "hora_guidance": "<1 sentence in Hindi - today's practical guidance combining hora timing>"
@@ -138,7 +194,7 @@ Return this exact JSON structure:
     latitude:     parseFloat(latitude),
     longitude:    parseFloat(longitude),
     ayanamsa:     ayanamsa || 'lahiri',
-    planet_data:  { planets: factSheet.planets, factSheet, analysis: aiResult.content },
+    planet_data:  { planets: factSheet.planets, factSheet, numerology, analysis: aiResult.content },
     luck_score:   aiResult.content.metric_score || 50,
     last_analysis: new Date().toISOString(),
   }).select().single();

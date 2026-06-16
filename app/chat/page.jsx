@@ -64,15 +64,35 @@ export default function ChatPage() {
   // Reset the chat view for a new conversation — does NOT write to the
   // database yet. A chat_sessions row is only created on the first
   // sendMessage(), so empty chats are never saved.
-  function startNewSession(kId) {
+  async function startNewSession(kId) {
     setSessionId(null);
     setPendingKundliId(kId || null);
-    setMessages([{
-      role: 'assistant',
-      content: kId
-        ? 'नमस्ते! आपकी कुंडली लोड हो गई है। आप कोई भी प्रश्न पूछें — ग्रह, दशा, उपाय...'
-        : 'नमस्ते! मैं Luckfixer 2.0 हूँ। आपकी कुंडली का विश्लेषण करने के लिए अपना जन्म विवरण दें।'
-    }]);
+    setMessages([{ role: 'assistant', content: '...' }]);
+
+    // Fetch a personalised greeting from the API (no usage cost, local generation)
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isGreeting: true,
+          messages: [{ role: 'user', content: 'hello' }],
+          kundliContext: kId && kundli ? {
+            full_name:  kundli.full_name,
+            dob:        kundli.dob,
+            birth_place: kundli.birth_place,
+            luck_score: kundli.luck_score,
+            analysis:   kundli.planet_data?.analysis,
+          } : null,
+        }),
+      });
+      const data = await res.json();
+      setMessages([{ role: 'assistant', content: data.content }]);
+    } catch {
+      setMessages([{ role: 'assistant', content: kId
+        ? 'नमस्ते! आपकी कुंडली लोड हो गई है। कोई भी प्रश्न पूछें।'
+        : 'नमस्ते! मैं Luckfixer 2.0 हूँ। आप कोई भी प्रश्न पूछें।' }]);
+    }
   }
 
   async function loadSession(sessId) {
