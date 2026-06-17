@@ -287,6 +287,7 @@ export default function ProfilePage() {
         const a = k.planet_data?.analysis;
         const expanded = expandedKundli === k.id;
         const num = k.planet_data?.numerology;
+        const vim = k.planet_data?.vimshottari;
         return (
         <div key={k.id} style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', marginBottom:'8px', overflow:'hidden' }}>
 
@@ -296,7 +297,7 @@ export default function ProfilePage() {
               <p style={{ fontWeight:'500', fontSize:'15px', margin:'0 0 2px', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.label || k.full_name}</p>
               <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>{k.dob} · {k.birth_place}</p>
             </div>
-            <span style={{ fontWeight:'600', fontSize:'16px', color: k.luck_score >= 60 ? 'var(--color-text-success)' : k.luck_score >= 40 ? 'var(--color-text-warning)' : 'var(--color-text-danger)', flexShrink:0 }}>{k.luck_score}</span>
+            <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)', flexShrink:0 }}>{k.birth_time}</span>
             <button onClick={() => router.push(`/chat?kundliId=${k.id}`)} style={{ padding:'7px 14px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500', flexShrink:0 }}>
               Chat
             </button>
@@ -319,6 +320,45 @@ export default function ProfilePage() {
                   <p style={{ margin:'0 0 4px' }}><strong>मजबूत:</strong> {a.vedic_analysis.strongest_planet}</p>
                   <p style={{ margin:'0 0 4px' }}><strong>कमजोर:</strong> {a.vedic_analysis.weakest_planet}</p>
                   <p style={{ margin:0 }}>{a.vedic_analysis.dasha_hint}</p>
+                </AnalysisSection>
+              )}
+
+              {/* Vimshottari Dasha */}
+              {vim?.current && (
+                <AnalysisSection title="विंशोत्तरी दशा" color="var(--color-text-primary)">
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px' }}>
+                    <div style={{ background:'var(--color-background-tertiary)', borderRadius:'var(--border-radius-md)', padding:'8px', textAlign:'center' }}>
+                      <p style={{ fontSize:'10px', color:'var(--color-text-tertiary)', margin:'0 0 2px', textTransform:'uppercase' }}>महादशा</p>
+                      <p style={{ fontSize:'16px', fontWeight:'600', color:'var(--color-text-primary)', margin:'0 0 2px' }}>{vim.current.mahaDasha.lordHi}</p>
+                      <p style={{ fontSize:'10px', color:'var(--color-text-tertiary)', margin:0 }}>{vim.current.mahaDasha.daysLeft} दिन शेष</p>
+                    </div>
+                    <div style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'8px', textAlign:'center', border:'0.5px solid var(--color-border-secondary)' }}>
+                      <p style={{ fontSize:'10px', color:'var(--color-text-tertiary)', margin:'0 0 2px', textTransform:'uppercase' }}>अंतर्दशा</p>
+                      <p style={{ fontSize:'16px', fontWeight:'600', color:'var(--color-text-info)', margin:'0 0 2px' }}>{vim.current.antarDasha.lordHi}</p>
+                      <p style={{ fontSize:'10px', color:'var(--color-text-tertiary)', margin:0 }}>{vim.current.antarDasha.daysLeft} दिन शेष</p>
+                    </div>
+                    <div style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'8px', textAlign:'center', border:'0.5px solid var(--color-border-secondary)' }}>
+                      <p style={{ fontSize:'10px', color:'var(--color-text-tertiary)', margin:'0 0 2px', textTransform:'uppercase' }}>प्रत्यंतर</p>
+                      <p style={{ fontSize:'16px', fontWeight:'600', color:'var(--color-text-warning)', margin:'0 0 2px' }}>{vim.current.pratyantarDasha.lordHi}</p>
+                      <p style={{ fontSize:'10px', color:'var(--color-text-tertiary)', margin:0 }}>{vim.current.pratyantarDasha.daysLeft} दिन शेष</p>
+                    </div>
+                  </div>
+                  <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 4px' }}>
+                    अंतर्दशा: {vim.current.antarDasha.start} → {vim.current.antarDasha.end}
+                  </p>
+                  <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:0 }}>
+                    प्रत्यंतर: {vim.current.pratyantarDasha.startLabel} → {vim.current.pratyantarDasha.endLabel}
+                  </p>
+                  {/* All pratyantar dashas timeline */}
+                  <div style={{ marginTop:'8px' }}>
+                    <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'0 0 4px' }}>सभी प्रत्यंतर दशाएं (वर्तमान अंतर्दशा में):</p>
+                    {vim.current.allPratyantar?.map((pd, i) => (
+                      <div key={i} style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', padding:'3px 0', borderBottom:'0.5px solid var(--color-border-tertiary)', color: pd.isCurrent ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)', fontWeight: pd.isCurrent ? '600' : '400' }}>
+                        <span>{pd.isCurrent ? '▶ ' : ''}{pd.lordHi} ({pd.days} दिन)</span>
+                        <span>{pd.startLabel}</span>
+                      </div>
+                    ))}
+                  </div>
                 </AnalysisSection>
               )}
 

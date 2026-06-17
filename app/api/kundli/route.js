@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server';
 import { getLuckfixerResponse } from '@/lib/ai-engine';
 import { buildFactSheet } from '@/lib/astro-facts';
 import { buildNumerologySheet } from '@/lib/numerology';
+import { calcVimshottari } from '@/lib/vimshottari';
 
 // GET — fetch all kundlis for logged-in user
 export async function GET() {
@@ -64,6 +65,8 @@ export async function POST(req) {
   // Vargottama, planetary war, dasha hint, remedial windows, etc.)
   const factSheet = await buildFactSheet(dob, birth_time, parseFloat(latitude), parseFloat(longitude), ayanamsa);
   const numerology = buildNumerologySheet(full_name, dob);
+  const moon = factSheet.planets.find(p => p.name === 'Moon');
+  const vimshottari = moon ? calcVimshottari(moon.degree, dob) : null;
 
   // ── AI layer: interpret the fact-sheet, do NOT recompute positions ────
   const systemPrompt = `You are Luckfixer 2.0's master analysis engine — combining classical Vedic astrology (Parashari), Lal Kitab, Nadi astrology (Bhrigu Nandi Nadi style), and Hora (planetary hour) timing systems.
@@ -96,6 +99,14 @@ ${JSON.stringify(factSheet, null, 2)}
 NUMEROLOGY SHEET (pre-computed, use as-is):
 ${JSON.stringify(numerology, null, 2)}
 
+VIMSHOTTARI DASHA (pre-computed, authoritative — use exact dates):
+${vimshottari ? JSON.stringify(vimshottari.current, null, 2) : 'Not available'}
+
+KEY DASHA CONTEXT:
+- महादशा: ${vimshottari?.current?.mahaDasha?.lordHi} (समाप्ति: ${vimshottari?.current?.mahaDasha?.end}, ${vimshottari?.current?.mahaDasha?.daysLeft} दिन शेष)
+- अंतर्दशा: ${vimshottari?.current?.antarDasha?.lordHi} (समाप्ति: ${vimshottari?.current?.antarDasha?.end}, ${vimshottari?.current?.antarDasha?.daysLeft} दिन शेष)
+- प्रत्यंतर्दशा: ${vimshottari?.current?.pratyantarDasha?.lordHi} (${vimshottari?.current?.pratyantarDasha?.startLabel} से ${vimshottari?.current?.pratyantarDasha?.endLabel}, ${vimshottari?.current?.pratyantarDasha?.daysLeft} दिन शेष)
+
 IMPORTANT — remedies must cover ALL of these systems, not just Lal Kitab:
 1. Vedic Jyotish remedy (mantra/gem/yantra for weakest planet)
 2. Lal Kitab remedy (household object, specific action)
@@ -115,7 +126,7 @@ Return this exact JSON structure:
     "lagna_summary": "<1-2 sentences in Hindi about chart strength based on factSheet>",
     "strongest_planet": "<must reference factSheet.strongestPlanet.name, degree, sign, dignity in Hindi>",
     "weakest_planet": "<must reference factSheet.weakestPlanet.name, degree, sign, dignity in Hindi>",
-    "dasha_hint": "<1-2 sentences in Hindi about factSheet.currentDashaLordHint period themes, based on Moon nakshatra factSheet.moonNakshatra>"
+    "dasha_hint": "<MUST reference exact Vimshottari dates: महादशा lord + end date, अंतर्दशा lord + end date, प्रत्यंतर्दशा lord + exact dates. Explain what this combination means for the person in Hindi>"
   },
 
   "lal_kitab_analysis": {
@@ -194,7 +205,7 @@ Return this exact JSON structure:
     latitude:     parseFloat(latitude),
     longitude:    parseFloat(longitude),
     ayanamsa:     ayanamsa || 'lahiri',
-    planet_data:  { planets: factSheet.planets, factSheet, numerology, analysis: aiResult.content },
+    planet_data:  { planets: factSheet.planets, factSheet, numerology, vimshottari, analysis: aiResult.content },
     luck_score:   aiResult.content.metric_score || 50,
     last_analysis: new Date().toISOString(),
   }).select().single();

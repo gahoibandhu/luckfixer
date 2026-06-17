@@ -147,6 +147,8 @@ export default function ChatPage() {
       planets:     kundli.planet_data?.planets,
       luck_score:  kundli.luck_score,
       analysis:    kundli.planet_data?.analysis,
+      vimshottari: kundli.planet_data?.vimshottari?.current,
+      numerology:  kundli.planet_data?.numerology,
     } : null;
 
     const res = await fetch('/api/chat', {
@@ -240,8 +242,7 @@ export default function ChatPage() {
           <div style={{ padding:'10px 16px', borderBottom:'0.5px solid var(--color-border-tertiary)', display:'flex', alignItems:'center', gap:'10px', background:'var(--color-background-secondary)', fontSize:'13px', flexWrap:'wrap' }}>
             <span style={{ color:'var(--color-text-secondary)' }}>कुंडली:</span>
             <span style={{ fontWeight:'500', color:'var(--color-text-primary)' }}>{kundli.full_name}</span>
-            <span style={{ color:'var(--color-text-tertiary)' }}>{kundli.dob} · {kundli.birth_place}</span>
-            <span style={{ marginLeft:'auto', fontWeight:'500', color: intensityColor(kundli.luck_score) }}>{kundli.luck_score}/100</span>
+            <span style={{ color:'var(--color-text-tertiary)' }}>{kundli.dob} · {kundli.birth_time} · {kundli.birth_place}</span>
           </div>
         )}
 
