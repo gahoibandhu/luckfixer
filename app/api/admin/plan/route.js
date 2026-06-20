@@ -49,6 +49,7 @@ export async function PATCH(req) {
   if (free_mins_day  !== undefined) updateData.free_mins_day   = free_mins_day;
   if (free_chats_day !== undefined) updateData.free_chats_day  = free_chats_day;
   if (charge_per_min !== undefined) updateData.charge_per_min  = charge_per_min;
+  if (body.plan_type !== undefined) updateData.plan_type       = body.plan_type;
 
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase

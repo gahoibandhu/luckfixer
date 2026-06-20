@@ -129,7 +129,30 @@ def get_positions(req: PositionsRequest):
                 diff = min(diff, 360 - diff)
                 p["combust"] = diff < 6
 
-        return {"engine": "pyswisseph", "planets": results}
+        # ── Ascendant (Lagna) ─────────────────────────────────
+        # swe.houses returns (cusps, ascmc); ascmc[0] = Ascendant (tropical)
+        # Apply same sidereal correction (ayanamsa) as planets
+        ayanamsa_value = swe.get_ayanamsa_ut(jd)
+        _, ascmc = swe.houses(jd, req.lat, req.lng, b'P')  # Placidus house system
+        asc_tropical = ascmc[0]
+        asc_sidereal = (asc_tropical - ayanamsa_value) % 360
+
+        lagna_sign_idx = int(asc_sidereal // 30)
+        lagna_in_sign = asc_sidereal % 30
+        lagna_nak_idx = int(asc_sidereal // (360.0 / 27))
+        lagna_pada = int((asc_sidereal % (360.0 / 27)) // ((360.0 / 27) / 4)) + 1
+
+        lagna = {
+            "sign": SIGNS[lagna_sign_idx],
+            "signHi": SIGNS_HI[lagna_sign_idx],
+            "degree": round(asc_sidereal, 7),
+            "inSign": round(lagna_in_sign, 4),
+            "nakshatra": NAKSHATRAS[lagna_nak_idx],
+            "pada": lagna_pada,
+            "d9Sign": SIGNS[navamsa_sign_index(asc_sidereal)],
+        }
+
+        return {"engine": "pyswisseph", "planets": results, "lagna": lagna}
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

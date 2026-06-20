@@ -24,6 +24,8 @@ export default function ProfilePage() {
 
   useEffect(() => {
     loadAll();
+    // Warm up Render ephemeris service so it's ready when user saves kundli
+    fetch('/api/warmup').catch(() => {});
     // Re-load when auth state settles (handles fresh login redirects where
     // the session cookie may not be synced yet on first render)
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
@@ -213,10 +215,6 @@ export default function ProfilePage() {
           <form onSubmit={addKundli} style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
             <div className="lf-form-grid">
               <div>
-                <label className="lf-label">Label</label>
-                <input value={newK.label} onChange={e => setNewK(k => ({...k, label:e.target.value}))} placeholder="मेरी कुंडली"/>
-              </div>
-              <div>
                 <label className="lf-label">पूरा नाम *</label>
                 <input value={newK.full_name} onChange={e => setNewK(k => ({...k, full_name:e.target.value}))} required placeholder="नाम"/>
               </div>
@@ -258,14 +256,7 @@ export default function ProfilePage() {
                 <label className="lf-label">Longitude</label>
                 <input type="number" step="0.0001" value={newK.longitude} onChange={e => setNewK(k => ({...k, longitude:e.target.value}))} placeholder="auto-fill"/>
               </div>
-              <div>
-                <label className="lf-label">Ayanamsa</label>
-                <select value={newK.ayanamsa} onChange={e => setNewK(k => ({...k, ayanamsa:e.target.value}))}>
-                  <option value="lahiri">Lahiri</option>
-                  <option value="raman">Raman</option>
-                  <option value="kp">KP</option>
-                </select>
-              </div>
+              {/* Ayanamsa hidden - defaults to Lahiri */}
             </div>
             {geoError && <p style={{ fontSize:'12px', color:'var(--color-text-danger)', margin:0 }}>{geoError}</p>}
             {newK.latitude && newK.longitude && (
@@ -320,6 +311,35 @@ export default function ProfilePage() {
                   <p style={{ margin:'0 0 4px' }}><strong>मजबूत:</strong> {a.vedic_analysis.strongest_planet}</p>
                   <p style={{ margin:'0 0 4px' }}><strong>कमजोर:</strong> {a.vedic_analysis.weakest_planet}</p>
                   <p style={{ margin:0 }}>{a.vedic_analysis.dasha_hint}</p>
+                </AnalysisSection>
+              )}
+
+              {/* Event-specific scores: Career / Marriage / Health */}
+              {a.event_scores && (
+                <AnalysisSection title="क्षेत्र अनुसार आकलन" color="var(--color-text-success)">
+                  <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
+                    {[
+                      ['career', 'करियर'],
+                      ['marriage', 'विवाह'],
+                      ['health', 'स्वास्थ्य'],
+                    ].map(([key, label]) => {
+                      const ev = a.event_scores[key];
+                      if (!ev) return null;
+                      const scoreColor = ev.score >= 65 ? 'var(--color-text-success)' : ev.score >= 40 ? 'var(--color-text-warning)' : 'var(--color-text-danger)';
+                      return (
+                        <div key={key} style={{ background:'var(--color-background-tertiary)', borderRadius:'var(--border-radius-md)', padding:'8px 10px' }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'4px' }}>
+                            <span style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>{label}</span>
+                            <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                              <span style={{ fontSize:'15px', fontWeight:'600', color: scoreColor }}>{ev.score}/100</span>
+                              <span style={{ fontSize:'10px', color:'var(--color-text-tertiary)' }}>{ev.confidence}% confidence</span>
+                            </div>
+                          </div>
+                          <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:0 }}>{ev.summary}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </AnalysisSection>
               )}
 

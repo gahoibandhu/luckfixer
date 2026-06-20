@@ -4,6 +4,7 @@ import { getLuckfixerResponse } from '@/lib/ai-engine';
 import { buildFactSheet } from '@/lib/astro-facts';
 import { buildNumerologySheet } from '@/lib/numerology';
 import { calcVimshottari } from '@/lib/vimshottari';
+import { buildSpecialistInsights } from '@/lib/specialist-rules';
 
 // GET — fetch all kundlis for logged-in user
 export async function GET() {
@@ -67,6 +68,7 @@ export async function POST(req) {
   const numerology = buildNumerologySheet(full_name, dob);
   const moon = factSheet.planets.find(p => p.name === 'Moon');
   const vimshottari = moon ? calcVimshottari(moon.degree, dob) : null;
+  const specialist  = buildSpecialistInsights(factSheet, vimshottari);
 
   // ── AI layer: interpret the fact-sheet, do NOT recompute positions ────
   const systemPrompt = `You are Luckfixer 2.0's master analysis engine — combining classical Vedic astrology (Parashari), Lal Kitab, Nadi astrology (Bhrigu Nandi Nadi style), and Hora (planetary hour) timing systems.
@@ -107,12 +109,26 @@ KEY DASHA CONTEXT:
 - अंतर्दशा: ${vimshottari?.current?.antarDasha?.lordHi} (समाप्ति: ${vimshottari?.current?.antarDasha?.end}, ${vimshottari?.current?.antarDasha?.daysLeft} दिन शेष)
 - प्रत्यंतर्दशा: ${vimshottari?.current?.pratyantarDasha?.lordHi} (${vimshottari?.current?.pratyantarDasha?.startLabel} से ${vimshottari?.current?.pratyantarDasha?.endLabel}, ${vimshottari?.current?.pratyantarDasha?.daysLeft} दिन शेष)
 
+CLASSICAL YOGA PATTERNS DETECTED (use these in your analysis):
+${specialist.matchedYogas.length > 0 ? specialist.matchedYogas.map(y => `• ${y}`).join('\n') : '• कोई विशेष योग नहीं मिला'}
+
+EVENT-SPECIFIC SCORES (pre-computed — career/marriage/health with confidence + reasoning, use exactly):
+${factSheet.eventScores ? JSON.stringify(factSheet.eventScores, null, 2) : 'Not available (lagna missing)'}
+
+LAGNA (Ascendant): ${factSheet.lagna ? `${factSheet.lagna.signHi} (${factSheet.lagna.sign}), ${factSheet.lagna.nakshatra} नक्षत्र` : 'Not available'}
+
+PAST VALIDATION QUESTIONS (include 1-2 of these in analytical_insight or dasha_hint — ask the user to confirm):
+${specialist.pastValidationQuestions.map((q, i) => `${i+1}. ${q}`).join('\n')}
+
+WEAKEST PLANET REMEDY REFERENCE (use in remedies section):
+${specialist.weakestPlanetRemedy ? JSON.stringify(specialist.weakestPlanetRemedy) : 'N/A'}
+
 IMPORTANT — remedies must cover ALL of these systems, not just Lal Kitab:
-1. Vedic Jyotish remedy (mantra/gem/yantra for weakest planet)
-2. Lal Kitab remedy (household object, specific action)
-3. Nadi/Karma remedy (behavioral correction, seva)
+1. Vedic Jyotish remedy (mantra/gem/yantra for weakest planet — use exact mantra + count from remedy reference above)
+2. Lal Kitab remedy (household object, specific action with quantity and day)
+3. Nadi/Karma remedy (behavioral correction, seva with duration)
 4. Numerology remedy (based on missing Lo Shu numbers and Life Path)
-5. Color/Day/Direction therapy (based on weakest planet's planetary day)
+5. Color/Day/Direction therapy (based on weakest planet's planetary day from remedy reference)
 
 Return this exact JSON structure:
 {
@@ -123,10 +139,16 @@ Return this exact JSON structure:
   "analytical_insight": "<2-3 sentence overall summary in Hindi covering the chart's central theme, referencing factSheet.strongestPlanet and factSheet.weakestPlanet>",
 
   "vedic_analysis": {
-    "lagna_summary": "<1-2 sentences in Hindi about chart strength based on factSheet>",
+    "lagna_summary": "<1-2 sentences in Hindi about chart strength, MUST mention factSheet.lagna sign and nakshatra if available>",
     "strongest_planet": "<must reference factSheet.strongestPlanet.name, degree, sign, dignity in Hindi>",
     "weakest_planet": "<must reference factSheet.weakestPlanet.name, degree, sign, dignity in Hindi>",
     "dasha_hint": "<MUST reference exact Vimshottari dates: महादशा lord + end date, अंतर्दशा lord + end date, प्रत्यंतर्दशा lord + exact dates. Explain what this combination means for the person in Hindi>"
+  },
+
+  "event_scores": {
+    "career": { "score": <number from factSheet.eventScores.career.score>, "confidence": <number from factSheet.eventScores.career.confidence>, "summary": "<Hindi 1-2 sentence narrative version of factSheet.eventScores.career.summary, weaving in top 1-2 supporting/opposing factors>" },
+    "marriage": { "score": <number from factSheet.eventScores.marriage.score>, "confidence": <number from factSheet.eventScores.marriage.confidence>, "summary": "<Hindi 1-2 sentence narrative version of factSheet.eventScores.marriage.summary>" },
+    "health": { "score": <number from factSheet.eventScores.health.score>, "confidence": <number from factSheet.eventScores.health.confidence>, "summary": "<Hindi 1-2 sentence narrative version of factSheet.eventScores.health.summary>" }
   },
 
   "lal_kitab_analysis": {
@@ -205,7 +227,7 @@ Return this exact JSON structure:
     latitude:     parseFloat(latitude),
     longitude:    parseFloat(longitude),
     ayanamsa:     ayanamsa || 'lahiri',
-    planet_data:  { planets: factSheet.planets, factSheet, numerology, vimshottari, analysis: aiResult.content },
+    planet_data:  { planets: factSheet.planets, factSheet, numerology, vimshottari, specialist, analysis: aiResult.content },
     luck_score:   aiResult.content.metric_score || 50,
     last_analysis: new Date().toISOString(),
   }).select().single();

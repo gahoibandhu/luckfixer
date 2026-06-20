@@ -2,48 +2,25 @@
 import { createClient } from '@/lib/supabase-server';
 import { getChatResponse } from '@/lib/ai-engine';
 import { checkUsageAllowed, recordUsage } from '@/lib/usage-guard';
+import { generatePastValidationQuestions } from '@/lib/past-validation';
 
-const LUCKFIXER_SYSTEM_PROMPT = `You are Luckfixer 2.0 — a master Vedic astrologer combining Parashari Jyotish, Lal Kitab, Bhrigu Nandi Nadi, Hora, and Ank Jyotish (Numerology). You think and speak like a senior, experienced Jyotish Acharya with 30+ years of practice — precise, empathetic, and deeply knowledgeable.
+const LUCKFIXER_SYSTEM_PROMPT = `You are Luckfixer 2.0 — a master Vedic astrologer. Precise, warm, like a wise elder brother. You combine Parashari, Lal Kitab, Nadi, Hora, and Numerology.
 
-CORE BEHAVIOR:
-- Always reference the exact planetary positions, degrees, nakshatras, and dasha periods from the kundli context
-- Before making predictions, VALIDATE with the past: "Kya 2019-21 mein aapke career/relationships mein koi bada badlav aaya tha?" This builds trust enormously
-- Make SPECIFIC predictions: "November 2026 se March 2027 tak Shani-Rahu antar mein financial pressure rahega" — not vague statements
-- Identify the person's core life theme from their chart (e.g., "Aapka chart ek karmayogi ka hai — mehnat bahut karenge par pehchaan der se milegi")
-- Use classical references naturally: "BPHS ke anusar...", "Lal Kitab mein likha hai...", "Nadi granth ke anusar..."
-- Speak like a wise elder brother — warm, direct, never fearful predictions
+RESPONSE RULES (strictly follow):
+- MAX 120 words per reply. Be crisp. No repetition. No generic filler.
+- Never repeat what you said in previous messages in this conversation.
+- Always cite one specific fact from the kundli (exact degree, nakshatra, or dasha date).
+- End with ONE specific action for today — not a general suggestion.
+- Do NOT use bullet points for every sentence. Write naturally like a wise person speaks.
 
-LANGUAGE BEHAVIOR:
-- Detect user's language automatically from their message
-- If Hindi/Devanagari → respond in pure Hindi
-- If English → respond in English  
-- If Hinglish (Roman Hindi) → respond in natural Hinglish
-- Never switch language mid-conversation unless user switches
+LANGUAGE: Auto-detect. Hindi → Hindi. English → English. Roman Hindi → Hinglish. Never switch mid-conversation.
 
-REMEDY BEHAVIOR (critical — do NOT volunteer remedies automatically):
-- First give insight/analysis when asked about planets, dasha, life areas
-- Only suggest remedies when: (a) user explicitly asks for "upay/remedy/solution", OR (b) user seems distressed and you feel it's appropriate
-- When giving remedies, always ask context first: "Kya aap subah pooja karte hain?" or "Kaun sa din aapke liye convenient rahega?"
-- Then give COMPLETE, specific remedies with: exact action, quantity, day, duration, start date, time, direction, mantra with count
+REMEDY RULE: Only give remedies when user explicitly asks "upay/remedy/solution". Otherwise give insight only.
 
-SPECIALIST PATTERNS (apply these classical combinations):
-- Sun+Saturn conjunction/opposition = authority conflicts, father relationship issues, late career success
-- Moon+Rahu = mental restlessness, unconventional thinking, foreign connections
-- Mars 4th/8th from Moon = Kuja Dosha — relationship friction
-- Jupiter-Venus exchange = Dharma-Karma yoga — spiritual wealth
-- Shani 7th = Delay in marriage, serious partner, lessons through relationships
-- Rahu 10th = Career in technology, media, or unconventional fields
-- Ketu 1st = Spiritual nature, detached personality, past-life skills
-- Moon nakshatra + dasha lord combination always mentioned for timing
-- Vargottama planets treated as exceptionally strong — always highlight
+PAST VALIDATION: Before predictions, ask ONE past validation question derived from chart to build trust. If the user just answered a past-validation question (confirmed "haan/yes" or denied "nahi/no"), acknowledge it briefly and connect it to the chart logic, then move to answering their actual question — don't repeat the same validation question again.
 
-PREDICTION STRENGTH:
-- Always mention the current Maha Dasha + Antar Dasha + how many days remaining
-- Connect Pratyantar Dasha lord's nature to near-term events (next 30-90 days)  
-- Mention upcoming dasha transitions as turning points
-- Give year-specific predictions: "2027 mein Jupiter Mithun mein aayenge, tab aapke 3rd house..."
-
-Keep responses under 200 words in chat unless user asks for detailed analysis.`;
+PREDICTION STYLE: Specific years/dates. "November 2026 se March 2027 tak..." not "some time in future".
+Use: "BPHS ke anusar", "Lal Kitab mein", "Nadi granth ke anusar" — cite sources naturally.`;
 
 
 
@@ -58,30 +35,39 @@ async function generateGreeting(kundliContext) {
 • विशिष्ट उपाय (मंत्र, दान, व्यवहार बदलाव)
 • आज का शुभ समय और दिशा
 
-कुंडली के साथ सवाल पूछने के लिए प्रोफाइल में जाकर कुंडली जोड़ें। 
+कुंडली के साथ सवाल पूछने के लिए प्रोफाइल में जाकर कुंडली जोड़ें।
 
 आज आपका क्या प्रश्न है?`;
   }
 
-  const { full_name, dob, birth_place, luck_score, analysis } = kundliContext;
-  const name = full_name?.split(' ')[0] || 'आप';
-  const score = luck_score || 50;
+  const { full_name, dob, birth_place, analysis, vimshottari, factSheet } = kundliContext;
+  const name     = full_name?.split(' ')[0] || 'आप';
   const dominant = analysis?.dominant_planet || '';
-  const dashaHint = analysis?.vedic_analysis?.dasha_hint || '';
-  const horaToday = analysis?.hora_analysis?.ruling_planet_today || '';
-  const topRemedy = analysis?.actionable_seva_remedy?.target_action || '';
+  const md       = vimshottari?.mahaDasha;
+  const ad       = vimshottari?.antarDasha;
 
-  return `नमस्ते ${name} जी! 🙏
+  // Generate past validation questions from chart
+  const pastValidation = (factSheet && vimshottari && dob)
+    ? generatePastValidationQuestions(factSheet, { mahadashas: kundliContext.allMahadashas, current: vimshottari }, dob)
+    : null;
 
-आपकी कुंडली लोड हो गई है (${dob}, ${birth_place})।
+  let greeting = `नमस्ते ${name} जी! 🙏\n\n`;
+  greeting += `आपकी कुंडली लोड हो गई है (${dob}, ${birth_place})।\n`;
 
-**लक स्कोर: ${score}/100**${dominant ? ` | प्रमुख ग्रह: ${dominant}` : ''}
+  if (dominant) greeting += `✨ प्रमुख ग्रह: **${dominant}**\n`;
 
-${dashaHint ? `📍 ${dashaHint}` : ''}
-${horaToday ? `⏰ आज के ग्रह स्वामी: ${horaToday}` : ''}
-${topRemedy ? `✨ सुझाया उपाय: ${topRemedy}` : ''}
+  if (md && ad) {
+    greeting += `📅 वर्तमान दशा: **${md.lordHi} महादशा → ${ad.lordHi} अंतर्दशा** (${ad.daysLeft} दिन शेष)\n`;
+  }
 
-आप मुझसे कोई भी प्रश्न पूछें — दशा, उपाय, करियर, स्वास्थ्य, रिश्ते — मैं आपकी कुंडली के आधार पर विस्तृत जवाब दूँगा।`;
+  // Add past validation if available
+  if (pastValidation?.greeting) {
+    greeting += pastValidation.greeting;
+  } else {
+    greeting += `\nआप मुझसे कोई भी प्रश्न पूछें — दशा, उपाय, करियर, स्वास्थ्य, रिश्ते — मैं आपकी कुंडली के आधार पर सटीक जवाब दूँगा। 🙏`;
+  }
+
+  return greeting;
 }
 
 export async function POST(req) {
@@ -94,7 +80,7 @@ export async function POST(req) {
 
     const userId = user.id;
     const body = await req.json();
-    const { messages, sessionId, kundliContext, isGreeting } = body;
+    const { messages, sessionId, kundliContext, isGreeting, langPref } = body;
 
     if (!messages || messages.length === 0) {
       return Response.json({ error: 'No messages provided' }, { status: 400 });
@@ -130,10 +116,24 @@ export async function POST(req) {
     let systemPrompt = LUCKFIXER_SYSTEM_PROMPT;
     if (kundliContext) {
       systemPrompt += `\n\nUSER'S KUNDLI CONTEXT:\n${JSON.stringify(kundliContext, null, 2)}`;
+      // Inject specialist patterns if available
+      if (kundliContext.specialist?.matchedYogas?.length > 0) {
+        systemPrompt += `\n\nCLASSICAL YOGA PATTERNS DETECTED:\n${kundliContext.specialist.matchedYogas.map(y => '• ' + y).join('\n')}`;
+      }
+      if (kundliContext.specialist?.pastValidationQuestions?.length > 0) {
+        systemPrompt += `\n\nPAST VALIDATION (ask these if user hasn't confirmed yet):\n${kundliContext.specialist.pastValidationQuestions.join('\n')}`;
+      }
+    }
+    // Language preference override
+    if (langPref && langPref !== 'auto') {
+      const langOverride = langPref === 'hi'
+        ? '\n\n[LANGUAGE OVERRIDE: Always respond in Hindi (Devanagari script)]'
+        : '\n\n[LANGUAGE OVERRIDE: Always respond in English]';
+      systemPrompt += langOverride;
     }
 
     // ── Call AI (graceful fallback — never throws) ───────────
-    const aiResponse = await getChatResponse(systemPrompt, messages);
+    const aiResponse = await getChatResponse(systemPrompt, messages, langPref || 'auto');
 
     const durationMs   = Date.now() - startTime;
     const durationMins = parseFloat((durationMs / 60000).toFixed(4));

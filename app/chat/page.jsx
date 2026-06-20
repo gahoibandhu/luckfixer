@@ -24,6 +24,7 @@ export default function ChatPage() {
   const [userId,     setUserId]     = useState(null);
   const [limitErr,   setLimitErr]   = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [langPref,   setLangPref]   = useState('auto'); // 'auto' | 'hi' | 'en'
 
   useEffect(() => { init(); }, []);
   useEffect(() => { messagesEnd.current?.scrollIntoView({ behavior:'smooth' }); }, [messages]);
@@ -48,7 +49,7 @@ export default function ChatPage() {
       setKundli(k);
     }
 
-    startNewSession(urlKundliId);
+    startNewSession(urlKundliId, k);
   }
 
   async function loadSessionsList(uid) {
@@ -64,10 +65,14 @@ export default function ChatPage() {
   // Reset the chat view for a new conversation — does NOT write to the
   // database yet. A chat_sessions row is only created on the first
   // sendMessage(), so empty chats are never saved.
-  async function startNewSession(kId) {
+  // kundliOverride: pass the freshly-fetched kundli directly to avoid a
+  // stale-closure read of the `kundli` state right after setKundli().
+  async function startNewSession(kId, kundliOverride) {
     setSessionId(null);
     setPendingKundliId(kId || null);
     setMessages([{ role: 'assistant', content: '...' }]);
+
+    const k = kundliOverride !== undefined ? kundliOverride : kundli;
 
     // Fetch a personalised greeting from the API (no usage cost, local generation)
     try {
@@ -77,12 +82,16 @@ export default function ChatPage() {
         body: JSON.stringify({
           isGreeting: true,
           messages: [{ role: 'user', content: 'hello' }],
-          kundliContext: kId && kundli ? {
-            full_name:  kundli.full_name,
-            dob:        kundli.dob,
-            birth_place: kundli.birth_place,
-            luck_score: kundli.luck_score,
-            analysis:   kundli.planet_data?.analysis,
+          kundliContext: kId && k ? {
+            full_name:      k.full_name,
+            dob:            k.dob,
+            birth_place:    k.birth_place,
+            analysis:       k.planet_data?.analysis,
+            factSheet:      k.planet_data?.factSheet,
+            vimshottari:    k.planet_data?.vimshottari?.current,
+            allMahadashas:  k.planet_data?.vimshottari?.mahadashas,
+            numerology:     k.planet_data?.numerology,
+            specialist:     k.planet_data?.specialist,
           } : null,
         }),
       });
@@ -149,6 +158,7 @@ export default function ChatPage() {
       analysis:    kundli.planet_data?.analysis,
       vimshottari: kundli.planet_data?.vimshottari?.current,
       numerology:  kundli.planet_data?.numerology,
+      specialist:  kundli.planet_data?.specialist,
     } : null;
 
     const res = await fetch('/api/chat', {
@@ -158,6 +168,7 @@ export default function ChatPage() {
         messages: [...messages, userMsg].filter(m => m.role !== 'system').slice(-10),
         sessionId: activeSessionId,
         kundliContext,
+        langPref,
       }),
     });
 
@@ -170,7 +181,13 @@ export default function ChatPage() {
       return;
     }
 
-    setMessages(m => [...m, { role:'assistant', content: data.content }]);
+    setMessages(m => {
+      const last = m[m.length - 1];
+      const newMsg = { role:'assistant', content: data.content };
+      // Prevent duplicate if same content already shown
+      if (last?.role === 'assistant' && last?.content === data.content) return m;
+      return [...m, newMsg];
+    });
     if (data.usage) setUsage(data.usage);
     setLoading(false);
   }
@@ -275,6 +292,17 @@ export default function ChatPage() {
             </div>
           )}
           <div ref={messagesEnd}/>
+        </div>
+
+        {/* Language selector */}
+        <div style={{ padding:'6px 12px', borderTop:'0.5px solid var(--color-border-tertiary)', display:'flex', alignItems:'center', gap:'12px', background:'var(--color-background-secondary)' }}>
+          <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)', flexShrink:0 }}>भाषा:</span>
+          {[['auto','Auto'], ['hi','हिंदी'], ['en','English']].map(([val, label]) => (
+            <label key={val} style={{ display:'flex', alignItems:'center', gap:'4px', cursor:'pointer', fontSize:'12px', color: langPref === val ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}>
+              <input type="radio" name="lang" value={val} checked={langPref === val} onChange={() => setLangPref(val)} style={{ width:'12px', height:'12px', border:'none', padding:0, cursor:'pointer', accentColor:'var(--color-text-primary)' }}/>
+              {label}
+            </label>
+          ))}
         </div>
 
         {/* Input */}
