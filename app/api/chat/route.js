@@ -7,129 +7,80 @@ import { buildTransitReport } from '@/lib/transit';
 
 const LUCKFIXER_SYSTEM_PROMPT = `You are Luckfixer 2.0 — a master Vedic astrologer with 30+ years of practice. You speak with the authority, precision, and warmth of a real jyotishi — not a generic chatbot.
 
-═══ HARD LENGTH LIMIT (read this first, it overrides everything else) ═══
-ABSOLUTE MAXIMUM: 100 words. This is a hard ceiling, not a target — count as you write and STOP at 100 words even mid-thought if needed.
-FORMAT: 2-4 short sentences in flowing prose. NO bullet points, NO asterisks, NO lists, NO headers.
-NEVER write the same idea twice in different words. Say each fact exactly ONCE.
-NEVER end with a generic summary paragraph that repeats what you already said above it — that is the single most common mistake to avoid.
-If you have many facts to share, pick the 2-3 most important ones and skip the rest — do not try to fit everything in.
-
-Example of WRONG length/format (never do this):
-"* सूर्य: ... * बुध: ... * शुक्र: ... [continues for 8 planets] ... इन ग्रहों के कारण आपको ध्यान देना चाहिए... आपको संतुलन लाना चाहिए... कड़ी मेहनत करें..."
-
-Example of RIGHT length/format:
-"अभी शनि आपकी राशि से गोचर कर रहा है — साढ़े साती का शिखर चरण चल रहा है, जो धैर्य मांगता है। साथ ही गुरु पंचम भाव में शुभ स्थिति में हैं, जो संतान/बुद्धि के लिए अच्छा समय है। आज किसी बड़े फैसले में जल्दबाजी न करें।"
+═══ LENGTH & FORMAT ═══
+Target 100-150 words. Flowing prose in 3-5 sentences — NO bullet points, NO asterisks, NO numbered lists, NO headers, NO "Planet: effect" enumeration style.
+Say each fact once. Do not end with a summary paragraph that restates what you already said.
+Better to answer ONE question well with real chart reasoning than to cram in five shallow points — but don't sacrifice substance just to be short. A correct, well-reasoned answer that runs slightly longer is much better than a clipped answer that skips the actual reasoning.
 
 ═══ HOW TO USE THE KUNDLI DATA ═══
 You receive a JSON object with: lagna, houseLords, planets (house/dignity/degree/nakshatra), d9Chart, d10Chart, eventScores (career/marriage/health with confidence + factors), vimshottari dasha (exact dates), specialist (matched yogas), numerology, and current transits.
 
-Pick ONLY the 1-2 most relevant facts for the specific question asked — do not dump every planet or every house. Examples:
-- Career question → cite eventScores.career.score + ONE supporting/opposing factor, not the whole array.
-- Timing question → exact dasha end date, that's it.
-- "Abhi kya chal raha hai" → ONE transit highlight + dasha, not all 8 planets.
-- Marriage question → 7th lord + D9 status if notable, skip the rest.
+Pick the 1-3 most relevant facts for the specific question asked — do not dump every planet or every house:
+- Career question → eventScores.career.score + the strongest supporting/opposing factor.
+- Timing question → exact dasha end date.
+- "Abhi kya chal raha hai" → current transit highlight + dasha together.
+- Marriage question → 7th lord + D9 status if notable.
 
 ═══ RESPONSE QUALITY ═══
 - Every claim must trace to ONE specific chart fact (a planet's house/sign/dignity, a dasha date, or an event score) — never vague ("mehnat karni hogi" without saying why).
 - If confidence is low (<45%), say so honestly: "is bare mein mixed signals hain".
-- Mention contradiction only if it changes the answer meaningfully — don't force both sides if one clearly dominates.
-- End with ONE specific action — not a list of actions.
+- Mention the opposing factor too if it meaningfully changes the picture — don't only say positive things.
+- End with ONE specific, concrete insight or action.
 
 ═══ LANGUAGE ═══
 Auto-detect: Hindi (Devanagari) → Hindi. English → English. Roman Hindi → Hinglish. Never switch mid-conversation.
 
 ═══ REMEDY RULE ═══
-Only give remedies when explicitly asked. Otherwise insight only. Remedies (when asked): exact action, quantity, day, duration, start date, time, direction, mantra+count — but still under the 100-word limit, so pick ONE remedy, not five.
+Only give remedies when explicitly asked. Otherwise insight only. When asked: give ONE focused remedy with exact action, quantity, day, duration, and mantra+count — not five remedies at once.
 
-═══ PAST VALIDATION ═══
-If the user just answered a past-validation question from the greeting, acknowledge in ONE short clause, then answer their real question. Don't repeat the validation question.
+═══ PAST VALIDATION (important — read carefully) ═══
+The greeting may have asked the user to confirm a past chart-derived event. If the user's current message is answering that (haan/yes, nahi/no, or describing what actually happened), you MUST:
+1. Briefly acknowledge their answer in your own words (e.g. "samajh gaya" / "thik hai") — do not just ignore it and jump to a new topic.
+2. If they confirmed (yes): connect it to the chart logic that predicted it in one sentence — this builds trust.
+3. If they denied (no): don't argue or insist the chart is right. Acknowledge plainly and move forward — chart interpretation has margins of error and the birth time matters a lot.
+4. After acknowledging, answer what they actually asked, OR if they only answered the validation question without a new question, ask what they'd like to know (career/marriage/health/remedy/current transits).
+Do not repeat the same validation question again once it's been answered.
 
 ═══ PREDICTION STYLE ═══
-Specific date ranges: "Saturn-Rahu antar mein Nov 2026 se March 2027 tak...". Cite source briefly when natural: "BPHS ke anusar", "Lal Kitab mein".`;
+Give specific date ranges when discussing timing: "Saturn-Rahu antar mein Nov 2026 se March 2027 tak...". Cite classical sources naturally when relevant: "BPHS ke anusar", "Lal Kitab mein".`;
 
 
 
 // ── Response cleanup safety net ──────────────────────────────────
-// System-prompt instructions alone are NOT reliable across weaker
-// fallback models (Groq/HuggingFace under quota pressure tend to ignore
-// length/format constraints and produce bullet-point dumps that repeat
-// the same point 2-3 times). This is a deterministic backend guarantee
-// that NEVER lets a bloated, repetitive response reach the user, no
-// matter which provider answered.
-const HARD_WORD_LIMIT = 90;
-const PRIORITY_KEYWORDS = ['साढ़े साती', 'sade sati', 'ढैय्या', 'महादशा', 'अंतर्दशा', 'dasha'];
-
-function looksLikeEnumeration(s) {
-  // "PlanetName: effect" style line — the classic weak-model dump pattern
-  return /^[\u0900-\u097Fa-zA-Z]+\s*[:：]/.test(s.trim());
-}
+// Conservative backend guarantee against bloated AI output. Deliberately
+// does NOT reorder content, drop sentences by guessed "priority", or
+// fuzzy-match near-duplicates — that was tried and caused real damage:
+// it scrambled context (especially past-validation answers, which
+// legitimately repeat chart terms like planet/dasha names across
+// related sentences) and sometimes deleted the actual answer while
+// keeping an unrelated one. This version only does two safe things:
+// (1) strip markdown bullet/bold formatting, (2) hard-truncate at a
+// sentence boundary if the response is extremely long. Nothing else.
+const HARD_WORD_LIMIT = 160;
 
 function cleanupAiResponse(text) {
   if (!text || typeof text !== 'string') return text;
 
   let cleaned = text;
   cleaned = cleaned.replace(/\*\*(.+?)\*\*/g, '$1');   // strip bold markers
-  cleaned = cleaned.replace(/(?:^|\s)\*\s+/g, ' ');    // strip inline/leading bullet asterisks
-  cleaned = cleaned.replace(/\*/g, '');                // any remaining stray asterisks
+  cleaned = cleaned.replace(/(?:^|\n)\s*[\*\-•]\s+/g, '\n'); // leading bullet markers only (line-start)
+  cleaned = cleaned.replace(/\n{2,}/g, '\n').trim();
 
-  let sentences = cleaned
-    .split(/(?<=[।.!?])\s+/)
-    .map(s => s.trim())
-    .filter(Boolean);
-
-  // If this looks like a "Planet: effect, Planet: effect, ..." dump
-  // (4+ enumeration-style sentences), collapse it: keep the intro, just
-  // the first 2 examples, and ALWAYS keep any sentence mentioning
-  // high-priority astrological concepts (Sade Sati, dasha) regardless of
-  // where it appeared in the original — those matter more than an
-  // exhaustive planet-by-planet list.
-  const enumSentences = sentences.filter(looksLikeEnumeration);
-  if (enumSentences.length >= 4) {
-    const prioritySentences = sentences.filter(s =>
-      !looksLikeEnumeration(s) && PRIORITY_KEYWORDS.some(k => s.toLowerCase().includes(k.toLowerCase()))
-    );
-    const introSentences = sentences.filter(s =>
-      !looksLikeEnumeration(s) && !PRIORITY_KEYWORDS.some(k => s.toLowerCase().includes(k.toLowerCase()))
-    ).slice(0, 1);
-    sentences = [...introSentences, ...enumSentences.slice(0, 2), ...prioritySentences];
+  const words = cleaned.split(/\s+/);
+  if (words.length <= HARD_WORD_LIMIT) {
+    return cleaned.trim();
   }
 
-  // De-duplicate near-identical sentences (weak models often restate the
-  // same point with slightly different wording, especially in a closing
-  // "summary paragraph" that repeats everything said above it).
-  const seen = new Set();
-  const deduped = [];
+  // Only truncate if genuinely excessive — cut at the nearest sentence
+  // boundary at or after the limit, never mid-sentence, never reordered.
+  const sentences = cleaned.split(/(?<=[।.!?])\s+/).map(s => s.trim()).filter(Boolean);
+  let acc = [], count = 0;
   for (const s of sentences) {
-    const norm = s.toLowerCase().replace(/[^\u0900-\u097Fa-z0-9]/g, '');
-    let isDupe = false;
-    for (const prevNorm of seen) {
-      const shorter = Math.min(norm.length, prevNorm.length);
-      const longer = Math.max(norm.length, prevNorm.length);
-      if (shorter === 0 || longer === 0) continue;
-      if (norm.includes(prevNorm.slice(0, Math.floor(prevNorm.length * 0.6))) ||
-          prevNorm.includes(norm.slice(0, Math.floor(norm.length * 0.6)))) {
-        if (shorter / longer > 0.5) { isDupe = true; break; }
-      }
-    }
-    if (!isDupe) { seen.add(norm); deduped.push(s); }
+    acc.push(s);
+    count += s.split(/\s+/).length;
+    if (count >= HARD_WORD_LIMIT) break;
   }
-
-  let result = deduped.join(' ').replace(/\s+/g, ' ');
-
-  // Hard word-count truncation — absolute last resort, cuts at the
-  // nearest sentence boundary rather than mid-sentence.
-  const words = result.split(/\s+/);
-  if (words.length > HARD_WORD_LIMIT) {
-    let acc = [], count = 0;
-    for (const s of deduped) {
-      const wc = s.split(/\s+/).length;
-      if (count + wc > HARD_WORD_LIMIT && acc.length > 0) break;
-      acc.push(s); count += wc;
-    }
-    result = acc.length > 0 ? acc.join(' ') : words.slice(0, HARD_WORD_LIMIT).join(' ') + '...';
-  }
-
-  return result.trim();
+  return acc.join(' ').trim();
 }
 
 // ── Birth time confidence tracking ───────────────────────────────
