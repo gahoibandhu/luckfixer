@@ -28,6 +28,8 @@ export default function AdminPage() {
   const [demoUsers, setDemoUsers] = useState([]);
   const [demoEmail, setDemoEmail] = useState('');
   const [demoMsg, setDemoMsg] = useState('');
+  const [migrationStatus, setMigrationStatus] = useState(null);
+  const [migrating, setMigrating] = useState(false);
 
   useEffect(() => { checkAuth(); }, []);
 
@@ -40,6 +42,7 @@ export default function AdminPage() {
     }
     setAuthorized(true);
     loadStats();
+    checkMigrationStatus();
   }
 
   async function loadStats() {
@@ -82,6 +85,21 @@ export default function AdminPage() {
     await fetch(`/api/chat/delete?sessionId=${sessionId}&adminDelete=true`, { method: 'DELETE' });
     setSessions(prev => prev.filter(s => s.id !== sessionId));
     if (activeSession === sessionId) { setActiveSession(null); setMessages([]); }
+  }
+
+  async function checkMigrationStatus() {
+    const res = await fetch('/api/admin/migrate-kundlis');
+    const data = await res.json();
+    setMigrationStatus(data);
+  }
+
+  async function runMigration() {
+    setMigrating(true);
+    const res = await fetch('/api/admin/migrate-kundlis', { method: 'POST' });
+    const data = await res.json();
+    setMigrationStatus(prev => ({ ...prev, lastRun: data }));
+    setMigrating(false);
+    checkMigrationStatus();
   }
 
   async function loadDemoUsers() {
@@ -192,6 +210,29 @@ export default function AdminPage() {
             <MetricCard label="आज के Minutes" value={stats.today.mins.toFixed(1)} />
             <MetricCard label="आज के Tokens" value={stats.today.tokens.toLocaleString()} />
           </div>
+
+          {/* Kundli Migration */}
+          {migrationStatus && migrationStatus.needsMigration > 0 && (
+            <div style={{ background:'var(--color-background-warning)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1rem 1.25rem', marginBottom:'1.5rem' }}>
+              <p style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-warning)', margin:'0 0 6px' }}>
+                ⚠️ {migrationStatus.needsMigration} पुरानी कुंडलियां lagna/houses/event-scores डेटा के बिना हैं
+              </p>
+              <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 10px' }}>
+                ये naye features (career/marriage/health score, lagna-based yogas) इस्तेमाल नहीं कर पाएंगी जब तक migrate ना हों। AI दोबारा call नहीं होगी — सिर्फ deterministic data refresh होगा, free है।
+              </p>
+              <button onClick={runMigration} disabled={migrating} style={{ padding:'8px 16px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500' }}>
+                {migrating ? 'Migrate हो रहा है...' : `सभी ${migrationStatus.needsMigration} कुंडली Migrate करें`}
+              </button>
+              {migrationStatus.lastRun && (
+                <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'8px 0 0' }}>
+                  ✓ Migrated: {migrationStatus.lastRun.migrated} · Skipped: {migrationStatus.lastRun.skipped} · Failed: {migrationStatus.lastRun.failed}
+                </p>
+              )}
+            </div>
+          )}
+          {migrationStatus && migrationStatus.needsMigration === 0 && (
+            <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'0 0 1.5rem' }}>✓ सभी कुंडलियां up-to-date हैं (lagna/houses/event-scores सहित)</p>
+          )}
 
           <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>हाल के Users</p>
           <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden' }}>

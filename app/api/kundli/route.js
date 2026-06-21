@@ -5,6 +5,7 @@ import { buildFactSheet } from '@/lib/astro-facts';
 import { buildNumerologySheet } from '@/lib/numerology';
 import { calcVimshottari } from '@/lib/vimshottari';
 import { buildSpecialistInsights } from '@/lib/specialist-rules';
+import { buildTransitReport } from '@/lib/transit';
 
 // GET — fetch all kundlis for logged-in user
 export async function GET() {
@@ -69,6 +70,7 @@ export async function POST(req) {
   const moon = factSheet.planets.find(p => p.name === 'Moon');
   const vimshottari = moon ? calcVimshottari(moon.degree, dob) : null;
   const specialist  = buildSpecialistInsights(factSheet, vimshottari);
+  const transit     = await buildTransitReport(factSheet, parseFloat(latitude), parseFloat(longitude)).catch(() => null);
 
   // ── AI layer: interpret the fact-sheet, do NOT recompute positions ────
   const systemPrompt = `You are Luckfixer 2.0's master analysis engine — combining classical Vedic astrology (Parashari), Lal Kitab, Nadi astrology (Bhrigu Nandi Nadi style), and Hora (planetary hour) timing systems.
@@ -116,6 +118,9 @@ EVENT-SPECIFIC SCORES (pre-computed — career/marriage/health with confidence +
 ${factSheet.eventScores ? JSON.stringify(factSheet.eventScores, null, 2) : 'Not available (lagna missing)'}
 
 LAGNA (Ascendant): ${factSheet.lagna ? `${factSheet.lagna.signHi} (${factSheet.lagna.sign}), ${factSheet.lagna.nakshatra} नक्षत्र` : 'Not available'}
+
+CURRENT TRANSIT (Gochar) AS OF TODAY (${transit?.asOf || 'N/A'}) — NOTE: this is a snapshot at analysis time, will become stale; the live chat always recomputes fresh transits, so keep this section brief:
+${transit ? JSON.stringify({ headline: transit.headline, sadeSati: transit.sadeSati, saturnTransit: transit.saturnTransit?.currentSignHi, jupiterTransit: transit.jupiterTransit?.currentSignHi }, null, 2) : 'Not available'}
 
 PAST VALIDATION QUESTIONS (include 1-2 of these in analytical_insight or dasha_hint — ask the user to confirm):
 ${specialist.pastValidationQuestions.map((q, i) => `${i+1}. ${q}`).join('\n')}
@@ -211,7 +216,9 @@ Return this exact JSON structure:
     "shastric_reference": "<combined reference to Lal Kitab / BPHS / Phaladeepika / Nadi / Ank Jyotish>"
   },
 
-  "hora_guidance": "<1 sentence in Hindi - today's practical guidance combining hora timing>"
+  "hora_guidance": "<1 sentence in Hindi - today's practical guidance combining hora timing>",
+
+  "current_transit_summary": "<2-3 sentences in Hindi summarizing the CURRENT TRANSIT data above — mention Sade Sati status if relevant, and what the Saturn/Jupiter transit means for this person right now. Note this is a snapshot that will be refreshed in live chat.>"
 }`;
 
   const aiResult = await getLuckfixerResponse(systemPrompt, userPrompt, true);
@@ -227,7 +234,7 @@ Return this exact JSON structure:
     latitude:     parseFloat(latitude),
     longitude:    parseFloat(longitude),
     ayanamsa:     ayanamsa || 'lahiri',
-    planet_data:  { planets: factSheet.planets, factSheet, numerology, vimshottari, specialist, analysis: aiResult.content },
+    planet_data:  { planets: factSheet.planets, factSheet, numerology, vimshottari, specialist, transitSnapshot: transit, analysis: aiResult.content },
     luck_score:   aiResult.content.metric_score || 50,
     last_analysis: new Date().toISOString(),
   }).select().single();

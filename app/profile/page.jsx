@@ -279,6 +279,7 @@ export default function ProfilePage() {
         const expanded = expandedKundli === k.id;
         const num = k.planet_data?.numerology;
         const vim = k.planet_data?.vimshottari;
+        const transitSnap = k.planet_data?.transitSnapshot;
         return (
         <div key={k.id} style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', marginBottom:'8px', overflow:'hidden' }}>
 
@@ -341,6 +342,41 @@ export default function ProfilePage() {
                     })}
                   </div>
                 </AnalysisSection>
+              )}
+
+              {/* Current Transit (Gochar) — snapshot from save time */}
+              {transitSnap && (
+                <AnalysisSection title="वर्तमान गोचर" color="var(--color-text-warning)">
+                  {transitSnap.sadeSati?.active && (
+                    <div style={{ background:'var(--color-background-warning)', borderRadius:'var(--border-radius-md)', padding:'8px 10px', marginBottom:'8px' }}>
+                      <p style={{ margin:0, fontSize:'13px', fontWeight:'500', color:'var(--color-text-warning)' }}>⚠️ साढ़े साती सक्रिय — {transitSnap.sadeSati.phase}</p>
+                      <p style={{ margin:'4px 0 0', fontSize:'12px', color:'var(--color-text-secondary)' }}>{transitSnap.sadeSati.description}</p>
+                    </div>
+                  )}
+                  {transitSnap.sadeSati?.isDhaiyya && (
+                    <div style={{ background:'var(--color-background-tertiary)', borderRadius:'var(--border-radius-md)', padding:'8px 10px', marginBottom:'8px' }}>
+                      <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)' }}>{transitSnap.sadeSati.description}</p>
+                    </div>
+                  )}
+                  {a?.current_transit_summary && (
+                    <p style={{ margin:'0 0 4px', fontSize:'13px' }}>{a.current_transit_summary}</p>
+                  )}
+                  <p style={{ margin:0, fontSize:'11px', color:'var(--color-text-tertiary)' }}>
+                    {transitSnap.asOf} तक की स्थिति — चैट में हमेशा अद्यतन (live) गोचर मिलेगा
+                  </p>
+                </AnalysisSection>
+              )}
+
+              {/* Birth time confidence — only shown if it's dropped meaningfully */}
+              {typeof k.birth_time_confidence === 'number' && k.birth_time_confidence <= 55 && (
+                <div style={{ background:'var(--color-background-warning)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'10px 12px' }}>
+                  <p style={{ margin:0, fontSize:'12px', fontWeight:'500', color:'var(--color-text-warning)' }}>
+                    💡 जन्म समय जांचने का सुझाव
+                  </p>
+                  <p style={{ margin:'4px 0 0', fontSize:'12px', color:'var(--color-text-secondary)' }}>
+                    कुछ past events चार्ट से मेल नहीं खाए। अधिक सटीक भविष्यवाणी के लिए अपना सही जन्म समय (जन्म प्रमाणपत्र/अस्पताल रिकॉर्ड से) दोबारा जांचें — 10-15 मिनट का अंतर भी lagna बदल सकता है।
+                  </p>
+                </div>
               )}
 
               {/* Vimshottari Dasha */}

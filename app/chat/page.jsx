@@ -123,12 +123,13 @@ export default function ChatPage() {
     }
   }
 
-  async function sendMessage(e) {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
+  async function sendMessage(e, overrideText) {
+    e?.preventDefault?.();
+    const textToSend = overrideText || input;
+    if (!textToSend.trim() || loading) return;
     setLimitErr('');
 
-    const userMsg = { role: 'user', content: input };
+    const userMsg = { role: 'user', content: textToSend };
     setMessages(m => [...m, userMsg]);
     setInput('');
     setLoading(true);
@@ -153,10 +154,12 @@ export default function ChatPage() {
       dob:         kundli.dob,
       birth_time:  kundli.birth_time,
       birth_place: kundli.birth_place,
-      planets:     kundli.planet_data?.planets,
-      luck_score:  kundli.luck_score,
+      latitude:    kundli.latitude,
+      longitude:   kundli.longitude,
       analysis:    kundli.planet_data?.analysis,
+      factSheet:   kundli.planet_data?.factSheet,   // lagna, houses, eventScores, planets
       vimshottari: kundli.planet_data?.vimshottari?.current,
+      allMahadashas: kundli.planet_data?.vimshottari?.mahadashas,
       numerology:  kundli.planet_data?.numerology,
       specialist:  kundli.planet_data?.specialist,
     } : null;
@@ -167,6 +170,7 @@ export default function ChatPage() {
       body: JSON.stringify({
         messages: [...messages, userMsg].filter(m => m.role !== 'system').slice(-10),
         sessionId: activeSessionId,
+        kundliId: pendingKundliId || kundli?.id || null,
         kundliContext,
         langPref,
       }),
@@ -241,16 +245,17 @@ export default function ChatPage() {
       {/* Main chat area */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0 }}>
 
-        {/* Mobile top bar */}
-        <div className="lf-mobile-topbar" style={{ display:'none', alignItems:'center', justifyContent:'space-between', gap:'10px', padding:'10px 12px', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-            <button onClick={() => setSidebarOpen(true)} aria-label="Menu" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'flex' }}>
+        {/* Top bar — always visible, all screen sizes (sidebar may be hidden on mobile) */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px', padding:'10px 12px', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
+          <div className="lf-mobile-topbar-inner" style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+            <button onClick={() => setSidebarOpen(true)} aria-label="Menu" className="lf-mobile-only" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'none' }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
             <span style={{ fontSize:'14px', fontWeight:'500', color:'var(--color-text-primary)' }}>Luckfixer Chat</span>
           </div>
-          <button onClick={() => router.push('/profile')} aria-label="Home" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'flex', color:'var(--color-text-secondary)' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <button onClick={() => router.push('/profile')} aria-label="Home" style={{ background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', cursor:'pointer', padding:'6px 12px', display:'flex', alignItems:'center', gap:'6px', color:'var(--color-text-primary)', borderRadius:'var(--border-radius-md)', fontSize:'13px', fontWeight:'500' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            होम
           </button>
         </div>
 
@@ -293,6 +298,52 @@ export default function ChatPage() {
           )}
           <div ref={messagesEnd}/>
         </div>
+
+        {/* Quick actions */}
+        {kundli && (
+          <div style={{ padding:'8px 12px 0', display:'flex', gap:'8px', flexWrap:'wrap', borderTop:'0.5px solid var(--color-border-tertiary)', paddingTop:'10px' }}>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => sendMessage(null, 'मुझे मेरी कुंडली के अनुसार विस्तृत उपाय बताइए — मंत्र, रत्न, दान सब कुछ')}
+              style={{ padding:'6px 12px', fontSize:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'999px', cursor: loading ? 'default' : 'pointer', color:'var(--color-text-primary)', opacity: loading ? 0.5 : 1 }}
+            >
+              🪔 उपाय बताएं
+            </button>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => sendMessage(null, 'मेरे करियर के बारे में बताइए')}
+              style={{ padding:'6px 12px', fontSize:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'999px', cursor: loading ? 'default' : 'pointer', color:'var(--color-text-primary)', opacity: loading ? 0.5 : 1 }}
+            >
+              💼 करियर
+            </button>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => sendMessage(null, 'विवाह को लेकर मेरी कुंडली क्या कहती है')}
+              style={{ padding:'6px 12px', fontSize:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'999px', cursor: loading ? 'default' : 'pointer', color:'var(--color-text-primary)', opacity: loading ? 0.5 : 1 }}
+            >
+              💍 विवाह
+            </button>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => sendMessage(null, 'मेरी वर्तमान दशा का प्रभाव क्या है')}
+              style={{ padding:'6px 12px', fontSize:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'999px', cursor: loading ? 'default' : 'pointer', color:'var(--color-text-primary)', opacity: loading ? 0.5 : 1 }}
+            >
+              📅 वर्तमान दशा
+            </button>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => sendMessage(null, 'अभी कौन से ग्रह गोचर कर रहे हैं और इसका मुझ पर क्या असर है? साढ़े साती की स्थिति भी बताइए')}
+              style={{ padding:'6px 12px', fontSize:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'999px', cursor: loading ? 'default' : 'pointer', color:'var(--color-text-primary)', opacity: loading ? 0.5 : 1 }}
+            >
+              🔭 आज का गोचर
+            </button>
+          </div>
+        )}
 
         {/* Language selector */}
         <div style={{ padding:'6px 12px', borderTop:'0.5px solid var(--color-border-tertiary)', display:'flex', alignItems:'center', gap:'12px', background:'var(--color-background-secondary)' }}>

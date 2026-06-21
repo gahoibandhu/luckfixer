@@ -6,9 +6,15 @@ const SITE_URL = 'https://luckfixer.jaigahoi.in';
 const DESCRIPTION = 'Vedic, Lal Kitab, Nadi और Hora — चार प्रणालियों पर आधारित आपका व्यक्तिगत जीवन-सुधार AI इंजन। अपनी कुंडली का गहन विश्लेषण और सटीक उपाय पाएं।';
 
 export const metadata = {
-  title: 'Luckfixer 2.0',
+  title: { default: 'Luckfixer 2.0 — वैदिक ज्योतिष AI', template: '%s | Luckfixer 2.0' },
   description: DESCRIPTION,
+  keywords: ['कुंडली', 'जन्म कुंडली', 'वैदिक ज्योतिष', 'लाल किताब', 'नाड़ी ज्योतिष', 'अंक ज्योतिष', 'दशा भविष्य', 'AI Astrology', 'Vedic Astrology India', 'Kundli Online', 'Gahoi Samaj'],
   metadataBase: new URL(SITE_URL),
+  alternates: { canonical: SITE_URL },
+  verification: {
+    // Replace with actual code from https://search.google.com/search-console after adding property
+    google: 'GOOGLE_SEARCH_CONSOLE_VERIFICATION_CODE',
+  },
   openGraph: {
     title: 'Luckfixer 2.0',
     description: DESCRIPTION,

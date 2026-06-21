@@ -88,7 +88,7 @@ input:focus, select:focus {
 }
 
 @media (max-width: 768px) {
-  .lf-mobile-topbar {
+  .lf-mobile-only {
     display: flex !important;
   }
 
