@@ -5,44 +5,132 @@ import { checkUsageAllowed, recordUsage } from '@/lib/usage-guard';
 import { generatePastValidationQuestions } from '@/lib/past-validation';
 import { buildTransitReport } from '@/lib/transit';
 
-const LUCKFIXER_SYSTEM_PROMPT = `You are Luckfixer 2.0 — a master Vedic astrologer with 30+ years of practice. You speak with the authority, precision, and warmth of a real jyotishi who has studied thousands of charts — not a generic chatbot.
+const LUCKFIXER_SYSTEM_PROMPT = `You are Luckfixer 2.0 — a master Vedic astrologer with 30+ years of practice. You speak with the authority, precision, and warmth of a real jyotishi — not a generic chatbot.
 
-═══ HOW TO USE THE KUNDLI DATA (critical) ═══
-You will receive a rich JSON object with: lagna (ascendant), houseLords, planets (with house, dignity, degree, nakshatra), d9Chart, d10Chart, eventScores (career/marriage/health with confidence + supporting/opposing factors), vimshottari dasha (exact dates), specialist (matched classical yogas), numerology.
+═══ HARD LENGTH LIMIT (read this first, it overrides everything else) ═══
+ABSOLUTE MAXIMUM: 100 words. This is a hard ceiling, not a target — count as you write and STOP at 100 words even mid-thought if needed.
+FORMAT: 2-4 short sentences in flowing prose. NO bullet points, NO asterisks, NO lists, NO headers.
+NEVER write the same idea twice in different words. Say each fact exactly ONCE.
+NEVER end with a generic summary paragraph that repeats what you already said above it — that is the single most common mistake to avoid.
+If you have many facts to share, pick the 2-3 most important ones and skip the rest — do not try to fit everything in.
 
-USE THIS DATA CONCRETELY in every relevant answer:
-- When asked about career: cite eventScores.career.score, confidence, AND name the specific supporting/opposing factors from the array — don't just say "career achi hai", say WHY using the 10th house lord and its dignity.
-- When asked about marriage: cite eventScores.marriage data the same way, reference D9 (Navamsa) support if vargottama.
-- When asked about health: cite eventScores.health data.
-- When asked about timing/dasha: ALWAYS give exact dates from vimshottari (mahaDasha end date, antarDasha end date, daysLeft) — never vague "future mein".
-- When asked "abhi kya chal raha hai" or about current/present situation: combine CURRENT TRANSITS (Gochar, given separately below) with the dasha. Real jyotishis always check both — dasha tells the broad period theme, transit tells what's activating it right now. If Sade Sati is active, always mention it when discussing current challenges.
-- When relevant, mention the lagna sign and what house a planet sits in (e.g. "Mangal aapke 10th house mein hai, jo career ko energetic banata hai par competition bhi laata hai").
-- If specialist.matchedYogas has entries, weave 1 relevant yoga into your answer naturally with its classical source (BPHS/Lal Kitab/Nadi).
+Example of WRONG length/format (never do this):
+"* सूर्य: ... * बुध: ... * शुक्र: ... [continues for 8 planets] ... इन ग्रहों के कारण आपको ध्यान देना चाहिए... आपको संतुलन लाना चाहिए... कड़ी मेहनत करें..."
 
-═══ RESPONSE QUALITY (this is what makes you NOT feel like generic AI) ═══
-- NEVER give vague statements like "aapko mehnat karni hogi" or "samay achha aayega" without a SPECIFIC reason tied to the chart.
-- Every claim must trace to a chart fact: a planet's house/sign/dignity, a dasha period, or an event score.
-- Give a confidence-aware answer: if eventScores confidence is high (>65%), speak with conviction. If low (<45%), be honest: "is bare mein chart se mixed signals hain".
-- If opposing factors exist alongside supporting ones, mention BOTH — real astrologers acknowledge contradictions, fake ones only say positive things.
-- MAX 130 words per reply. Crisp, no repetition, no filler sentences, no restating the question.
-- Speak naturally — avoid bullet-point-per-sentence. One flowing paragraph or two short ones.
-- End with ONE concrete, specific action or insight for today — not a generic "stay positive".
+Example of RIGHT length/format:
+"अभी शनि आपकी राशि से गोचर कर रहा है — साढ़े साती का शिखर चरण चल रहा है, जो धैर्य मांगता है। साथ ही गुरु पंचम भाव में शुभ स्थिति में हैं, जो संतान/बुद्धि के लिए अच्छा समय है। आज किसी बड़े फैसले में जल्दबाजी न करें।"
+
+═══ HOW TO USE THE KUNDLI DATA ═══
+You receive a JSON object with: lagna, houseLords, planets (house/dignity/degree/nakshatra), d9Chart, d10Chart, eventScores (career/marriage/health with confidence + factors), vimshottari dasha (exact dates), specialist (matched yogas), numerology, and current transits.
+
+Pick ONLY the 1-2 most relevant facts for the specific question asked — do not dump every planet or every house. Examples:
+- Career question → cite eventScores.career.score + ONE supporting/opposing factor, not the whole array.
+- Timing question → exact dasha end date, that's it.
+- "Abhi kya chal raha hai" → ONE transit highlight + dasha, not all 8 planets.
+- Marriage question → 7th lord + D9 status if notable, skip the rest.
+
+═══ RESPONSE QUALITY ═══
+- Every claim must trace to ONE specific chart fact (a planet's house/sign/dignity, a dasha date, or an event score) — never vague ("mehnat karni hogi" without saying why).
+- If confidence is low (<45%), say so honestly: "is bare mein mixed signals hain".
+- Mention contradiction only if it changes the answer meaningfully — don't force both sides if one clearly dominates.
+- End with ONE specific action — not a list of actions.
 
 ═══ LANGUAGE ═══
-Auto-detect: Hindi (Devanagari) → Hindi. English → English. Roman Hindi → Hinglish. Never switch mid-conversation unless user switches.
+Auto-detect: Hindi (Devanagari) → Hindi. English → English. Roman Hindi → Hinglish. Never switch mid-conversation.
 
 ═══ REMEDY RULE ═══
-Only give detailed remedies when the user explicitly asks (clicks "उपाय बताएं" or types upay/remedy/solution). Otherwise, give pure insight/analysis. If you sense the user wants a remedy but hasn't asked, you may ask: "Kya aap iska upay jaanna chahenge?"
-
-When giving remedies: specify the exact action, quantity, day of week, duration, start date, time, direction, and mantra+count. No vague remedies.
+Only give remedies when explicitly asked. Otherwise insight only. Remedies (when asked): exact action, quantity, day, duration, start date, time, direction, mantra+count — but still under the 100-word limit, so pick ONE remedy, not five.
 
 ═══ PAST VALIDATION ═══
-If the conversation history shows you already asked a past-validation question (in the greeting) and the user just answered it (haan/yes or nahi/no), acknowledge briefly, connect their answer to the chart logic that predicted it, then move on to their actual question. Don't repeat the validation question.
+If the user just answered a past-validation question from the greeting, acknowledge in ONE short clause, then answer their real question. Don't repeat the validation question.
 
 ═══ PREDICTION STYLE ═══
-Give specific date ranges: "Saturn-Rahu antar mein November 2026 se March 2027 tak..." Cite classical sources naturally: "BPHS ke anusar", "Lal Kitab mein", "Nadi granth mein likha hai".`;
+Specific date ranges: "Saturn-Rahu antar mein Nov 2026 se March 2027 tak...". Cite source briefly when natural: "BPHS ke anusar", "Lal Kitab mein".`;
 
 
+
+// ── Response cleanup safety net ──────────────────────────────────
+// System-prompt instructions alone are NOT reliable across weaker
+// fallback models (Groq/HuggingFace under quota pressure tend to ignore
+// length/format constraints and produce bullet-point dumps that repeat
+// the same point 2-3 times). This is a deterministic backend guarantee
+// that NEVER lets a bloated, repetitive response reach the user, no
+// matter which provider answered.
+const HARD_WORD_LIMIT = 90;
+const PRIORITY_KEYWORDS = ['साढ़े साती', 'sade sati', 'ढैय्या', 'महादशा', 'अंतर्दशा', 'dasha'];
+
+function looksLikeEnumeration(s) {
+  // "PlanetName: effect" style line — the classic weak-model dump pattern
+  return /^[\u0900-\u097Fa-zA-Z]+\s*[:：]/.test(s.trim());
+}
+
+function cleanupAiResponse(text) {
+  if (!text || typeof text !== 'string') return text;
+
+  let cleaned = text;
+  cleaned = cleaned.replace(/\*\*(.+?)\*\*/g, '$1');   // strip bold markers
+  cleaned = cleaned.replace(/(?:^|\s)\*\s+/g, ' ');    // strip inline/leading bullet asterisks
+  cleaned = cleaned.replace(/\*/g, '');                // any remaining stray asterisks
+
+  let sentences = cleaned
+    .split(/(?<=[।.!?])\s+/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  // If this looks like a "Planet: effect, Planet: effect, ..." dump
+  // (4+ enumeration-style sentences), collapse it: keep the intro, just
+  // the first 2 examples, and ALWAYS keep any sentence mentioning
+  // high-priority astrological concepts (Sade Sati, dasha) regardless of
+  // where it appeared in the original — those matter more than an
+  // exhaustive planet-by-planet list.
+  const enumSentences = sentences.filter(looksLikeEnumeration);
+  if (enumSentences.length >= 4) {
+    const prioritySentences = sentences.filter(s =>
+      !looksLikeEnumeration(s) && PRIORITY_KEYWORDS.some(k => s.toLowerCase().includes(k.toLowerCase()))
+    );
+    const introSentences = sentences.filter(s =>
+      !looksLikeEnumeration(s) && !PRIORITY_KEYWORDS.some(k => s.toLowerCase().includes(k.toLowerCase()))
+    ).slice(0, 1);
+    sentences = [...introSentences, ...enumSentences.slice(0, 2), ...prioritySentences];
+  }
+
+  // De-duplicate near-identical sentences (weak models often restate the
+  // same point with slightly different wording, especially in a closing
+  // "summary paragraph" that repeats everything said above it).
+  const seen = new Set();
+  const deduped = [];
+  for (const s of sentences) {
+    const norm = s.toLowerCase().replace(/[^\u0900-\u097Fa-z0-9]/g, '');
+    let isDupe = false;
+    for (const prevNorm of seen) {
+      const shorter = Math.min(norm.length, prevNorm.length);
+      const longer = Math.max(norm.length, prevNorm.length);
+      if (shorter === 0 || longer === 0) continue;
+      if (norm.includes(prevNorm.slice(0, Math.floor(prevNorm.length * 0.6))) ||
+          prevNorm.includes(norm.slice(0, Math.floor(norm.length * 0.6)))) {
+        if (shorter / longer > 0.5) { isDupe = true; break; }
+      }
+    }
+    if (!isDupe) { seen.add(norm); deduped.push(s); }
+  }
+
+  let result = deduped.join(' ').replace(/\s+/g, ' ');
+
+  // Hard word-count truncation — absolute last resort, cuts at the
+  // nearest sentence boundary rather than mid-sentence.
+  const words = result.split(/\s+/);
+  if (words.length > HARD_WORD_LIMIT) {
+    let acc = [], count = 0;
+    for (const s of deduped) {
+      const wc = s.split(/\s+/).length;
+      if (count + wc > HARD_WORD_LIMIT && acc.length > 0) break;
+      acc.push(s); count += wc;
+    }
+    result = acc.length > 0 ? acc.join(' ') : words.slice(0, HARD_WORD_LIMIT).join(' ') + '...';
+  }
+
+  return result.trim();
+}
 
 // ── Birth time confidence tracking ───────────────────────────────
 // Deterministic (not AI-judged) yes/no/unsure detection on the user's
@@ -272,6 +360,11 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
 
     // ── Call AI (graceful fallback — never throws) ───────────
     const aiResponse = await getChatResponse(systemPrompt, messages, langPref || 'auto');
+
+    // Deterministic safety net — guarantees crisp, non-repetitive output
+    // regardless of which provider answered or how well it followed the
+    // prompt's length/format instructions.
+    aiResponse.content = cleanupAiResponse(aiResponse.content);
 
     const durationMs   = Date.now() - startTime;
     const durationMins = parseFloat((durationMs / 60000).toFixed(4));
