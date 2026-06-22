@@ -160,14 +160,20 @@ export default function ProfilePage() {
     router.push('/login');
   }
 
-  if (!profile) return <div style={{ padding:'2rem', textAlign:'center', color:'var(--color-text-secondary)', fontSize:'14px' }}>Loading...</div>;
+  if (!profile) return (
+    <div className="lf-page" style={{ maxWidth:'680px', margin:'0 auto', padding:'1.5rem 1rem' }}>
+      <div className="lf-skeleton" style={{ height:'100px', marginBottom:'12px' }} />
+      <div className="lf-skeleton" style={{ height:'64px', marginBottom:'8px' }} />
+      <div className="lf-skeleton" style={{ height:'64px', marginBottom:'8px' }} />
+    </div>
+  );
 
   const initials = (profile.full_name || profile.email || 'U').slice(0,2).toUpperCase();
 
   return (
     <div>
       <Header showHome={false} />
-    <div style={{ maxWidth:'680px', margin:'0 auto', padding:'1.5rem 1rem' }}>
+    <div className="lf-page" style={{ maxWidth:'680px', margin:'0 auto', padding:'1.5rem 1rem' }}>
 
       {/* Profile Card */}
       <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1.25rem', marginBottom:'1rem' }}>
@@ -287,7 +293,21 @@ export default function ProfilePage() {
           <div style={{ padding:'12px 14px', display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
             <div style={{ flex:1, minWidth:0 }}>
               <p style={{ fontWeight:'500', fontSize:'15px', margin:'0 0 2px', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.label || k.full_name}</p>
-              <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>{k.dob} · {k.birth_place}</p>
+              <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'0 0 6px' }}>{k.dob} · {k.birth_place}</p>
+              {/* Animated luck score meter */}
+              {k.luck_score != null && (
+                <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                  <div className="lf-meter-bar" style={{ flex:1, maxWidth:'120px' }}>
+                    <div className="lf-meter-fill" style={{
+                      width: `${k.luck_score}%`,
+                      background: k.luck_score >= 60 ? 'var(--color-text-success)' : k.luck_score >= 40 ? 'var(--color-brand)' : 'var(--color-text-danger)',
+                    }} />
+                  </div>
+                  <span style={{ fontSize:'11px', fontWeight:'600', color: k.luck_score >= 60 ? 'var(--color-text-success)' : k.luck_score >= 40 ? 'var(--color-brand)' : 'var(--color-text-danger)' }}>
+                    {k.luck_score}/100
+                  </span>
+                </div>
+              )}
             </div>
             <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)', flexShrink:0 }}>{k.birth_time}</span>
             <button onClick={() => router.push(`/chat?kundliId=${k.id}`)} style={{ padding:'7px 14px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500', flexShrink:0 }}>

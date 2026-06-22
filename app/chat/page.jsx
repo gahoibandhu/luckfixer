@@ -261,6 +261,7 @@ export default function ChatPage() {
             <button onClick={() => setSidebarOpen(true)} aria-label="Menu" className="lf-mobile-only" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'none' }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
+            <img src={LOGO_URL} alt="Luckfixer" className="lf-logo-sm" style={{ width:'28px', height:'28px' }} />
             <span style={{ fontSize:'14px', fontWeight:'500', color:'var(--color-text-primary)' }}>Luckfixer Chat</span>
           </div>
           <button onClick={() => router.push('/profile')} aria-label="Home" style={{ background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', cursor:'pointer', padding:'6px 12px', display:'flex', alignItems:'center', gap:'6px', color:'var(--color-text-primary)', borderRadius:'var(--border-radius-md)', fontSize:'13px', fontWeight:'500' }}>
@@ -279,7 +280,7 @@ export default function ChatPage() {
         )}
 
         {/* Messages */}
-        <div style={{ flex:1, overflowY:'auto', padding:'1rem' }}>
+        <div className="lf-watermark" style={{ flex:1, overflowY:'auto', padding:'1rem', position:'relative' }}>
           {messages.map((m, i) => (
             <div key={i} style={{ display:'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom:'12px' }}>
               <div className="lf-msg-bubble" style={{
@@ -296,8 +297,10 @@ export default function ChatPage() {
           ))}
           {loading && (
             <div style={{ display:'flex', marginBottom:'12px' }}>
-              <div style={{ padding:'10px 14px', borderRadius:'var(--border-radius-lg)', background:'var(--color-background-secondary)', fontSize:'14px', color:'var(--color-text-secondary)' }}>
-                सोच रहा हूँ...
+              <div className="lf-thinking">
+                <div className="lf-thinking-dot" />
+                <div className="lf-thinking-dot" />
+                <div className="lf-thinking-dot" />
               </div>
             </div>
           )}
@@ -311,47 +314,20 @@ export default function ChatPage() {
 
         {/* Quick actions */}
         {kundli && (
-          <div style={{ padding:'8px 12px 0', display:'flex', gap:'8px', flexWrap:'wrap', borderTop:'0.5px solid var(--color-border-tertiary)', paddingTop:'10px' }}>
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => sendMessage(null, 'मुझे मेरी कुंडली के अनुसार विस्तृत उपाय बताइए — मंत्र, रत्न, दान सब कुछ')}
-              style={{ padding:'6px 12px', fontSize:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'999px', cursor: loading ? 'default' : 'pointer', color:'var(--color-text-primary)', opacity: loading ? 0.5 : 1 }}
-            >
-              🪔 उपाय बताएं
-            </button>
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => sendMessage(null, 'मेरे करियर के बारे में बताइए')}
-              style={{ padding:'6px 12px', fontSize:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'999px', cursor: loading ? 'default' : 'pointer', color:'var(--color-text-primary)', opacity: loading ? 0.5 : 1 }}
-            >
-              💼 करियर
-            </button>
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => sendMessage(null, 'विवाह को लेकर मेरी कुंडली क्या कहती है')}
-              style={{ padding:'6px 12px', fontSize:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'999px', cursor: loading ? 'default' : 'pointer', color:'var(--color-text-primary)', opacity: loading ? 0.5 : 1 }}
-            >
-              💍 विवाह
-            </button>
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => sendMessage(null, 'मेरी वर्तमान दशा का प्रभाव क्या है')}
-              style={{ padding:'6px 12px', fontSize:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'999px', cursor: loading ? 'default' : 'pointer', color:'var(--color-text-primary)', opacity: loading ? 0.5 : 1 }}
-            >
-              📅 वर्तमान दशा
-            </button>
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => sendMessage(null, 'अभी कौन से ग्रह गोचर कर रहे हैं और इसका मुझ पर क्या असर है? साढ़े साती की स्थिति भी बताइए')}
-              style={{ padding:'6px 12px', fontSize:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'999px', cursor: loading ? 'default' : 'pointer', color:'var(--color-text-primary)', opacity: loading ? 0.5 : 1 }}
-            >
-              🔭 आज का गोचर
-            </button>
+          <div style={{ padding:'10px 12px 0', display:'flex', gap:'8px', flexWrap:'wrap', borderTop:'0.5px solid var(--color-border-tertiary)' }}>
+            {[
+              ['🪔 उपाय बताएं',  'मुझे मेरी कुंडली के अनुसार विस्तृत उपाय बताइए — मंत्र, रत्न, दान सब कुछ'],
+              ['💼 करियर',       'मेरे करियर के बारे में बताइए'],
+              ['💍 विवाह',       'विवाह को लेकर मेरी कुंडली क्या कहती है'],
+              ['📅 वर्तमान दशा', 'मेरी वर्तमान दशा का प्रभाव क्या है'],
+              ['🔭 आज का गोचर', 'अभी कौन से ग्रह गोचर कर रहे हैं और इसका मुझ पर क्या असर है? साढ़े साती की स्थिति भी बताइए'],
+            ].map(([label, prompt]) => (
+              <button key={label} type="button" disabled={loading}
+                className="lf-quick-btn"
+                onClick={() => sendMessage(null, prompt)}>
+                {label}
+              </button>
+            ))}
           </div>
         )}
 

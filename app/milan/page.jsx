@@ -60,7 +60,7 @@ export default function MilanPage() {
   };
 
   return (
-    <div style={{ maxWidth:'680px', margin:'0 auto', padding:'1.5rem 1rem' }}>
+    <div className="lf-page" style={{ maxWidth:'680px', margin:'0 auto', padding:'1.5rem 1rem' }}>
       <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'1.5rem' }}>
         <button onClick={() => router.push('/profile')} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-secondary)', fontSize:'14px', padding:0 }}>← वापस</button>
         <h1 style={{ fontSize:'20px', fontWeight:'500', color:'var(--color-text-primary)', margin:0 }}>कुंडली मिलान</h1>
@@ -104,7 +104,7 @@ export default function MilanPage() {
           <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
 
             {/* Score headline */}
-            <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1.25rem', textAlign:'center' }}>
+            <div className="lf-watermark" style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1.25rem', textAlign:'center', position:'relative' }}>
               <p style={{ fontSize:'13px', color:'var(--color-text-secondary)', margin:'0 0 4px' }}>
                 {kName(boyId)} + {kName(girlId)}
               </p>
@@ -153,8 +153,8 @@ export default function MilanPage() {
                         <span style={{ fontSize:'13px', color:'var(--color-text-primary)', fontWeight:'500' }}>{k.name}</span>
                         <span style={{ fontSize:'13px', fontWeight:'600', color: barColor }}>{k.score}/{k.max}</span>
                       </div>
-                      <div style={{ height:'4px', background:'var(--color-background-secondary)', borderRadius:'2px', overflow:'hidden' }}>
-                        <div style={{ height:'100%', width:`${pct*100}%`, background: barColor, borderRadius:'2px', transition:'width 0.5s ease' }} />
+                      <div className="lf-meter-bar">
+                        <div className="lf-meter-fill" style={{ width:`${pct*100}%`, background: barColor }} />
                       </div>
                       {k.details && <p style={{ margin:'3px 0 0', fontSize:'11px', color:'var(--color-text-tertiary)' }}>{k.details}</p>}
                     </div>
