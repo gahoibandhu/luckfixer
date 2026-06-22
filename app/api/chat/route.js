@@ -71,6 +71,9 @@ Always prefer a specific date range over a vague timeframe: "Saturn-Rahu antar m
 // sentence boundary if the response is extremely long. Nothing else.
 const HARD_WORD_LIMIT = 160;
 
+// Day lords (Hora rulers) — Sunday=0 to Saturday=6
+const DAY_LORD_HI = ['सूर्य','चंद्र','मंगल','बुध','बृहस्पति','शुक्र','शनि'];
+
 function cleanupAiResponse(text) {
   if (!text || typeof text !== 'string') return text;
 
@@ -162,8 +165,13 @@ async function updateBirthTimeConfidence(supabase, kundliId, answer, questionTex
 
 // Greeting message — called when messages has exactly 1 user message and it's a "greeting" request
 async function generateGreeting(kundliContext) {
+  const now = new Date();
+  const DAYS_HI = ['रविवार','सोमवार','मंगलवार','बुधवार','गुरुवार','शुक्रवार','शनिवार'];
+  const MONTHS_HI = ['जनवरी','फरवरी','मार्च','अप्रैल','मई','जून','जुलाई','अगस्त','सितम्बर','अक्टूबर','नवम्बर','दिसम्बर'];
+  const todayLine = `आज: ${now.getDate()} ${MONTHS_HI[now.getMonth()]} ${now.getFullYear()}, ${DAYS_HI[now.getDay()]}`;
+
   if (!kundliContext) {
-    return `नमस्ते! 🙏 मैं Luckfixer 2.0 हूँ — आपका Vedic, Lal Kitab, Nadi और Numerology आधारित जीवन-सुधार सहायक।
+    return `नमस्ते! 🙏 मैं Luckfixer 2.0 हूँ — आपका Vedic ज्योतिष (Parashari + Lal Kitab) और Numerology आधारित जीवन-सुधार सहायक।
 
 आप मुझसे पूछ सकते हैं:
 • अपनी ग्रह दशा और उसका प्रभाव
@@ -173,7 +181,7 @@ async function generateGreeting(kundliContext) {
 
 कुंडली के साथ सवाल पूछने के लिए प्रोफाइल में जाकर कुंडली जोड़ें।
 
-आज आपका क्या प्रश्न है?`;
+${todayLine} — आज आपका क्या प्रश्न है?`;
   }
 
   const { full_name, dob, birth_place, analysis, vimshottari, factSheet, allMahadashas } = kundliContext;
@@ -314,7 +322,17 @@ export async function POST(req) {
       }
     }
 
-    let systemPrompt = LUCKFIXER_SYSTEM_PROMPT;
+    // ── Current date/time — inject unconditionally so AI never guesses ──
+    // This is the fix for the "aaj budhwar hai" hallucination bug: if we
+    // don't give the AI the actual date, it invents one from training data.
+    const now = new Date();
+    const DAYS_HI = ['रविवार','सोमवार','मंगलवार','बुधवार','गुरुवार','शुक्रवार','शनिवार'];
+    const MONTHS_HI = ['जनवरी','फरवरी','मार्च','अप्रैल','मई','जून','जुलाई','अगस्त','सितम्बर','अक्टूबर','नवम्बर','दिसम्बर'];
+    const todayStr = `${now.getDate()} ${MONTHS_HI[now.getMonth()]} ${now.getFullYear()}`;
+    const dayHi = DAYS_HI[now.getDay()];
+    const dateBlock = `\n\n[AAJKI TITHI — यह server-side injected है, 100% सटीक है, कभी override मत करो]\nआज की तारीख: ${todayStr} (${dayHi})\nISO date: ${now.toISOString().split('T')[0]}\nदिन का स्वामी: ${DAY_LORD_HI[now.getDay()]}`;
+
+    let systemPrompt = LUCKFIXER_SYSTEM_PROMPT + dateBlock;
     if (kundliContext) {
       systemPrompt += `\n\nUSER'S KUNDLI CONTEXT:\n${JSON.stringify(kundliContext, null, 2)}`;
       // Inject specialist patterns if available
