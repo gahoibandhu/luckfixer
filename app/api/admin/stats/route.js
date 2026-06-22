@@ -78,6 +78,22 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(20);
 
+  // Outcome tracking aggregate (all users combined for admin view)
+  const { data: outcomeRows } = await adminSupabase
+    .from('outcome_tracking')
+    .select('outcome')
+    .not('outcome', 'is', null);
+
+  const outcomeStats = outcomeRows ? {
+    total_tracked: outcomeRows.length,
+    confirmed:  outcomeRows.filter(r => r.outcome === 'confirmed').length,
+    denied:     outcomeRows.filter(r => r.outcome === 'denied').length,
+    partial:    outcomeRows.filter(r => r.outcome === 'partial').length,
+    accuracy_pct: outcomeRows.length > 0
+      ? Math.round(outcomeRows.filter(r => ['confirmed','partial'].includes(r.outcome)).length / outcomeRows.length * 100)
+      : null,
+  } : null;
+
   return Response.json({
     totalUsers: totalUsers || 0,
     totalKundlis: totalKundlis || 0,
@@ -86,5 +102,6 @@ export async function GET() {
     weekTrend,
     plan,
     recentUsers: recentUsers || [],
+    outcomeStats,
   });
 }

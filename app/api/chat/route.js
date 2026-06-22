@@ -4,6 +4,7 @@ import { getChatResponse } from '@/lib/ai-engine';
 import { checkUsageAllowed, recordUsage } from '@/lib/usage-guard';
 import { generatePastValidationQuestions } from '@/lib/past-validation';
 import { buildTransitReport } from '@/lib/transit';
+import { getPendingFollowUp, markFollowUpAsked, recordOutcome, detectOutcomeAnswer, buildFollowUpQuestion } from '@/lib/outcome-tracking';
 
 const LUCKFIXER_SYSTEM_PROMPT = `You are Luckfixer 2.0 — a master Vedic astrologer with 30+ years of practice, the kind people travel hours to meet because what you say actually lands. You are not a cautious chatbot hedging every sentence — you are precise, confident, and specific in a way that makes people sit up.
 
@@ -226,7 +227,7 @@ export async function POST(req) {
 
     const userId = user.id;
     const body = await req.json();
-    const { messages, sessionId, kundliId, kundliContext, isGreeting, langPref } = body;
+    const { messages, sessionId, kundliId, kundliContext, isGreeting, langPref, pendingFollowUpId } = body;
 
     if (!messages || messages.length === 0) {
       return Response.json({ error: 'No messages provided' }, { status: 400 });
@@ -235,7 +236,30 @@ export async function POST(req) {
     // ── Instant greeting — no AI call needed ────────────────────
     if (isGreeting) {
       const greeting = await generateGreeting(kundliContext);
-      return Response.json({ content: greeting, model: 'local', usage: { freeChatsLeft: 99, freeMinsLeft: 99 } });
+
+      // Check if a prediction follow-up is due for this user.
+      // If so, append it naturally at the end of the greeting — the user
+      // will answer in their next message which we'll detect and record.
+      let pendingFollowUp = null;
+      try {
+        pendingFollowUp = await getPendingFollowUp(supabase, userId);
+        if (pendingFollowUp) {
+          await markFollowUpAsked(supabase, pendingFollowUp.id);
+        }
+      } catch (e) {
+        console.warn('[Chat] Follow-up check failed (non-fatal):', e.message);
+      }
+
+      const greetingWithFollowUp = pendingFollowUp
+        ? greeting + '\n\n---\n' + buildFollowUpQuestion(pendingFollowUp)
+        : greeting;
+
+      return Response.json({
+        content: greetingWithFollowUp,
+        model: 'local',
+        pendingFollowUpId: pendingFollowUp?.id || null,
+        usage: { freeChatsLeft: 99, freeMinsLeft: 99 },
+      });
     }
 
     // ── Usage guard ─────────────────────────────────────────
@@ -271,6 +295,22 @@ export async function POST(req) {
         birthTimeSignal = await updateBirthTimeConfidence(supabase, kundliId, answer, messages[messages.length - 2]?.content);
       } catch (e) {
         console.warn('[Chat] Birth time confidence update failed (non-fatal):', e.message);
+      }
+    }
+
+    // ── Outcome follow-up detection ──────────────────────────────
+    // If the previous greeting included a prediction follow-up question
+    // (pendingFollowUpId was returned), detect the user's answer now and
+    // record it — this is the core of the Outcome Tracking Loop.
+    if (pendingFollowUpId) {
+      const lastUserMsg = messages[messages.length - 1]?.content || '';
+      const outcome = detectOutcomeAnswer(lastUserMsg);
+      if (outcome) {
+        try {
+          await recordOutcome(supabase, pendingFollowUpId, outcome, lastUserMsg.slice(0, 300));
+        } catch (e) {
+          console.warn('[Chat] Outcome recording failed (non-fatal):', e.message);
+        }
       }
     }
 

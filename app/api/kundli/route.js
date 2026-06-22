@@ -6,6 +6,7 @@ import { buildNumerologySheet } from '@/lib/numerology';
 import { calcVimshottari } from '@/lib/vimshottari';
 import { buildSpecialistInsights } from '@/lib/specialist-rules';
 import { buildTransitReport } from '@/lib/transit';
+import { scheduleOutcomeFollowUps } from '@/lib/outcome-tracking';
 
 // GET — fetch all kundlis for logged-in user
 export async function GET() {
@@ -242,14 +243,27 @@ Return this exact JSON structure:
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
   // ── Feedback loop: log this prediction for future reference ──
-  await supabase.from('predictions_log').insert({
+  const { data: predLog } = await supabase.from('predictions_log').insert({
     user_id:     user.id,
     kundli_id:   kundli.id,
     source:      'kundli_analysis',
     fact_sheet:  factSheet,
     ai_response: aiResult.content,
     model_used:  aiResult.model,
-  });
+  }).select('id').single();
+
+  // ── Outcome Tracking Loop: schedule follow-up questions ──────
+  // 3 weeks from now, the system will ask the user in chat whether
+  // the predicted career/marriage/health/dasha events actually happened.
+  // This is our proprietary accuracy dataset — no competitor can replicate it.
+  await scheduleOutcomeFollowUps(
+    supabase,
+    user.id,
+    kundli.id,
+    predLog?.id || null,
+    factSheet,
+    aiResult.content
+  );
 
   return Response.json({ kundli, analysis: aiResult.content, model: aiResult.model });
 }

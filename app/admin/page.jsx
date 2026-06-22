@@ -209,6 +209,10 @@ export default function AdminPage() {
             <MetricCard label="आज की Chats" value={stats.today.chats} />
             <MetricCard label="आज के Minutes" value={stats.today.mins.toFixed(1)} />
             <MetricCard label="आज के Tokens" value={stats.today.tokens.toLocaleString()} />
+            {stats.outcomeStats && <>
+              <MetricCard label="Tracked Predictions" value={stats.outcomeStats.total_tracked || 0} />
+              <MetricCard label="Accuracy %" value={stats.outcomeStats.accuracy_pct != null ? `${stats.outcomeStats.accuracy_pct}%` : '—'} />
+            </>}
           </div>
 
           {/* Kundli Migration */}

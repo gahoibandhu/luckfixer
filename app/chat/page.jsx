@@ -19,6 +19,7 @@ export default function ChatPage() {
   const [sessionId,  setSessionId]  = useState(null);          // null until first message sent
   const [pendingKundliId, setPendingKundliId] = useState(null); // kundli to attach when session is created
   const [kundli,     setKundli]     = useState(null);
+  const [pendingFollowUpId, setPendingFollowUpId] = useState(null);
   const [usage,      setUsage]      = useState({ freeChatsLeft: 5, freeMinsLeft: 10 });
   const [sessions,   setSessions]   = useState([]);
   const [userId,     setUserId]     = useState(null);
@@ -97,6 +98,7 @@ export default function ChatPage() {
       });
       const data = await res.json();
       setMessages([{ role: 'assistant', content: data.content }]);
+      if (data.pendingFollowUpId) setPendingFollowUpId(data.pendingFollowUpId);
     } catch {
       setMessages([{ role: 'assistant', content: kId
         ? 'नमस्ते! आपकी कुंडली लोड हो गई है। कोई भी प्रश्न पूछें।'
@@ -173,10 +175,13 @@ export default function ChatPage() {
         kundliId: pendingKundliId || kundli?.id || null,
         kundliContext,
         langPref,
+        pendingFollowUpId: pendingFollowUpId || null,
       }),
     });
 
     const data = await res.json();
+    // Clear follow-up ID after first message — we've either recorded or skipped it
+    if (pendingFollowUpId) setPendingFollowUpId(null);
 
     if (res.status === 429) {
       setLimitErr(data.error);
