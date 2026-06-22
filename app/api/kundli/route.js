@@ -7,6 +7,7 @@ import { calcVimshottari } from '@/lib/vimshottari';
 import { buildSpecialistInsights } from '@/lib/specialist-rules';
 import { buildTransitReport } from '@/lib/transit';
 import { scheduleOutcomeFollowUps } from '@/lib/outcome-tracking';
+import { buildJaiminiSheet, crossValidate } from '@/lib/jaimini';
 
 // GET — fetch all kundlis for logged-in user
 export async function GET() {
@@ -72,6 +73,8 @@ export async function POST(req) {
   const vimshottari = moon ? calcVimshottari(moon.degree, dob) : null;
   const specialist  = buildSpecialistInsights(factSheet, vimshottari);
   const transit     = await buildTransitReport(factSheet, parseFloat(latitude), parseFloat(longitude)).catch(() => null);
+  const jaimini     = buildJaiminiSheet(factSheet.planets, factSheet.lagna?.sign, factSheet.d9Chart, dob);
+  const crossVal    = crossValidate(jaimini, factSheet);
 
   // ── AI layer: interpret the fact-sheet, do NOT recompute positions ────
   const systemPrompt = `You are Luckfixer 2.0's master analysis engine — combining classical Vedic astrology (Parashari/BPHS), Lal Kitab, traditional karmic-pattern interpretation, and Hora (planetary hour) timing systems.
@@ -119,6 +122,15 @@ EVENT-SPECIFIC SCORES (pre-computed — career/marriage/health with confidence +
 ${factSheet.eventScores ? JSON.stringify(factSheet.eventScores, null, 2) : 'Not available (lagna missing)'}
 
 LAGNA (Ascendant): ${factSheet.lagna ? `${factSheet.lagna.signHi} (${factSheet.lagna.sign}), ${factSheet.lagna.nakshatra} नक्षत्र` : 'Not available'}
+
+JAIMINI CROSS-VALIDATION (use to strengthen predictions — when Jaimini agrees with Parashari, say so explicitly):
+${jaimini ? JSON.stringify({
+  atmakaraka: jaimini.atmakaraka ? `${jaimini.atmakaraka.nameHi} (${jaimini.atmakaraka.withinSignDeg?.toFixed(1)}°) — आत्मकारक` : null,
+  amatyakaraka: jaimini.amatyakaraka ? `${jaimini.amatyakaraka.nameHi} — करियर कारक` : null,
+  karakamsha: jaimini.karakamsha ? `${jaimini.karakamsha.signHi} — ${jaimini.karakamsha.meaning}` : null,
+  charaDasha: jaimini.charaDasha?.current ? `वर्तमान चर दशा: ${jaimini.charaDasha.current.signHi} (${jaimini.charaDasha.current.start} to ${jaimini.charaDasha.current.end})` : null,
+  crossValidation: crossVal,
+}, null, 2) : 'Not available'}
 
 CURRENT TRANSIT (Gochar) AS OF TODAY (${transit?.asOf || 'N/A'}) — NOTE: this is a snapshot at analysis time, will become stale; the live chat always recomputes fresh transits, so keep this section brief:
 ${transit ? JSON.stringify({ headline: transit.headline, sadeSati: transit.sadeSati, saturnTransit: transit.saturnTransit?.currentSignHi, jupiterTransit: transit.jupiterTransit?.currentSignHi }, null, 2) : 'Not available'}
@@ -235,7 +247,7 @@ Return this exact JSON structure:
     latitude:     parseFloat(latitude),
     longitude:    parseFloat(longitude),
     ayanamsa:     ayanamsa || 'lahiri',
-    planet_data:  { planets: factSheet.planets, factSheet, numerology, vimshottari, specialist, transitSnapshot: transit, analysis: aiResult.content },
+    planet_data:  { planets: factSheet.planets, factSheet, numerology, vimshottari, specialist, jaimini, crossValidation: crossVal, transitSnapshot: transit, analysis: aiResult.content },
     luck_score:   aiResult.content.metric_score || 50,
     last_analysis: new Date().toISOString(),
   }).select().single();

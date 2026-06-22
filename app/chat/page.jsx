@@ -164,6 +164,8 @@ export default function ChatPage() {
       allMahadashas: kundli.planet_data?.vimshottari?.mahadashas,
       numerology:  kundli.planet_data?.numerology,
       specialist:  kundli.planet_data?.specialist,
+      jaimini:     kundli.planet_data?.jaimini,
+      crossValidation: kundli.planet_data?.crossValidation,
     } : null;
 
     const res = await fetch('/api/chat', {
@@ -243,6 +245,9 @@ export default function ChatPage() {
           <button onClick={() => router.push('/profile')} style={{ width:'100%', marginTop:'10px', padding:'7px', fontSize:'12px', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-secondary)', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px' }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             होम / प्रोफाइल
+          </button>
+          <button onClick={() => router.push('/milan')} style={{ width:'100%', marginTop:'6px', padding:'7px', fontSize:'12px', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-secondary)', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px' }}>
+            💍 कुंडली मिलान
           </button>
         </div>
       </div>

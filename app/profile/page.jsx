@@ -497,6 +497,12 @@ export default function ProfilePage() {
         </button>
       )}
 
+      {kundlis.length >= 2 && (
+        <button onClick={() => router.push('/milan')} style={{ width:'100%', marginTop:'8px', padding:'10px', fontSize:'14px', color:'var(--color-text-primary)', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontWeight:'500' }}>
+          💍 कुंडली मिलान करें
+        </button>
+      )}
+
       <button onClick={signOut} style={{ width:'100%', marginTop:'8px', padding:'10px', fontSize:'14px', color:'var(--color-text-secondary)', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer' }}>
         Logout
       </button>

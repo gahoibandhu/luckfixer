@@ -343,6 +343,15 @@ export async function POST(req) {
         systemPrompt += `\n\nPAST VALIDATION (ask these if user hasn't confirmed yet):\n${kundliContext.specialist.pastValidationQuestions.join('\n')}`;
       }
 
+      // Inject Jaimini cross-validation if available
+      if (kundliContext.jaimini) {
+        const j = kundliContext.jaimini;
+        systemPrompt += `\n\nJAIMINI CROSS-VALIDATION:\nAtmakaraka: ${j.atmakaraka?.nameHi || '—'} (${j.atmakaraka?.withinSignDeg?.toFixed(1)}° — आत्मकारक)\nAmatyakaraka: ${j.amatyakaraka?.nameHi || '—'} (करियर कारक)\nKarakamsha: ${j.karakamsha?.signHi || '—'} — ${j.karakamsha?.meaning || ''}\nChara Dasha: ${j.charaDasha?.current ? `${j.charaDasha.current.signHi} (${j.charaDasha.current.start} – ${j.charaDasha.current.end})` : '—'}`;
+        if (kundliContext.crossValidation?.length > 0) {
+          systemPrompt += `\nCROSS-VALIDATION AGREEMENTS (use these — high confidence):\n${kundliContext.crossValidation.map(c => c.textHi).join('\n')}`;
+        }
+      }
+
       // ── Transit (Gochar) — computed fresh every request, never cached ──
       // Cheap (no AI call), so safe to compute on every message.
       try {
