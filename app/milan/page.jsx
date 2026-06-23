@@ -59,10 +59,13 @@ export default function MilanPage() {
     return k ? (k.label || k.full_name) : '';
   };
 
+  const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
+
   return (
     <div className="lf-page" style={{ maxWidth:'680px', margin:'0 auto', padding:'1.5rem 1rem' }}>
       <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'1.5rem' }}>
         <button onClick={() => router.push('/profile')} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-secondary)', fontSize:'14px', padding:0 }}>← वापस</button>
+        <img src={LOGO_URL} alt="Luckfixer" className="lf-logo-sm" />
         <h1 style={{ fontSize:'20px', fontWeight:'500', color:'var(--color-text-primary)', margin:0 }}>कुंडली मिलान</h1>
       </div>
 

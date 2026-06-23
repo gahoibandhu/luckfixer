@@ -75,7 +75,17 @@ export default function LoginPage() {
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <img src={LOGO_URL} alt="Luckfixer" className="lf-logo-lg" style={{ margin: '0 auto 16px', display: 'block' }} />
+          {/* Logo with gold ring */}
+          <div style={{
+            display: 'inline-block',
+            padding: '4px',
+            borderRadius: '32%',
+            background: 'linear-gradient(135deg, var(--color-brand) 0%, #f0c060 50%, var(--color-brand) 100%)',
+            marginBottom: '18px',
+            boxShadow: '0 8px 40px var(--color-brand-glow)',
+          }}>
+            <img src={LOGO_URL} alt="Luckfixer" className="lf-logo-lg" style={{ margin: 0 }} />
+          </div>
           <span className="lf-brand-pill" style={{ marginBottom: '12px', display: 'inline-flex' }}>✦ Luckfixer 2.0</span>
           <h1 style={{ fontSize: '26px', fontWeight: '500', color: 'var(--color-text-primary)', margin: '10px 0 4px' }}>स्वागत है</h1>
           <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', margin: 0 }}>Vedic ज्योतिष द्वारा जीवन-सुधार</p>

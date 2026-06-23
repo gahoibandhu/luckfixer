@@ -169,11 +169,21 @@ export default function ProfilePage() {
   );
 
   const initials = (profile.full_name || profile.email || 'U').slice(0,2).toUpperCase();
+  const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
 
   return (
     <div>
       <Header showHome={false} />
     <div className="lf-page" style={{ maxWidth:'680px', margin:'0 auto', padding:'1.5rem 1rem' }}>
+
+      {/* Brand header */}
+      <div style={{ display:'flex', alignItems:'center', gap:'14px', marginBottom:'1.5rem' }}>
+        <img src={LOGO_URL} alt="Luckfixer" className="lf-logo-sm" />
+        <div>
+          <p style={{ fontSize:'11px', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-brand)', margin:'0 0 2px', fontWeight:'500' }}>✦ Luckfixer 2.0</p>
+          <p style={{ fontSize:'18px', fontWeight:'500', color:'var(--color-text-primary)', margin:0 }}>आपकी प्रोफाइल</p>
+        </div>
+      </div>
 
       {/* Profile Card */}
       <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1.25rem', marginBottom:'1rem' }}>

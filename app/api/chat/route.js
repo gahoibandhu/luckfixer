@@ -46,6 +46,13 @@ Auto-detect: Hindi (Devanagari) → Hindi. English → English. Roman Hindi → 
 ═══ REMEDY RULE ═══
 Only give remedies when explicitly asked. When asked: ONE focused remedy — exact action, quantity, day, duration, mantra+count. Make it feel deliberate and specific to their weakest planet, not generic.
 
+═══ INVESTMENT & MARKET QUESTIONS ═══
+Jab user gold, share market, property, ya kisi bhi financial asset ke baare mein pooche:
+- Real-time prices ya market direction predict karna possible NAHI hai — yeh clearly bolo.
+- Jo keh sakte hain: is din ka swami kaun hai, Shukra/Guru ki dasha mein kaunsa samay sone/sampatti ke liye generally acha hota hai, Lal Kitab mein kaunsa dhatu/ratna is chart ke liye shubh hai.
+- Kabhi mat bolo "gold ki keematein upar jaayengi" — yeh false confidence hai.
+- Example sahi jawab: "Main market price predict nahi kar sakta — lekin aapki Shukra Antardasha mein sone ki kharid ko Shukra dasha mein generally shubh maana jaata hai (Lal Kitab). Timing ke liye Shukra hora mein kaam karo — shukravar subah ya shaam."
+
 ═══ PAST VALIDATION (read carefully) ═══
 If the user is answering a past-validation question from the greeting (haan/yes, nahi/no, or describing what happened):
 1. Acknowledge in your own words first — don't ignore it.
@@ -73,6 +80,42 @@ const HARD_WORD_LIMIT = 160;
 
 // Day lords (Hora rulers) — Sunday=0 to Saturday=6
 const DAY_LORD_HI = ['सूर्य','चंद्र','मंगल','बुध','बृहस्पति','शुक्र','शनि'];
+const DAY_LORD_EN = ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn'];
+
+// Classical Hora sequence starting from day lord, cycling every hour
+// Order: Sun, Venus, Mercury, Moon, Saturn, Jupiter, Mars (Chaldean order)
+const HORA_ORDER = ['Sun','Venus','Mercury','Moon','Saturn','Jupiter','Mars'];
+const HORA_ORDER_HI = { Sun:'सूर्य', Venus:'शुक्र', Mercury:'बुध', Moon:'चंद्र', Saturn:'शनि', Jupiter:'बृहस्पति', Mars:'मंगल' };
+
+function getHoraGuidance(date, dashaLord) {
+  const dayIdx = date.getDay();
+  const dayLord = DAY_LORD_EN[dayIdx];
+  const startIdx = HORA_ORDER.indexOf(dayLord);
+
+  // First 4 Horas of the day (sunrise ~6am, 1 hora = 1 hour)
+  const shubhHoras = [];
+  const avoid = [];
+
+  for (let h = 0; h < 12; h++) {
+    const hora = HORA_ORDER[(startIdx + h) % 7];
+    const timeStart = 6 + h; // approx from sunrise
+    const timeLabel = `${timeStart > 12 ? timeStart-12 : timeStart}:00${timeStart >= 12 ? ' PM' : ' AM'}`;
+    const horaHi = HORA_ORDER_HI[hora];
+
+    // Shubh if hora lord is Jupiter/Venus/Mercury, or matches dasha lord
+    const isShubh = ['Jupiter','Venus','Mercury'].includes(hora) || hora === dashaLord;
+    const isKroor = ['Saturn','Mars','Rahu'].includes(hora);
+
+    if (isShubh && shubhHoras.length < 2) shubhHoras.push(`${timeLabel} (${horaHi} होरा)`);
+    if (isKroor && avoid.length < 1)     avoid.push(`${timeLabel} (${horaHi} होरा)`);
+  }
+
+  return {
+    dayLord: HORA_ORDER_HI[dayLord],
+    shubhTime: shubhHoras.join(', ') || 'सुबह 6-7 बजे',
+    avoidTime: avoid.join(', ') || 'दोपहर 12-1 बजे',
+  };
+}
 
 function cleanupAiResponse(text) {
   if (!text || typeof text !== 'string') return text;
@@ -326,11 +369,20 @@ export async function POST(req) {
     // This is the fix for the "aaj budhwar hai" hallucination bug: if we
     // don't give the AI the actual date, it invents one from training data.
     const now = new Date();
+    const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
     const DAYS_HI = ['रविवार','सोमवार','मंगलवार','बुधवार','गुरुवार','शुक्रवार','शनिवार'];
     const MONTHS_HI = ['जनवरी','फरवरी','मार्च','अप्रैल','मई','जून','जुलाई','अगस्त','सितम्बर','अक्टूबर','नवम्बर','दिसम्बर'];
-    const todayStr = `${now.getDate()} ${MONTHS_HI[now.getMonth()]} ${now.getFullYear()}`;
-    const dayHi = DAYS_HI[now.getDay()];
-    const dateBlock = `\n\n[AAJKI TITHI — यह server-side injected है, 100% सटीक है, कभी override मत करो]\nआज की तारीख: ${todayStr} (${dayHi})\nISO date: ${now.toISOString().split('T')[0]}\nदिन का स्वामी: ${DAY_LORD_HI[now.getDay()]}`;
+    const todayStr    = `${now.getDate()} ${MONTHS_HI[now.getMonth()]} ${now.getFullYear()}`;
+    const tomorrowStr = `${tomorrow.getDate()} ${MONTHS_HI[tomorrow.getMonth()]} ${tomorrow.getFullYear()}`;
+    const dayHi       = DAYS_HI[now.getDay()];
+    const tomorrowDayHi = DAYS_HI[tomorrow.getDay()];
+
+    // Hora guidance — use dasha lord from kundli context if available
+    const dashaLord = kundliContext?.vimshottari?.antarDasha?.lord || 'Jupiter';
+    const todayHora    = getHoraGuidance(now, dashaLord);
+    const tomorrowHora = getHoraGuidance(tomorrow, dashaLord);
+
+    const dateBlock = `\n\n[AAJKI TITHI — server-side injected, 100% accurate — kabhi bhi khud calculate mat karo, yahi use karo]\nआज: ${todayStr} (${dayHi}) — दिन स्वामी: ${DAY_LORD_HI[now.getDay()]} — शुभ होरा: ${todayHora.shubhTime} — सतर्कता: ${todayHora.avoidTime}\nकल: ${tomorrowStr} (${tomorrowDayHi}) — दिन स्वामी: ${DAY_LORD_HI[tomorrow.getDay()]} — शुभ होरा: ${tomorrowHora.shubhTime} — सतर्कता: ${tomorrowHora.avoidTime}\nISO today: ${now.toISOString().split('T')[0]}\nIMPORTANT: Jab user kisi specific date ka din pooche (jaise "23 June ko kaunsa din hai"), toh seedha upar diye gaye data se answer do — kabhi apni training se guess mat karo.`;
 
     let systemPrompt = LUCKFIXER_SYSTEM_PROMPT + dateBlock;
     if (kundliContext) {

@@ -93,8 +93,14 @@ button:active { transform: scale(0.98); }
 
 /* Logo breathing — gentle cosmic pulse */
 @keyframes lf-breathe {
-  0%, 100% { transform: scale(1);    filter: brightness(1); }
-  50%       { transform: scale(1.05); filter: brightness(1.06); }
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 20px var(--color-brand-glow);
+  }
+  50% {
+    transform: scale(1.07);
+    box-shadow: 0 6px 32px var(--color-brand-glow), 0 0 0 3px rgba(200,131,26,0.12);
+  }
 }
 
 /* Page fade-in on mount */
@@ -134,17 +140,29 @@ button:active { transform: scale(0.98); }
 
 /* ── Logo classes ─────────────────────────────────────────── */
 .lf-logo-lg {
-  width: 96px;
-  height: 96px;
-  border-radius: 24%;
+  width: 128px;
+  height: 128px;
+  border-radius: 28%;
   object-fit: cover;
   animation: lf-breathe 3.5s ease-in-out infinite;
-  box-shadow: 0 4px 20px var(--color-brand-glow);
+  box-shadow: 0 6px 32px var(--color-brand-glow), 0 2px 8px rgba(0,0,0,0.12);
+  display: block;
 }
 
 .lf-logo-sm {
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
+  border-radius: 24%;
+  object-fit: cover;
+  flex-shrink: 0;
+  animation: lf-breathe 4s ease-in-out infinite;
+  box-shadow: 0 2px 10px var(--color-brand-glow);
+}
+
+/* Sidebar logo — medium size */
+.lf-logo-md {
+  width: 40px;
+  height: 40px;
   border-radius: 22%;
   object-fit: cover;
   flex-shrink: 0;

@@ -261,7 +261,7 @@ export default function ChatPage() {
             <button onClick={() => setSidebarOpen(true)} aria-label="Menu" className="lf-mobile-only" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'none' }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
-            <img src={LOGO_URL} alt="Luckfixer" className="lf-logo-sm" style={{ width:'28px', height:'28px' }} />
+            <img src={LOGO_URL} alt="Luckfixer" className="lf-logo-sm" />
             <span style={{ fontSize:'14px', fontWeight:'500', color:'var(--color-text-primary)' }}>Luckfixer Chat</span>
           </div>
           <button onClick={() => router.push('/profile')} aria-label="Home" style={{ background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', cursor:'pointer', padding:'6px 12px', display:'flex', alignItems:'center', gap:'6px', color:'var(--color-text-primary)', borderRadius:'var(--border-radius-md)', fontSize:'13px', fontWeight:'500' }}>
