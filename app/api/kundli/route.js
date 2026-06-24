@@ -8,6 +8,10 @@ import { buildSpecialistInsights } from '@/lib/specialist-rules';
 import { buildTransitReport } from '@/lib/transit';
 import { scheduleOutcomeFollowUps } from '@/lib/outcome-tracking';
 import { buildJaiminiSheet, crossValidate } from '@/lib/jaimini';
+import { detectYogas, formatYogasForPrompt } from '@/lib/yogas';
+import { buildAshtakavarga, formatAVForPrompt } from '@/lib/ashtakavarga';
+import { buildNakshatraSheet, formatNakshatraForPrompt } from '@/lib/nakshatra';
+import { buildVarshaphal, formatVarshaphalForPrompt } from '@/lib/varshaphal';
 
 // GET — fetch all kundlis for logged-in user
 export async function GET() {
@@ -75,6 +79,10 @@ export async function POST(req) {
   const transit     = await buildTransitReport(factSheet, parseFloat(latitude), parseFloat(longitude)).catch(() => null);
   const jaimini     = buildJaiminiSheet(factSheet.planets, factSheet.lagna?.sign, factSheet.d9Chart, dob);
   const crossVal    = crossValidate(jaimini, factSheet);
+  const yogas       = detectYogas(factSheet.planets, factSheet.lagna?.sign, factSheet.houseLords, factSheet.d9Chart);
+  const ashtakavarga = buildAshtakavarga(factSheet.planets, factSheet.lagna?.sign);
+  const nakshatra   = buildNakshatraSheet(factSheet.planets, factSheet.lagna?.sign);
+  const varshaphal  = buildVarshaphal(factSheet, dob);
 
   // ── AI layer: interpret the fact-sheet, do NOT recompute positions ────
   const systemPrompt = `You are Luckfixer 2.0's master analysis engine — combining classical Vedic astrology (Parashari/BPHS), Lal Kitab, traditional karmic-pattern interpretation, and Hora (planetary hour) timing systems.
@@ -134,6 +142,14 @@ ${jaimini ? JSON.stringify({
 
 CURRENT TRANSIT (Gochar) AS OF TODAY (${transit?.asOf || 'N/A'}) — NOTE: this is a snapshot at analysis time, will become stale; the live chat always recomputes fresh transits, so keep this section brief:
 ${transit ? JSON.stringify({ headline: transit.headline, sadeSati: transit.sadeSati, saturnTransit: transit.saturnTransit?.currentSignHi, jupiterTransit: transit.jupiterTransit?.currentSignHi }, null, 2) : 'Not available'}
+
+${formatYogasForPrompt(yogas)}
+
+${formatAVForPrompt(ashtakavarga, transit?.transits)}
+
+${formatNakshatraForPrompt(nakshatra)}
+
+${formatVarshaphalForPrompt(varshaphal)}
 
 PAST VALIDATION QUESTIONS (include 1-2 of these in analytical_insight or dasha_hint — ask the user to confirm):
 ${specialist.pastValidationQuestions.map((q, i) => `${i+1}. ${q}`).join('\n')}
@@ -247,7 +263,21 @@ Return this exact JSON structure:
     latitude:     parseFloat(latitude),
     longitude:    parseFloat(longitude),
     ayanamsa:     ayanamsa || 'lahiri',
-    planet_data:  { planets: factSheet.planets, factSheet, numerology, vimshottari, specialist, jaimini, crossValidation: crossVal, transitSnapshot: transit, analysis: aiResult.content },
+    planet_data: {
+      planets: factSheet.planets,
+      factSheet,
+      numerology,
+      vimshottari,
+      specialist,
+      jaimini,
+      crossValidation: crossVal,
+      yogas,
+      ashtakavarga,
+      nakshatra,
+      varshaphal,
+      transitSnapshot: transit,
+      analysis: aiResult.content,
+    },
     luck_score:   aiResult.content.metric_score || 50,
     last_analysis: new Date().toISOString(),
   }).select().single();

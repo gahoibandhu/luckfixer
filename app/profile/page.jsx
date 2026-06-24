@@ -409,6 +409,39 @@ export default function ProfilePage() {
                 </div>
               )}
 
+              {/* Detected Yogas */}
+              {k.planet_data?.yogas?.length > 0 && (
+                <AnalysisSection title="शास्त्रीय योग" color="var(--color-brand)">
+                  {k.planet_data.yogas.filter(y => !y.isChallenging).slice(0, 4).map((yoga, i) => (
+                    <div key={i} style={{ marginBottom:'6px' }}>
+                      <p style={{ margin:'0 0 1px', fontWeight:'500', fontSize:'13px', color:'var(--color-text-primary)' }}>
+                        {yoga.name}
+                        <span style={{ marginLeft:'6px', fontSize:'10px', color: yoga.strength==='high' ? 'var(--color-text-success)' : 'var(--color-text-warning)', fontWeight:'400' }}>
+                          {yoga.strength==='high' ? '● उच्च' : '● मध्यम'}
+                        </span>
+                      </p>
+                      <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)' }}>{yoga.lifeArea}</p>
+                    </div>
+                  ))}
+                </AnalysisSection>
+              )}
+
+              {/* Varshaphal — Annual outlook */}
+              {k.planet_data?.varshaphal && (
+                <AnalysisSection title={`वार्षिक फल ${k.planet_data.varshaphal.varshYear}`} color="var(--color-text-info)">
+                  <p style={{ margin:'0 0 6px', fontWeight:'500' }}>{k.planet_data.varshaphal.verdict}</p>
+                  <p style={{ margin:'0 0 8px', fontSize:'12px', color:'var(--color-text-secondary)' }}>
+                    मुंथा: {k.planet_data.varshaphal.muntha?.signHi} ({k.planet_data.varshaphal.muntha?.house}वाँ भाव) · वर्षेश: {k.planet_data.varshaphal.varshesh?.planetHi}
+                  </p>
+                  {k.planet_data.varshaphal.areas?.filter(a => a.strength !== 'सामान्य').slice(0,3).map((area, i) => (
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', marginBottom:'3px' }}>
+                      <span style={{ color:'var(--color-text-secondary)' }}>{area.area.split(' (')[0]}</span>
+                      <span style={{ color: area.strength==='शुभ' ? 'var(--color-text-success)' : area.strength==='सावधानी' ? 'var(--color-text-danger)' : 'var(--color-text-warning)', fontWeight:'500' }}>{area.strength}</span>
+                    </div>
+                  ))}
+                </AnalysisSection>
+              )}
+
               {/* Vimshottari Dasha */}
               {vim?.current && (
                 <AnalysisSection title="विंशोत्तरी दशा" color="var(--color-text-primary)">

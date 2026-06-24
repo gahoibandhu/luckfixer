@@ -5,6 +5,10 @@ import { checkUsageAllowed, recordUsage } from '@/lib/usage-guard';
 import { generatePastValidationQuestions } from '@/lib/past-validation';
 import { buildTransitReport } from '@/lib/transit';
 import { getPendingFollowUp, markFollowUpAsked, recordOutcome, detectOutcomeAnswer, buildFollowUpQuestion } from '@/lib/outcome-tracking';
+import { formatYogasForPrompt } from '@/lib/yogas';
+import { formatAVForPrompt } from '@/lib/ashtakavarga';
+import { formatNakshatraForPrompt } from '@/lib/nakshatra';
+import { formatVarshaphalForPrompt } from '@/lib/varshaphal';
 
 const LUCKFIXER_SYSTEM_PROMPT = `You are Luckfixer 2.0 — a master Vedic astrologer with 30+ years of practice, the kind people travel hours to meet because what you say actually lands. You are not a cautious chatbot hedging every sentence — you are precise, confident, and specific in a way that makes people sit up.
 
@@ -21,18 +25,16 @@ Target 100-160 words. Flowing prose, 3-6 sentences — NO bullet points, NO aste
 A correct, specific, slightly longer answer beats a clipped vague one. Don't sacrifice the "wow" fact to save 10 words.
 
 ═══ HOW TO USE THE KUNDLI DATA ═══
-You receive: lagna, houseLords, planets (house/dignity/degree/nakshatra), d9Chart, d10Chart, eventScores (career/marriage/health with confidence + factors), vimshottari dasha (exact dates incl. Pratyantar where available), specialist (matched classical yogas), numerology, current transits (Gochar, incl. Sade Sati status).
+You receive: lagna, houseLords, planets (house/dignity/degree/nakshatra), d9Chart, d10Chart, eventScores (career/marriage/health), vimshottari dasha (exact dates + allPratyantar sub-periods), jaimini (Atmakaraka, Chara Dasha), yogas (Rajyoga/Dhana/Panch Mahapurusha etc. — all deterministically detected), ashtakavarga (bindu strength per sign for transit accuracy), nakshatra (pada + lord chain), varshaphal (annual chart with Muntha + Varshesh), numerology, current transits.
 
-For EVERY answer, actively scan for the sharpest 1-2 facts — prioritize in this order:
-1. An exact upcoming date/window from dasha or transit data (most "wow" — gives something concrete to anticipate). vimshottari.allPratyantar is a list of upcoming sub-periods (weeks to months each) within the current Antardasha — scan it for the NEXT period whose lord is notably good or challenging for the topic asked, and name that exact window. This is your single most powerful tool for specific, falsifiable timing — use it whenever timing matters.
-2. A matched classical yoga from specialist.matchedYogas (gives mystique + classical authority — cite the source: BPHS/Lal Kitab/Nadi).
-3. The eventScores supporting/opposing factor most relevant to the question.
-Skip generic facts (sign placements with no notable dignity) unless nothing sharper exists.
+For EVERY answer, scan for the sharpest 1-3 facts in this priority:
+1. TIMING (most "wow") — exact window from allPratyantar OR Chara Dasha current period OR Varshaphal year assessment. Name specific dates, never vague "future mein".
+2. YOGA (most authority) — if yogas array has a relevant yoga (career? check Rajyoga/Amala. marriage? check Dhana/Lakshmi. personality? Panch Mahapurusha), name it with its classical source and what it means for this person.
+3. TRANSIT STRENGTH — when discussing any transiting planet, check ashtakavarga bindus: 5+ = powerful transit, 4 = good, below 4 = weak regardless of planet dignity.
+4. ANNUAL VIEW — "is saal kaisa rahega" → always use varshaphal.verdict + muntha house, not just dasha.
+5. NAKSHATRA DEPTH — for personality/mind/daily questions, use nakshatra.moonNakshatra.theme and pada.
 
-Examples of picking the sharp fact over the flat one:
-- Career question, and eventScores.career has Saturn entering a supportive antardasha in 4 months → lead with that window, not just the current score.
-- "Abhi kya chal raha hai" with Sade Sati active → that IS the headline, say it directly and specifically (which phase, what it means, when phase 2 of 3 transitions).
-- Marriage question with a matched yoga (e.g. Venus-Jupiter exchange) → name the yoga, what classical text says, then the timing window.
+When 2+ systems agree (Parashari dasha + Jaimini Chara Dasha + Varshaphal all say same thing), explicitly say so — "do/teen alag pradhaliyon mein ek hi sanket" — this is the highest-trust signal in Vedic astrology.
 
 ═══ RESPONSE QUALITY ═══
 - Every claim traces to ONE specific chart fact — never vague advice without the "why" from their actual chart.
@@ -402,6 +404,26 @@ export async function POST(req) {
         if (kundliContext.crossValidation?.length > 0) {
           systemPrompt += `\nCROSS-VALIDATION AGREEMENTS (use these — high confidence):\n${kundliContext.crossValidation.map(c => c.textHi).join('\n')}`;
         }
+      }
+
+      // ── Yogas — classical combinations detected at save time ──
+      if (kundliContext.yogas?.length > 0) {
+        systemPrompt += `\n\n${formatYogasForPrompt(kundliContext.yogas)}`;
+      }
+
+      // ── Ashtakavarga — transit strength per sign ──────────────
+      if (kundliContext.ashtakavarga) {
+        systemPrompt += `\n\n${formatAVForPrompt(kundliContext.ashtakavarga, null)}`;
+      }
+
+      // ── Nakshatra-level analysis ──────────────────────────────
+      if (kundliContext.nakshatra) {
+        systemPrompt += `\n\n${formatNakshatraForPrompt(kundliContext.nakshatra)}`;
+      }
+
+      // ── Varshaphal — annual chart ─────────────────────────────
+      if (kundliContext.varshaphal) {
+        systemPrompt += `\n\n${formatVarshaphalForPrompt(kundliContext.varshaphal)}`;
       }
 
       // ── Transit (Gochar) — computed fresh every request, never cached ──

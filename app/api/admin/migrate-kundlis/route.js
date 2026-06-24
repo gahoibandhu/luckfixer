@@ -11,6 +11,11 @@ import { buildFactSheet } from '@/lib/astro-facts';
 import { calcVimshottari } from '@/lib/vimshottari';
 import { buildSpecialistInsights } from '@/lib/specialist-rules';
 import { buildTransitReport } from '@/lib/transit';
+import { buildJaiminiSheet, crossValidate } from '@/lib/jaimini';
+import { detectYogas } from '@/lib/yogas';
+import { buildAshtakavarga } from '@/lib/ashtakavarga';
+import { buildNakshatraSheet } from '@/lib/nakshatra';
+import { buildVarshaphal } from '@/lib/varshaphal';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,15 +70,27 @@ export async function POST(req) {
       const factSheet = await buildFactSheet(k.dob, k.birth_time, k.latitude, k.longitude, k.ayanamsa || 'lahiri');
       const moon = factSheet.planets.find(p => p.name === 'Moon');
       const vimshottari = moon ? calcVimshottari(moon.degree, k.dob) : null;
-      const specialist = buildSpecialistInsights(factSheet, vimshottari);
+      const specialist      = buildSpecialistInsights(factSheet, vimshottari);
       const transitSnapshot = await buildTransitReport(factSheet, k.latitude, k.longitude).catch(() => null);
+      const jaimini         = buildJaiminiSheet(factSheet.planets, factSheet.lagna?.sign, factSheet.d9Chart, k.dob);
+      const crossVal        = crossValidate(jaimini, factSheet);
+      const yogas           = detectYogas(factSheet.planets, factSheet.lagna?.sign, factSheet.houseLords, factSheet.d9Chart);
+      const ashtakavarga    = buildAshtakavarga(factSheet.planets, factSheet.lagna?.sign);
+      const nakshatra       = buildNakshatraSheet(factSheet.planets, factSheet.lagna?.sign);
+      const varshaphal      = buildVarshaphal(factSheet, k.dob);
 
       const newPlanetData = {
-        ...k.planet_data,           // keep existing analysis, numerology etc.
-        planets: factSheet.planets, // refresh with house/dignity-enriched version
-        factSheet,                  // now includes lagna, houseLords, d9Chart, d10Chart, eventScores
+        ...k.planet_data,
+        planets: factSheet.planets,
+        factSheet,
         vimshottari,
         specialist,
+        jaimini,
+        crossValidation: crossVal,
+        yogas,
+        ashtakavarga,
+        nakshatra,
+        varshaphal,
         transitSnapshot,
       };
 

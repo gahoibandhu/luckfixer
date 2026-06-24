@@ -163,9 +163,13 @@ export default function ChatPage() {
       vimshottari: kundli.planet_data?.vimshottari?.current,
       allMahadashas: kundli.planet_data?.vimshottari?.mahadashas,
       numerology:  kundli.planet_data?.numerology,
-      specialist:  kundli.planet_data?.specialist,
-      jaimini:     kundli.planet_data?.jaimini,
+      specialist:      kundli.planet_data?.specialist,
+      jaimini:         kundli.planet_data?.jaimini,
       crossValidation: kundli.planet_data?.crossValidation,
+      yogas:           kundli.planet_data?.yogas,
+      ashtakavarga:    kundli.planet_data?.ashtakavarga,
+      nakshatra:       kundli.planet_data?.nakshatra,
+      varshaphal:      kundli.planet_data?.varshaphal,
     } : null;
 
     const res = await fetch('/api/chat', {
