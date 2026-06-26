@@ -174,7 +174,7 @@ export default function MilanPage() {
 
             {/* Chat button */}
             <button
-              onClick={() => router.push(`/chat?kundliId=${boyId}`)}
+              onClick={() => router.push('/chat')}
               style={{ padding:'10px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500' }}
             >
               विस्तृत मिलान विश्लेषण के लिए चैट करें →

@@ -13,7 +13,7 @@ export default function HomePage() {
   useEffect(() => {
     async function check() {
       const { data: { session } } = await supabase.auth.getSession();
-      router.push(session ? '/profile' : '/login');
+      router.push(session ? '/chat' : '/login');
     }
     check();
   }, []);

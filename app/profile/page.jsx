@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
-import Header from '@/components/Header';
 
 export const dynamic = 'force-dynamic';
 
@@ -169,20 +168,16 @@ export default function ProfilePage() {
   );
 
   const initials = (profile.full_name || profile.email || 'U').slice(0,2).toUpperCase();
-  const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
 
   return (
-    <div>
-      <Header showHome={false} />
     <div className="lf-page" style={{ maxWidth:'680px', margin:'0 auto', padding:'1.5rem 1rem' }}>
 
-      {/* Brand header */}
-      <div style={{ display:'flex', alignItems:'center', gap:'14px', marginBottom:'1.5rem' }}>
-        <img src={LOGO_URL} alt="Luckfixer" className="lf-logo-sm" />
-        <div>
-          <p style={{ fontSize:'11px', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-brand)', margin:'0 0 2px', fontWeight:'500' }}>✦ Luckfixer 2.0</p>
-          <p style={{ fontSize:'18px', fontWeight:'500', color:'var(--color-text-primary)', margin:0 }}>आपकी प्रोफाइल</p>
-        </div>
+      {/* Simple page heading — no logo here, it's in the browser tab */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1.25rem' }}>
+        <h2 style={{ fontSize:'18px', fontWeight:'500', color:'var(--color-text-primary)', margin:0 }}>प्रोफाइल</h2>
+        <button onClick={() => router.push('/chat')} style={{ fontSize:'13px', color:'var(--color-text-secondary)', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'6px 12px', cursor:'pointer' }}>
+          ← Chat पर जाएं
+        </button>
       </div>
 
       {/* Profile Card */}
@@ -303,21 +298,7 @@ export default function ProfilePage() {
           <div style={{ padding:'12px 14px', display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
             <div style={{ flex:1, minWidth:0 }}>
               <p style={{ fontWeight:'500', fontSize:'15px', margin:'0 0 2px', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.label || k.full_name}</p>
-              <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'0 0 6px' }}>{k.dob} · {k.birth_place}</p>
-              {/* Animated luck score meter */}
-              {k.luck_score != null && (
-                <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                  <div className="lf-meter-bar" style={{ flex:1, maxWidth:'120px' }}>
-                    <div className="lf-meter-fill" style={{
-                      width: `${k.luck_score}%`,
-                      background: k.luck_score >= 60 ? 'var(--color-text-success)' : k.luck_score >= 40 ? 'var(--color-brand)' : 'var(--color-text-danger)',
-                    }} />
-                  </div>
-                  <span style={{ fontSize:'11px', fontWeight:'600', color: k.luck_score >= 60 ? 'var(--color-text-success)' : k.luck_score >= 40 ? 'var(--color-brand)' : 'var(--color-text-danger)' }}>
-                    {k.luck_score}/100
-                  </span>
-                </div>
-              )}
+              <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>{k.dob} · {k.birth_place}</p>
             </div>
             <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)', flexShrink:0 }}>{k.birth_time}</span>
             <button onClick={() => router.push(`/chat?kundliId=${k.id}`)} style={{ padding:'7px 14px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500', flexShrink:0 }}>

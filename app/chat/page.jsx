@@ -1,5 +1,7 @@
 'use client';
-// app/chat/page.jsx
+// app/chat/page.jsx — Claude-style layout
+// Left: kundli selector + nav. Right: chat opens when kundli selected.
+
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
@@ -9,357 +11,366 @@ export const dynamic = 'force-dynamic';
 const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
 
 export default function ChatPage() {
-  const supabase      = createClient();
-  const router        = useRouter();
-  const messagesEnd   = useRef(null);
+  const supabase    = createClient();
+  const router      = useRouter();
+  const messagesEnd = useRef(null);
+  const inputRef    = useRef(null);
 
-  const [messages,   setMessages]   = useState([]);
-  const [input,      setInput]      = useState('');
-  const [loading,    setLoading]    = useState(false);
-  const [sessionId,  setSessionId]  = useState(null);          // null until first message sent
-  const [pendingKundliId, setPendingKundliId] = useState(null); // kundli to attach when session is created
-  const [kundli,     setKundli]     = useState(null);
-  const [pendingFollowUpId, setPendingFollowUpId] = useState(null);
-  const [usage,      setUsage]      = useState({ freeChatsLeft: 5, freeMinsLeft: 10 });
-  const [sessions,   setSessions]   = useState([]);
-  const [userId,     setUserId]     = useState(null);
-  const [limitErr,   setLimitErr]   = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [langPref,   setLangPref]   = useState('auto'); // 'auto' | 'hi' | 'en'
+  const [userId,           setUserId]           = useState(null);
+  const [kundlis,          setKundlis]          = useState([]);
+  const [kundli,           setKundli]           = useState(null);
+  const [sessions,         setSessions]         = useState([]);
+  const [sessionId,        setSessionId]        = useState(null);
+  const [pendingKundliId,  setPendingKundliId]  = useState(null);
+  const [pendingFollowUpId,setPendingFollowUpId]= useState(null);
+  const [messages,         setMessages]         = useState([]);
+  const [input,            setInput]            = useState('');
+  const [loading,          setLoading]          = useState(false);
+  const [usage,            setUsage]            = useState({ freeChatsLeft:5, freeMinsLeft:10 });
+  const [limitErr,         setLimitErr]         = useState('');
+  const [langPref,         setLangPref]         = useState('auto');
+  const [sidebarOpen,      setSidebarOpen]      = useState(false);
+  const [panel,            setPanel]            = useState('sessions'); // 'sessions'|'kundlis'
 
   useEffect(() => { init(); }, []);
   useEffect(() => { messagesEnd.current?.scrollIntoView({ behavior:'smooth' }); }, [messages]);
 
   async function init() {
-    const urlKundliId = typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('kundliId')
-      : null;
-
-    const { data: { session } } = await supabase.auth.getSession();
+    const urlKundliId = new URLSearchParams(window.location.search).get('kundliId');
+    const { data:{ session } } = await supabase.auth.getSession();
     if (!session) { router.push('/login'); return; }
     setUserId(session.user.id);
 
-    // Load all non-deleted sessions for this user
-    await loadSessionsList(session.user.id);
+    const { data: ks } = await supabase
+      .from('saved_kundlis').select('*')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending:false });
+    setKundlis(ks || []);
 
-    // Load kundli context if provided
-    let k = null;
-    if (urlKundliId) {
-      const { data } = await supabase.from('saved_kundlis').select('*').eq('id', urlKundliId).maybeSingle();
-      k = data;
-      setKundli(k);
-    }
-
-    startNewSession(urlKundliId, k);
-  }
-
-  async function loadSessionsList(uid) {
-    const { data: sList } = await supabase.from('chat_sessions')
-      .select('id, title, updated_at, kundli_id')
-      .eq('user_id', uid)
-      .or('deleted_by_user.is.null,deleted_by_user.eq.false')
+    const { data: sess } = await supabase
+      .from('chat_sessions')
+      .select('id,title,updated_at,kundli_id')
+      .eq('user_id', session.user.id)
       .order('updated_at', { ascending:false })
-      .limit(20);
-    setSessions(sList || []);
+      .limit(30);
+    setSessions(sess || []);
+
+    if (urlKundliId && ks) {
+      const k = ks.find(x => x.id === urlKundliId);
+      if (k) { selectKundli(k, session.user.id); return; }
+    }
+    if (ks?.length === 1) { selectKundli(ks[0], session.user.id); return; }
   }
 
-  // Reset the chat view for a new conversation — does NOT write to the
-  // database yet. A chat_sessions row is only created on the first
-  // sendMessage(), so empty chats are never saved.
-  // kundliOverride: pass the freshly-fetched kundli directly to avoid a
-  // stale-closure read of the `kundli` state right after setKundli().
-  async function startNewSession(kId, kundliOverride) {
-    setSessionId(null);
-    setPendingKundliId(kId || null);
-    setMessages([{ role: 'assistant', content: '...' }]);
+  function buildContext(k) {
+    if (!k) return null;
+    return {
+      full_name: k.full_name, dob: k.dob, birth_time: k.birth_time,
+      birth_place: k.birth_place, latitude: k.latitude, longitude: k.longitude,
+      analysis: k.planet_data?.analysis, factSheet: k.planet_data?.factSheet,
+      vimshottari: k.planet_data?.vimshottari?.current,
+      allMahadashas: k.planet_data?.vimshottari?.mahadashas,
+      numerology: k.planet_data?.numerology, specialist: k.planet_data?.specialist,
+      jaimini: k.planet_data?.jaimini, crossValidation: k.planet_data?.crossValidation,
+      yogas: k.planet_data?.yogas, ashtakavarga: k.planet_data?.ashtakavarga,
+      nakshatra: k.planet_data?.nakshatra, varshaphal: k.planet_data?.varshaphal,
+    };
+  }
 
-    const k = kundliOverride !== undefined ? kundliOverride : kundli;
-
-    // Fetch a personalised greeting from the API (no usage cost, local generation)
+  async function selectKundli(k) {
+    setKundli(k); setPendingKundliId(k.id);
+    setSidebarOpen(false); setSessionId(null); setLimitErr('');
+    setMessages([{ role:'assistant', content:'...' }]);
     try {
       const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          isGreeting: true,
-          messages: [{ role: 'user', content: 'hello' }],
-          kundliContext: kId && k ? {
-            full_name:      k.full_name,
-            dob:            k.dob,
-            birth_place:    k.birth_place,
-            analysis:       k.planet_data?.analysis,
-            factSheet:      k.planet_data?.factSheet,
-            vimshottari:    k.planet_data?.vimshottari?.current,
-            allMahadashas:  k.planet_data?.vimshottari?.mahadashas,
-            numerology:     k.planet_data?.numerology,
-            specialist:     k.planet_data?.specialist,
-          } : null,
-        }),
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ isGreeting:true, messages:[{ role:'user', content:'hello' }], kundliContext: buildContext(k) }),
       });
       const data = await res.json();
-      setMessages([{ role: 'assistant', content: data.content }]);
+      setMessages([{ role:'assistant', content: data.content }]);
       if (data.pendingFollowUpId) setPendingFollowUpId(data.pendingFollowUpId);
     } catch {
-      setMessages([{ role: 'assistant', content: kId
-        ? 'नमस्ते! आपकी कुंडली लोड हो गई है। कोई भी प्रश्न पूछें।'
-        : 'नमस्ते! मैं Luckfixer 2.0 हूँ। आप कोई भी प्रश्न पूछें।' }]);
+      setMessages([{ role:'assistant', content:`नमस्ते! ${k.full_name} की कुंडली लोड हो गई। कोई भी प्रश्न पूछें।` }]);
     }
+    setTimeout(() => inputRef.current?.focus(), 300);
   }
 
-  async function loadSession(sessId) {
-    setSessionId(sessId);
-    setPendingKundliId(null);
+  async function loadSession(s) {
+    setSessionId(s.id); setSidebarOpen(false);
+    const kForSession = kundlis.find(k => k.id === s.kundli_id);
+    if (kForSession && kundli?.id !== kForSession.id) { setKundli(kForSession); setPendingKundliId(kForSession.id); }
     const { data: msgs } = await supabase.from('chat_messages')
-      .select('role, content')
-      .eq('session_id', sessId)
-      .order('id', { ascending:true });
+      .select('role,content').eq('session_id', s.id).order('id', { ascending:true });
     setMessages(msgs || []);
   }
 
-  async function deleteSession(sessId) {
-    if (!confirm('इस chat को delete करें?')) return;
-    await fetch(`/api/chat/delete?sessionId=${sessId}`, { method: 'DELETE' });
-    setSessions(prev => prev.filter(s => s.id !== sessId));
-    if (sessId === sessionId) {
-      startNewSession(null);
-    }
+  async function newChat() {
+    setSessionId(null); setMessages([]); setLimitErr('');
+    if (kundli) selectKundli(kundli);
+    else setMessages([]);
   }
 
-  async function sendMessage(e, overrideText) {
-    e?.preventDefault?.();
-    const textToSend = overrideText || input;
-    if (!textToSend.trim() || loading) return;
-    setLimitErr('');
-
-    const userMsg = { role: 'user', content: textToSend };
+  async function sendMessage(e, quickPrompt) {
+    if (e) e.preventDefault();
+    const text = quickPrompt || input;
+    if (!text?.trim() || loading) return;
+    setLimitErr(''); setInput('');
+    const userMsg = { role:'user', content: text };
     setMessages(m => [...m, userMsg]);
-    setInput('');
     setLoading(true);
 
-    // Create the chat session row now, on first message — never before.
-    let activeSessionId = sessionId;
-    if (!activeSessionId) {
-      const { data: sess } = await supabase.from('chat_sessions').insert({
-        user_id:   userId,
-        kundli_id: pendingKundliId || null,
-        title:     pendingKundliId ? 'Kundli Chat' : 'New Chat',
+    let sid = sessionId;
+    if (!sid && userId) {
+      const { data: newSess } = await supabase.from('chat_sessions').insert({
+        user_id: userId, kundli_id: pendingKundliId || null, title: text.slice(0,40),
       }).select().single();
-      if (sess) {
-        activeSessionId = sess.id;
-        setSessionId(sess.id);
-        setSessions(prev => [{ id: sess.id, title: sess.title, updated_at: sess.updated_at, kundli_id: sess.kundli_id }, ...prev]);
-      }
+      if (newSess) { sid = newSess.id; setSessionId(sid); setSessions(prev => [newSess, ...prev]); }
     }
 
-    const kundliContext = kundli ? {
-      full_name:   kundli.full_name,
-      dob:         kundli.dob,
-      birth_time:  kundli.birth_time,
-      birth_place: kundli.birth_place,
-      latitude:    kundli.latitude,
-      longitude:   kundli.longitude,
-      analysis:    kundli.planet_data?.analysis,
-      factSheet:   kundli.planet_data?.factSheet,   // lagna, houses, eventScores, planets
-      vimshottari: kundli.planet_data?.vimshottari?.current,
-      allMahadashas: kundli.planet_data?.vimshottari?.mahadashas,
-      numerology:  kundli.planet_data?.numerology,
-      specialist:      kundli.planet_data?.specialist,
-      jaimini:         kundli.planet_data?.jaimini,
-      crossValidation: kundli.planet_data?.crossValidation,
-      yogas:           kundli.planet_data?.yogas,
-      ashtakavarga:    kundli.planet_data?.ashtakavarga,
-      nakshatra:       kundli.planet_data?.nakshatra,
-      varshaphal:      kundli.planet_data?.varshaphal,
-    } : null;
-
     const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method:'POST', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
         messages: [...messages, userMsg].filter(m => m.role !== 'system').slice(-10),
-        sessionId: activeSessionId,
-        kundliId: pendingKundliId || kundli?.id || null,
-        kundliContext,
-        langPref,
+        sessionId: sid, kundliId: pendingKundliId || kundli?.id || null,
+        kundliContext: buildContext(kundli), langPref,
         pendingFollowUpId: pendingFollowUpId || null,
       }),
     });
-
     const data = await res.json();
-    // Clear follow-up ID after first message — we've either recorded or skipped it
     if (pendingFollowUpId) setPendingFollowUpId(null);
-
-    if (res.status === 429) {
-      setLimitErr(data.error);
-      setMessages(m => m.slice(0,-1)); // remove unsent user msg
-      setLoading(false);
-      return;
-    }
-
-    setMessages(m => {
-      const last = m[m.length - 1];
-      const newMsg = { role:'assistant', content: data.content };
-      // Prevent duplicate if same content already shown
-      if (last?.role === 'assistant' && last?.content === data.content) return m;
-      return [...m, newMsg];
-    });
-    if (data.usage) setUsage(data.usage);
+    if (res.status === 429) { setLimitErr(data.error); setMessages(m => m.slice(0,-1)); }
+    else { setMessages(m => [...m, { role:'assistant', content: data.content }]); if (data.usage) setUsage(data.usage); }
     setLoading(false);
   }
 
-  const intensityColor = (score) => score >= 60 ? 'var(--color-text-success)' : score >= 40 ? 'var(--color-text-warning)' : 'var(--color-text-danger)';
+  async function deleteSession(sessId, e) {
+    e.stopPropagation();
+    await fetch(`/api/chat/delete?sessionId=${sessId}`, { method:'DELETE' });
+    setSessions(prev => prev.filter(s => s.id !== sessId));
+    if (sessId === sessionId) { setSessionId(null); setMessages([]); }
+  }
+
+  async function signOut() { await supabase.auth.signOut(); router.push('/login'); }
+
+  // ── SIDEBAR ────────────────────────────────────────────────
+  const sidebarStyle = {
+    width: '240px', flexShrink: 0,
+    background: 'var(--color-background-primary)',
+    borderRight: '0.5px solid var(--color-border-tertiary)',
+    display: 'flex', flexDirection: 'column', height: '100vh',
+  };
 
   return (
-    <div style={{ display:'flex', height:'100vh', overflow:'hidden', position:'relative' }}>
+    <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'var(--color-background-tertiary)' }}>
 
-      {/* Mobile overlay when sidebar open */}
-      {sidebarOpen && (
-        <div onClick={() => setSidebarOpen(false)} className="lf-sidebar-overlay" style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:20 }} />
-      )}
+      {/* Mobile overlay */}
+      {sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:20 }} />}
 
-      {/* Sidebar — session history */}
-      <div className={`lf-sidebar ${sidebarOpen ? 'lf-sidebar-open' : ''}`} style={{ width:'220px', flexShrink:0, borderRight:'0.5px solid var(--color-border-tertiary)', display:'flex', flexDirection:'column', overflow:'hidden', background:'var(--color-background-primary)' }}>
-        <div style={{ padding:'12px', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
-          <div onClick={() => router.push('/profile')} style={{ display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'10px' }}>
-            <img src={LOGO_URL} alt="Luckfixer" className="lf-logo-sm" />
-            <span style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>Luckfixer 2.0</span>
-          </div>
-          <button onClick={() => { startNewSession(null); setSidebarOpen(false); }} style={{ width:'100%', padding:'8px', fontSize:'13px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-primary)' }}>+ New Chat</button>
-        </div>
-        <div style={{ flex:1, overflowY:'auto', padding:'8px' }}>
-          {sessions.map(s => (
-            <div key={s.id} style={{ display:'flex', alignItems:'center', gap:'4px', marginBottom:'2px' }}>
-              <div onClick={() => { loadSession(s.id); setSidebarOpen(false); }} style={{ flex:1, padding:'8px 10px', borderRadius:'var(--border-radius-md)', cursor:'pointer', background: s.id === sessionId ? 'var(--color-background-secondary)' : 'transparent', fontSize:'13px', color:'var(--color-text-primary)' }}>
-                {s.title}
-                <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'2px 0 0' }}>{new Date(s.updated_at).toLocaleDateString('hi-IN')}</p>
-              </div>
-              <button onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }} aria-label="Delete chat" title="Delete" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px 6px', color:'var(--color-text-tertiary)', fontSize:'14px', flexShrink:0 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-              </button>
+      {/* ── SIDEBAR ── */}
+      <div className={`lf-sidebar ${sidebarOpen ? 'lf-sidebar-open' : ''}`} style={sidebarStyle}>
+
+        {/* Header */}
+        <div style={{ padding:'12px 12px 8px', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'9px', marginBottom:'10px' }}>
+            <img src={LOGO_URL} alt="LF" style={{ width:'32px', height:'32px', borderRadius:'18%', objectFit:'cover', flexShrink:0 }} />
+            <div>
+              <p style={{ fontSize:'13px', fontWeight:'600', color:'var(--color-text-primary)', margin:0 }}>Luckfixer 2.0</p>
+              <p style={{ fontSize:'10px', color:'var(--color-brand)', margin:0 }}>✦ Vedic AI</p>
             </div>
+          </div>
+          <button onClick={newChat} style={{ width:'100%', padding:'7px', fontSize:'13px', fontWeight:'500', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'8px', cursor:'pointer' }}>
+            + नई Chat
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display:'flex', borderBottom:'0.5px solid var(--color-border-tertiary)', flexShrink:0 }}>
+          {[['sessions','💬 Chats'],['kundlis','🪐 कुंडली']].map(([id,label]) => (
+            <button key={id} onClick={() => setPanel(id)} style={{
+              flex:1, padding:'8px 4px', fontSize:'11px', border:'none', background:'none', cursor:'pointer',
+              color: panel===id ? 'var(--color-brand)' : 'var(--color-text-tertiary)',
+              borderBottom: panel===id ? `2px solid var(--color-brand)` : '2px solid transparent',
+              fontWeight: panel===id ? '600' : '400', transition:'all 0.15s',
+            }}>{label}</button>
           ))}
         </div>
-        <div style={{ padding:'12px', borderTop:'0.5px solid var(--color-border-tertiary)', fontSize:'12px', color:'var(--color-text-tertiary)' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'4px' }}>
-            <span>Free chats</span><span style={{ color:'var(--color-text-primary)', fontWeight:'500' }}>{usage.freeChatsLeft}</span>
+
+        {/* Sessions */}
+        {panel === 'sessions' && (
+          <div style={{ flex:1, overflowY:'auto', padding:'6px' }}>
+            {sessions.length === 0
+              ? <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', padding:'12px', textAlign:'center' }}>अभी कोई chat नहीं</p>
+              : sessions.map(s => (
+                <div key={s.id} style={{ display:'flex', alignItems:'center', gap:'2px', marginBottom:'2px' }}>
+                  <div onClick={() => loadSession(s)} style={{
+                    flex:1, padding:'7px 8px', borderRadius:'7px', cursor:'pointer', fontSize:'12px',
+                    background: s.id===sessionId ? 'var(--color-background-secondary)' : 'transparent',
+                    color:'var(--color-text-primary)',
+                  }}>
+                    <p style={{ margin:'0 0 1px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'160px' }}>{s.title || 'Chat'}</p>
+                    <p style={{ margin:0, fontSize:'10px', color:'var(--color-text-tertiary)' }}>{new Date(s.updated_at).toLocaleDateString('hi-IN')}</p>
+                  </div>
+                  <button onClick={e => deleteSession(s.id,e)} style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', color:'var(--color-text-tertiary)', fontSize:'11px', opacity:0.5, flexShrink:0 }}>✕</button>
+                </div>
+              ))
+            }
           </div>
-          <div style={{ display:'flex', justifyContent:'space-between' }}>
-            <span>Free mins</span><span style={{ color:'var(--color-text-primary)', fontWeight:'500' }}>{usage.freeMinsLeft?.toFixed(1)}</span>
+        )}
+
+        {/* Kundlis */}
+        {panel === 'kundlis' && (
+          <div style={{ flex:1, overflowY:'auto', padding:'6px' }}>
+            {kundlis.length === 0 && (
+              <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', padding:'12px', textAlign:'center' }}>कोई कुंडली नहीं</p>
+            )}
+            {kundlis.map(k => (
+              <div key={k.id} onClick={() => selectKundli(k)} style={{
+                padding:'9px 10px', borderRadius:'8px', cursor:'pointer', marginBottom:'3px',
+                background: kundli?.id===k.id ? 'var(--color-background-info)' : 'transparent',
+                border: `0.5px solid ${kundli?.id===k.id ? 'var(--color-border-secondary)' : 'transparent'}`,
+                transition:'all 0.12s',
+              }}>
+                <p style={{ margin:'0 0 1px', fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.label || k.full_name}</p>
+                <p style={{ margin:0, fontSize:'10px', color:'var(--color-text-tertiary)' }}>{k.dob} · {k.birth_place?.split(',')[0]}</p>
+              </div>
+            ))}
+            <button onClick={() => router.push('/profile')} style={{ width:'100%', marginTop:'6px', padding:'7px', fontSize:'12px', background:'none', border:'1px dashed var(--color-border-tertiary)', borderRadius:'8px', cursor:'pointer', color:'var(--color-text-tertiary)' }}>
+              + नई कुंडली
+            </button>
           </div>
-          <button onClick={() => router.push('/profile')} style={{ width:'100%', marginTop:'10px', padding:'7px', fontSize:'12px', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-secondary)', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            होम / प्रोफाइल
-          </button>
-          <button onClick={() => router.push('/milan')} style={{ width:'100%', marginTop:'6px', padding:'7px', fontSize:'12px', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-secondary)', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px' }}>
-            💍 कुंडली मिलान
-          </button>
+        )}
+
+        {/* Bottom nav */}
+        <div style={{ borderTop:'0.5px solid var(--color-border-tertiary)', padding:'8px', flexShrink:0 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', fontSize:'11px', color:'var(--color-text-tertiary)', marginBottom:'8px', padding:'0 2px' }}>
+            <span>Chats: <strong style={{ color:'var(--color-text-primary)' }}>{usage.freeChatsLeft}</strong></span>
+            <span>Mins: <strong style={{ color:'var(--color-text-primary)' }}>{typeof usage.freeMinsLeft === 'number' ? usage.freeMinsLeft.toFixed(1) : usage.freeMinsLeft}</strong></span>
+          </div>
+          {[['💍 मिलान','/milan'],['👤 प्रोफाइल','/profile']].map(([label,path]) => (
+            <button key={path} onClick={() => router.push(path)} style={{ width:'100%', padding:'6px', marginBottom:'3px', fontSize:'12px', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'7px', cursor:'pointer', color:'var(--color-text-secondary)', textAlign:'left' }}>
+              {label}
+            </button>
+          ))}
+          <button onClick={signOut} style={{ width:'100%', padding:'6px', fontSize:'11px', background:'none', border:'none', cursor:'pointer', color:'var(--color-text-tertiary)' }}>Logout</button>
         </div>
       </div>
 
-      {/* Main chat area */}
+      {/* ── MAIN ── */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0 }}>
 
-        {/* Top bar — always visible, all screen sizes (sidebar may be hidden on mobile) */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px', padding:'10px 12px', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
-          <div className="lf-mobile-topbar-inner" style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-            <button onClick={() => setSidebarOpen(true)} aria-label="Menu" className="lf-mobile-only" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'none' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-            </button>
-            <img src={LOGO_URL} alt="Luckfixer" className="lf-logo-sm" />
-            <span style={{ fontSize:'14px', fontWeight:'500', color:'var(--color-text-primary)' }}>Luckfixer Chat</span>
-          </div>
-          <button onClick={() => router.push('/profile')} aria-label="Home" style={{ background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', cursor:'pointer', padding:'6px 12px', display:'flex', alignItems:'center', gap:'6px', color:'var(--color-text-primary)', borderRadius:'var(--border-radius-md)', fontSize:'13px', fontWeight:'500' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            होम
+        {/* Topbar */}
+        <div style={{ padding:'10px 14px', borderBottom:'0.5px solid var(--color-border-tertiary)', display:'flex', alignItems:'center', gap:'10px', background:'var(--color-background-primary)', minHeight:'50px', flexShrink:0 }}>
+          <button onClick={() => setSidebarOpen(s=>!s)} className="lf-mobile-only" style={{ display:'none', background:'none', border:'none', cursor:'pointer', padding:'4px', color:'var(--color-text-secondary)' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
+          {kundli ? (
+            <>
+              <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:'#4ade80', flexShrink:0 }} />
+              <div style={{ flex:1, minWidth:0 }}>
+                <p style={{ margin:0, fontSize:'14px', fontWeight:'500', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{kundli.label || kundli.full_name}</p>
+                <p style={{ margin:0, fontSize:'11px', color:'var(--color-text-tertiary)' }}>{kundli.dob} · {kundli.birth_place?.split(',')[0]}</p>
+              </div>
+              <button onClick={() => { setPanel('kundlis'); setSidebarOpen(true); }} style={{ flexShrink:0, padding:'4px 10px', fontSize:'11px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'20px', cursor:'pointer', color:'var(--color-text-secondary)' }}>बदलें</button>
+            </>
+          ) : (
+            <p style={{ flex:1, fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>← बाईं तरफ से कुंडली चुनें</p>
+          )}
+          <select value={langPref} onChange={e => setLangPref(e.target.value)} style={{ fontSize:'11px', padding:'4px 6px', borderRadius:'6px', border:'0.5px solid var(--color-border-tertiary)', background:'var(--color-background-secondary)', color:'var(--color-text-secondary)', cursor:'pointer', flexShrink:0 }}>
+            <option value="auto">Auto</option>
+            <option value="hi">हिंदी</option>
+            <option value="en">English</option>
+          </select>
         </div>
 
-        {/* Kundli context bar */}
-        {kundli && (
-          <div style={{ padding:'10px 16px', borderBottom:'0.5px solid var(--color-border-tertiary)', display:'flex', alignItems:'center', gap:'10px', background:'var(--color-background-secondary)', fontSize:'13px', flexWrap:'wrap' }}>
-            <span style={{ color:'var(--color-text-secondary)' }}>कुंडली:</span>
-            <span style={{ fontWeight:'500', color:'var(--color-text-primary)' }}>{kundli.full_name}</span>
-            <span style={{ color:'var(--color-text-tertiary)' }}>{kundli.dob} · {kundli.birth_time} · {kundli.birth_place}</span>
+        {/* Welcome state */}
+        {messages.length === 0 && (
+          <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'2rem', textAlign:'center' }}>
+            <img src={LOGO_URL} alt="LF" style={{ width:'64px', height:'64px', borderRadius:'20%', objectFit:'cover', marginBottom:'16px', opacity:0.8 }} />
+            <h2 style={{ fontSize:'18px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 8px' }}>
+              {kundlis.length === 0 ? 'पहले कुंडली जोड़ें' : 'कुंडली चुनें और शुरू करें'}
+            </h2>
+            <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)', margin:'0 0 20px', maxWidth:'260px', lineHeight:'1.6' }}>
+              {kundlis.length === 0 ? 'प्रोफाइल में जाकर अपनी जन्म कुंडली जोड़ें।' : 'बाईं तरफ से कुंडली select करें या नीचे click करें।'}
+            </p>
+            {kundlis.length === 0 ? (
+              <button onClick={() => router.push('/profile')} style={{ padding:'10px 20px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>कुंडली जोड़ें →</button>
+            ) : (
+              <div style={{ display:'flex', flexWrap:'wrap', gap:'8px', justifyContent:'center', maxWidth:'340px' }}>
+                {kundlis.map(k => (
+                  <button key={k.id} onClick={() => selectKundli(k)} style={{ padding:'8px 16px', fontSize:'13px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'20px', cursor:'pointer', color:'var(--color-text-primary)', transition:'all 0.15s' }}>
+                    {k.label || k.full_name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {/* Messages */}
-        <div className="lf-watermark" style={{ flex:1, overflowY:'auto', padding:'1rem', position:'relative' }}>
-          {messages.map((m, i) => (
-            <div key={i} style={{ display:'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom:'12px' }}>
-              <div className="lf-msg-bubble" style={{
-                maxWidth:'75%', padding:'10px 14px', borderRadius:'var(--border-radius-lg)',
-                background: m.role === 'user' ? 'var(--color-text-primary)' : 'var(--color-background-secondary)',
-                color: m.role === 'user' ? 'var(--color-background-primary)' : 'var(--color-text-primary)',
-                fontSize:'14px', lineHeight:'1.6',
-                borderBottomRightRadius: m.role === 'user' ? '4px' : 'var(--border-radius-lg)',
-                borderBottomLeftRadius:  m.role === 'assistant' ? '4px' : 'var(--border-radius-lg)',
-              }}>
-                {m.content}
+        {messages.length > 0 && (
+          <div style={{ flex:1, overflowY:'auto', padding:'16px 16px 8px' }}>
+            {messages.map((m,i) => (
+              <div key={i} style={{ display:'flex', justifyContent: m.role==='user' ? 'flex-end' : 'flex-start', marginBottom:'14px', alignItems:'flex-end', gap:'8px' }}>
+                {m.role==='assistant' && <img src={LOGO_URL} alt="" style={{ width:'26px', height:'26px', borderRadius:'7px', objectFit:'cover', flexShrink:0 }} />}
+                <div style={{
+                  maxWidth:'72%', padding:'10px 14px', fontSize:'14px', lineHeight:'1.65',
+                  borderRadius: m.role==='user' ? '18px 18px 4px 18px' : '4px 18px 18px 18px',
+                  background: m.role==='user' ? 'var(--color-text-primary)' : 'var(--color-background-primary)',
+                  color: m.role==='user' ? 'var(--color-background-primary)' : 'var(--color-text-primary)',
+                  border: m.role==='assistant' ? '0.5px solid var(--color-border-tertiary)' : 'none',
+                  boxShadow: m.role==='assistant' ? '0 1px 4px rgba(0,0,0,0.05)' : 'none',
+                  animation: 'lf-slideUp 0.2s ease both',
+                }}>
+                  {m.content === '...'
+                    ? <div className="lf-thinking"><div className="lf-thinking-dot"/><div className="lf-thinking-dot"/><div className="lf-thinking-dot"/></div>
+                    : m.content}
+                </div>
               </div>
-            </div>
-          ))}
-          {loading && (
-            <div style={{ display:'flex', marginBottom:'12px' }}>
-              <div className="lf-thinking">
-                <div className="lf-thinking-dot" />
-                <div className="lf-thinking-dot" />
-                <div className="lf-thinking-dot" />
+            ))}
+            {loading && (
+              <div style={{ display:'flex', marginBottom:'14px', alignItems:'flex-end', gap:'8px' }}>
+                <img src={LOGO_URL} alt="" style={{ width:'26px', height:'26px', borderRadius:'7px', objectFit:'cover', flexShrink:0 }} />
+                <div className="lf-thinking"><div className="lf-thinking-dot"/><div className="lf-thinking-dot"/><div className="lf-thinking-dot"/></div>
               </div>
-            </div>
-          )}
-          {limitErr && (
-            <div style={{ padding:'12px 14px', borderRadius:'var(--border-radius-md)', background:'var(--color-background-warning)', color:'var(--color-text-warning)', fontSize:'13px', marginBottom:'12px' }}>
-              {limitErr}
-            </div>
-          )}
-          <div ref={messagesEnd}/>
-        </div>
+            )}
+            {limitErr && <div style={{ padding:'10px 14px', borderRadius:'8px', background:'var(--color-background-warning)', color:'var(--color-text-warning)', fontSize:'13px', marginBottom:'12px' }}>{limitErr}</div>}
+            <div ref={messagesEnd}/>
+          </div>
+        )}
 
         {/* Quick actions */}
-        {kundli && (
-          <div style={{ padding:'10px 12px 0', display:'flex', gap:'8px', flexWrap:'wrap', borderTop:'0.5px solid var(--color-border-tertiary)' }}>
-            {[
-              ['🪔 उपाय बताएं',  'मुझे मेरी कुंडली के अनुसार विस्तृत उपाय बताइए — मंत्र, रत्न, दान सब कुछ'],
-              ['💼 करियर',       'मेरे करियर के बारे में बताइए'],
-              ['💍 विवाह',       'विवाह को लेकर मेरी कुंडली क्या कहती है'],
-              ['📅 वर्तमान दशा', 'मेरी वर्तमान दशा का प्रभाव क्या है'],
-              ['🔭 आज का गोचर', 'अभी कौन से ग्रह गोचर कर रहे हैं और इसका मुझ पर क्या असर है? साढ़े साती की स्थिति भी बताइए'],
-            ].map(([label, prompt]) => (
-              <button key={label} type="button" disabled={loading}
-                className="lf-quick-btn"
-                onClick={() => sendMessage(null, prompt)}>
-                {label}
-              </button>
+        {kundli && messages.length > 0 && (
+          <div style={{ padding:'8px 12px 0', display:'flex', gap:'6px', flexWrap:'wrap', borderTop:'0.5px solid var(--color-border-tertiary)', flexShrink:0 }}>
+            {[['🪔 उपाय','मुझे मेरी कुंडली के अनुसार विस्तृत उपाय बताइए'],['💼 करियर','मेरे करियर के बारे में बताइए'],['💍 विवाह','विवाह को लेकर मेरी कुंडली क्या कहती है'],['📅 दशा','मेरी वर्तमान दशा का प्रभाव क्या है'],['🔭 गोचर','साढ़े साती की स्थिति और आज का गोचर बताइए'],['📆 इस साल','इस साल मेरे लिए वार्षिक फल क्या है']].map(([label,prompt]) => (
+              <button key={label} disabled={loading} onClick={() => sendMessage(null,prompt)} className="lf-quick-btn" style={{ fontSize:'11px', padding:'5px 10px' }}>{label}</button>
             ))}
           </div>
         )}
 
-        {/* Language selector */}
-        <div style={{ padding:'6px 12px', borderTop:'0.5px solid var(--color-border-tertiary)', display:'flex', alignItems:'center', gap:'12px', background:'var(--color-background-secondary)' }}>
-          <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)', flexShrink:0 }}>भाषा:</span>
-          {[['auto','Auto'], ['hi','हिंदी'], ['en','English']].map(([val, label]) => (
-            <label key={val} style={{ display:'flex', alignItems:'center', gap:'4px', cursor:'pointer', fontSize:'12px', color: langPref === val ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}>
-              <input type="radio" name="lang" value={val} checked={langPref === val} onChange={() => setLangPref(val)} style={{ width:'12px', height:'12px', border:'none', padding:0, cursor:'pointer', accentColor:'var(--color-text-primary)' }}/>
-              {label}
-            </label>
-          ))}
-        </div>
-
         {/* Input */}
-        <form onSubmit={sendMessage} style={{ padding:'12px', borderTop:'0.5px solid var(--color-border-tertiary)', display:'flex', gap:'8px' }}>
-          <input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder="अपना प्रश्न पूछें..."
-            disabled={loading}
-            style={{ flex:1, fontSize:'14px' }}
-          />
-          <button type="submit" disabled={loading || !input.trim()} style={{ padding:'8px 16px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>
-            भेजें
-          </button>
-        </form>
+        <div style={{ padding:'10px 12px 12px', background:'var(--color-background-primary)', borderTop: messages.length>0 ? '0.5px solid var(--color-border-tertiary)' : 'none', flexShrink:0 }}>
+          {!kundli ? (
+            <div style={{ display:'flex', gap:'8px' }}>
+              <input disabled placeholder="पहले बाईं तरफ से कुंडली चुनें..." style={{ flex:1, fontSize:'14px', opacity:0.45, cursor:'not-allowed', borderRadius:'10px' }}/>
+              <button disabled style={{ padding:'10px 16px', background:'var(--color-border-tertiary)', color:'var(--color-text-tertiary)', border:'none', borderRadius:'10px', fontSize:'14px' }}>भेजें</button>
+            </div>
+          ) : (
+            <form onSubmit={sendMessage} style={{ display:'flex', gap:'8px' }}>
+              <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} placeholder="अपना प्रश्न पूछें..." disabled={loading} style={{ flex:1, fontSize:'14px', borderRadius:'10px' }} onKeyDown={e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage(e);}}}/>
+              <button type="submit" disabled={loading||!input.trim()} style={{ padding:'10px 16px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'10px', cursor:'pointer', fontSize:'14px', fontWeight:'500', flexShrink:0, opacity: loading||!input.trim()?0.5:1 }}>भेजें</button>
+            </form>
+          )}
+        </div>
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .lf-mobile-only { display: flex !important; }
+          .lf-sidebar { position:fixed; top:0; left:0; z-index:30; transform:translateX(-100%); transition:transform 0.22s cubic-bezier(0.4,0,0.2,1); box-shadow:2px 0 20px rgba(0,0,0,0.15); }
+          .lf-sidebar-open { transform:translateX(0) !important; }
+        }
+        @keyframes lf-slideUp { from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);} }
+      `}</style>
     </div>
   );
 }
