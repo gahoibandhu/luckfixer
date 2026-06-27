@@ -237,7 +237,7 @@ export default function ProfilePage() {
                 <label className="lf-label">जन्म समय *</label>
                 <input type="time" value={newK.birth_time} onChange={e => setNewK(k => ({...k, birth_time:e.target.value}))} required/>
               </div>
-              <div style={{ gridColumn:'1 / -1' }}>
+              <div style={{ gridColumn:'span 2' }}>
                 <label className="lf-label">जन्म स्थान *</label>
                 <div style={{ display:'flex', gap:'8px' }}>
                   <input value={newK.birth_place} onChange={e => { setNewK(k => ({...k, birth_place:e.target.value, latitude:'', longitude:''})); setGeoResults([]); }} required placeholder="जैसे: Delhi, India" style={{ flex:1 }}/>
@@ -550,7 +550,6 @@ export default function ProfilePage() {
       <button onClick={signOut} style={{ width:'100%', marginTop:'8px', padding:'10px', fontSize:'14px', color:'var(--color-text-secondary)', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer' }}>
         Logout
       </button>
-    </div>
     </div>
   );
 }
