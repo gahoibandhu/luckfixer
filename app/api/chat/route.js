@@ -121,17 +121,28 @@ function cleanupAiResponse(text) {
   if (!text || typeof text !== 'string') return text;
 
   let cleaned = text;
-  cleaned = cleaned.replace(/\*\*(.+?)\*\*/g, '$1');   // strip bold markers
-  cleaned = cleaned.replace(/(?:^|\n)\s*[\*\-•]\s+/g, '\n'); // leading bullet markers only (line-start)
-  cleaned = cleaned.replace(/\n{2,}/g, '\n').trim();
 
+  // 1. Strip markdown bold/italic
+  cleaned = cleaned.replace(/\*\*(.+?)\*\*/g, '$1');
+  cleaned = cleaned.replace(/\*(.+?)\*/g, '$1');
+
+  // 2. Strip numbered lists "1. ", "2. " etc — convert to flowing prose
+  // Replace "1. text\n2. text" pattern with sentences joined by space
+  cleaned = cleaned.replace(/^\s*\d+\.\s+/gm, '');
+
+  // 3. Strip bullet markers anywhere (line-start or after newline)
+  cleaned = cleaned.replace(/^\s*[\*\-•]\s+/gm, '');
+
+  // 4. Collapse excessive newlines
+  cleaned = cleaned.replace(/\n{2,}/g, ' ').replace(/\n/g, ' ').trim();
+
+  // 5. Fix spacing issues from collapsed lists
+  cleaned = cleaned.replace(/\s{2,}/g, ' ');
+
+  // 6. Hard truncation at sentence boundary
   const words = cleaned.split(/\s+/);
-  if (words.length <= HARD_WORD_LIMIT) {
-    return cleaned.trim();
-  }
+  if (words.length <= HARD_WORD_LIMIT) return cleaned.trim();
 
-  // Only truncate if genuinely excessive — cut at the nearest sentence
-  // boundary at or after the limit, never mid-sentence, never reordered.
   const sentences = cleaned.split(/(?<=[।.!?])\s+/).map(s => s.trim()).filter(Boolean);
   let acc = [], count = 0;
   for (const s of sentences) {
@@ -142,7 +153,107 @@ function cleanupAiResponse(text) {
   return acc.join(' ').trim();
 }
 
-// ── Birth time confidence tracking ───────────────────────────────
+// ── Smart context injector ────────────────────────────────────────
+// Detects what life area the user is asking about and pre-builds
+// a focused context block so ANY AI model (even weak fallbacks) gets
+// the right data in a digestible format. This prevents generic responses
+// regardless of which provider handles the request.
+function detectLifeArea(lastUserMessage) {
+  const m = lastUserMessage?.toLowerCase() || '';
+  if (/career|job|naukri|kaam|vyavsay|business|promotion|interview|company|office|salary|income|\bkarir\b/.test(m)) return 'career';
+  if (/vivah|shaadi|marriage|partner|life.?partner|spouse|rishta|pyaar|love|relationship|boyfriend|girlfriend/.test(m)) return 'marriage';
+  if (/health|swasthya|bimari|rog|hospital|doctor|ilaj|sehat/.test(m)) return 'health';
+  if (/aaj|kal|today|tomorrow|din|day|2 month|mahine|week|hafte|kaisa rahega/.test(m)) return 'daily';
+  if (/saal|year|annual|varsh|2026|2027|2028/.test(m)) return 'annual';
+  if (/upay|remedy|solution|mantra|daan|puja|totka/.test(m)) return 'remedy';
+  if (/gold|sona|share|stock|property|invest|paisa|paise/.test(m)) return 'investment';
+  return 'general';
+}
+
+function buildFocusedContext(area, kundliContext) {
+  if (!kundliContext) return '';
+  const firstName = kundliContext.full_name?.split(' ')[0] || 'user';
+  const es = kundliContext.factSheet?.eventScores;
+  const vim = kundliContext.vimshottari;
+  const yogas = kundliContext.yogas || [];
+  const varsh = kundliContext.varshaphal;
+  const jaimini = kundliContext.jaimini;
+  const nak = kundliContext.nakshatra;
+
+  const PLANETS_HI = { Sun:'सूर्य', Moon:'चंद्र', Mars:'मंगल', Mercury:'बुध', Jupiter:'बृहस्पति', Venus:'शुक्र', Saturn:'शनि', Rahu:'राहु', Ketu:'केतु' };
+  const toPlanetHi = p => PLANETS_HI[p] || p;
+
+  // Next notable sub-period from allPratyantar
+  const allP = kundliContext.allMahadashas
+    ? kundliContext.vimshottari?.allPratyantar
+    : null;
+
+  let block = '';
+
+  if (area === 'career') {
+    const c = es?.career;
+    const amk = jaimini?.amatyakaraka;
+    const careerYogas = yogas.filter(y => ['rajyoga','panch_mahapurusha'].includes(y.category));
+    const d10 = kundliContext.factSheet?.d10Chart;
+    block = `\n[CAREER CONTEXT for ${firstName} — use ALL of this, address them by name]:
+Career Score: ${c?.score || 'N/A'}/100 (Confidence: ${c?.confidence || 'N/A'}%)
+Supporting factors: ${c?.supporting?.join(', ') || 'none listed'}
+Opposing factors: ${c?.opposing?.join(', ') || 'none listed'}
+Amatyakaraka (Jaimini career planet): ${amk ? amk.nameHi + ' in ' + amk.sign : 'N/A'}
+Career-related Yogas: ${careerYogas.length > 0 ? careerYogas.map(y => y.name + ' (' + y.lifeArea + ')').join('; ') : 'none detected'}
+Current dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD (${vim?.antarDasha?.daysLeft} days left, ends ${vim?.antarDasha?.end})
+Varshaphal career: ${varsh?.areas?.find(a => a.area.includes('करियर'))?.note || 'not available'}
+D10 (career chart): ${d10 ? JSON.stringify(d10).slice(0,200) : 'not available'}
+INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Give ONE specific date window when career will peak. Connect career score to exact planets. If user asked about a specific company/job, say whether current dasha+transit supports it.`;
+  }
+
+  else if (area === 'marriage') {
+    const mar = es?.marriage;
+    const marYogas = yogas.filter(y => ['dhana'].includes(y.category));
+    const planets = kundliContext.factSheet?.planets || [];
+    const lord7 = kundliContext.factSheet?.houseLords?.[7] || kundliContext.factSheet?.houseLords?.['7'];
+    const venus = planets.find(p => p.name === 'Venus');
+    const jupiter = planets.find(p => p.name === 'Jupiter');
+    const d9 = kundliContext.factSheet?.d9Chart;
+    block = `\n[MARRIAGE/RELATIONSHIP CONTEXT for ${firstName} — use ALL of this]:
+Marriage Score: ${mar?.score || 'N/A'}/100 (Confidence: ${mar?.confidence || 'N/A'}%)
+Supporting: ${mar?.supporting?.join(', ') || 'none'}
+Opposing: ${mar?.opposing?.join(', ') || 'none'}
+7th lord: ${lord7 ? toPlanetHi(lord7) : 'check houseLords'}
+Venus position: ${venus ? venus.signHi + ' (' + venus.house + 'th house, ' + venus.dignity + ')' : 'N/A'}
+Jupiter position: ${jupiter ? jupiter.signHi + ' (' + jupiter.house + 'th house)' : 'N/A'}
+D9 (Navamsa) Venus: ${d9?.Venus || 'N/A'}
+Marriage yogas: ${marYogas.length > 0 ? marYogas.map(y => y.name).join('; ') : 'none specific'}
+Dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD
+Varshaphal relationships: ${varsh?.areas?.find(a => a.area.includes('संबंध'))?.note || 'N/A'}
+INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Be specific about WHETHER and WHEN vivah looks likely. Give exact year/window, not vague phrases. Connect to their specific 7th lord and Venus position.`;
+  }
+
+  else if (area === 'daily') {
+    const transit = kundliContext.factSheet?.transitSnapshot;
+    block = `\n[DAILY/SHORT-TERM CONTEXT for ${firstName}]:
+Sade Sati: ${transit?.sadeSati?.active ? 'ACTIVE - ' + transit.sadeSati.phase : transit?.sadeSati?.isDhaiyya ? 'Dhaiyya active' : 'Not active'}
+Transit headline: ${transit?.headline || 'not available'}
+Current dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD
+Varshaphal ${varsh?.varshYear}: ${varsh?.verdict || 'N/A'}
+INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". For today, use day lord and hora timing from the date block above. For 2 months, use allPratyantar next sub-period change. NO bullet points — one flowing paragraph about their next 60 days.`;
+  }
+
+  else if (area === 'annual') {
+    block = `\n[ANNUAL CONTEXT for ${firstName} — Varshaphal is primary tool here]:
+Year: ${varsh?.varshYear}-${varsh?.varshEndYear}
+Verdict: ${varsh?.verdict}
+Muntha: ${varsh?.muntha?.signHi} (${varsh?.muntha?.house}th house) — ${varsh?.muntha?.house && [1,4,7,10].includes(varsh.muntha.house) ? 'Kendra — very impactful year' : [6,8,12].includes(varsh?.muntha?.house) ? 'Dusthana — challenging year' : 'moderate year'}
+Varshesh: ${varsh?.varshesh?.planetHi}
+Area breakdown: ${varsh?.areas?.map(a => a.area.split(' (')[0] + ':' + a.strength).join(' | ')}
+Dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD (${vim?.antarDasha?.daysLeft} days left)
+INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Lead with Varshaphal verdict, explain Muntha house significance, give best and worst specific months of the year. No bullet points.`;
+  }
+
+  return block;
+}
+
+
 // Deterministic (not AI-judged) yes/no/unsure detection on the user's
 // reply, used ONLY when the previous assistant turn contained a past
 // validation question (greeting). We never silently shift the chart —
@@ -386,7 +497,16 @@ export async function POST(req) {
 
     let systemPrompt = LUCKFIXER_SYSTEM_PROMPT + dateBlock;
     if (kundliContext) {
-      systemPrompt += `\n\nUSER'S KUNDLI CONTEXT:\n${JSON.stringify(kundliContext, null, 2)}`;
+      // ── CRITICAL: Inject user identity FIRST so AI never gives anonymous responses ──
+      const firstName = kundliContext.full_name?.split(' ')[0] || 'bhai';
+      const vim = kundliContext.vimshottari;
+      systemPrompt += `\n\n[USER IDENTITY — use this name in EVERY response, no exceptions]
+Naam: ${kundliContext.full_name || 'user'} (first name: ${firstName} — address them as "${firstName} bhai" or "${firstName}" naturally)
+DOB: ${kundliContext.dob}, Time: ${kundliContext.birth_time}, Place: ${kundliContext.birth_place}
+Current Dasha: ${vim?.mahaDasha?.lordHi || '—'} Mahadasha → ${vim?.antarDasha?.lordHi || '—'} Antardasha (${vim?.antarDasha?.daysLeft || '—'} days remaining, ends ${vim?.antarDasha?.end || '—'})
+RULE: Har response mein kam se kam ek baar "${firstName}" ka naam aana chahiye. "Aapki kundli mein..." mat likho — seedha "${firstName} bhai, tera/aapka..." se shuru karo.`;
+
+      systemPrompt += `\n\nUSER'S FULL KUNDLI DATA:\n${JSON.stringify(kundliContext, null, 2)}`;
       // Inject specialist patterns if available
       if (kundliContext.specialist?.matchedYogas?.length > 0) {
         systemPrompt += `\n\nCLASSICAL YOGA PATTERNS DETECTED:\n${kundliContext.specialist.matchedYogas.map(y => '• ' + y).join('\n')}`;
@@ -458,6 +578,18 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
     // Birth time soft-warning — only fires once per kundli, conservative
     if (birthTimeSignal?.shouldWarn) {
       systemPrompt += `\n\n[BIRTH TIME NOTICE: The user has denied multiple chart-derived past events, suggesting their recorded birth time may be inaccurate (even a 10-15 minute error can shift the lagna and affect predictions). After answering their current question, gently add ONE sentence suggesting they double check their exact birth time (hospital record/birth certificate) for more accurate results. Be warm, not alarming — frame it as "for even better accuracy" not as "something is wrong".]`;
+    }
+
+    // ── Smart life-area context injection ────────────────────────
+    // Detects what the user is really asking about and pre-formats
+    // the exact relevant data so even weak fallback models answer correctly.
+    if (kundliContext) {
+      const lastMsg = messages[messages.length - 1]?.content || '';
+      const lifeArea = detectLifeArea(lastMsg);
+      const focusedCtx = buildFocusedContext(lifeArea, kundliContext);
+      if (focusedCtx) {
+        systemPrompt += focusedCtx;
+      }
     }
 
     // ── Call AI (graceful fallback — never throws) ───────────

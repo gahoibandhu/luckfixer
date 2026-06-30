@@ -341,9 +341,23 @@ export default function ChatPage() {
         {/* Quick actions */}
         {kundli && messages.length > 0 && (
           <div style={{ padding:'8px 12px 0', display:'flex', gap:'6px', flexWrap:'wrap', borderTop:'0.5px solid var(--color-border-tertiary)', flexShrink:0 }}>
-            {[['🪔 उपाय','मुझे मेरी कुंडली के अनुसार विस्तृत उपाय बताइए'],['💼 करियर','मेरे करियर के बारे में बताइए'],['💍 विवाह','विवाह को लेकर मेरी कुंडली क्या कहती है'],['📅 दशा','मेरी वर्तमान दशा का प्रभाव क्या है'],['🔭 गोचर','साढ़े साती की स्थिति और आज का गोचर बताइए'],['📆 इस साल','इस साल मेरे लिए वार्षिक फल क्या है']].map(([label,prompt]) => (
-              <button key={label} disabled={loading} onClick={() => sendMessage(null,prompt)} className="lf-quick-btn" style={{ fontSize:'11px', padding:'5px 10px' }}>{label}</button>
-            ))}
+            {(() => {
+              const name = kundli?.full_name?.split(' ')[0] || '';
+              const dob = kundli?.dob || '';
+              const vim = kundli?.planet_data?.vimshottari?.current;
+              const dashaInfo = vim ? `(${vim.mahaDasha?.lordHi} MD, ${vim.antarDasha?.lordHi} AD)` : '';
+              const quickActions = [
+                ['🪔 उपाय', `${name} ki kundli mein sabse zaroori upay kya hain abhi? ${dashaInfo} dasha ke hisaab se specific mantra, daan, ya disha batao.`],
+                ['💼 करियर', `${name} ke career ke baare mein batao — ${dob} janam, abhi ${dashaInfo} chal raha hai. Career score, supporting/opposing factors, aur agle 6 mahine ka specific window batao.`],
+                ['💍 विवाह', `${name} ki kundli mein vivah/relationship ka status kya hai? 7th lord, D9 chart, Venus position, aur sabse strong vivah timing window batao. ${dashaInfo}`],
+                ['📅 दशा', `${name} ki abhi ${dashaInfo} chal rahi hai — iska career, relationships aur health par kya exact prabhav hai? Agle antardasha change kab hoga aur kya laayega?`],
+                ['🔭 गोचर', `${name} ke liye abhi kaun se planets transit kar rahe hain? Sade Sati active hai ya nahi, aur ashtakavarga bindus ke hisaab se kaunsa transit strongest impact de raha hai?`],
+                ['📆 इस साल', `${name} ke liye ${new Date().getFullYear()} ka varshaphal kya hai? Muntha kahan hai, varshesh kaun hai, aur career/vivah/health mein kya expect karein?`],
+              ];
+              return quickActions.map(([label, prompt]) => (
+                <button key={label} disabled={loading} onClick={() => sendMessage(null, prompt)} className="lf-quick-btn" style={{ fontSize:'11px', padding:'5px 10px' }}>{label}</button>
+              ));
+            })()}
           </div>
         )}
 
