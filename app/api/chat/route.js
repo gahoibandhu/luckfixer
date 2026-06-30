@@ -215,6 +215,19 @@ INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Give ONE specif
     const venus = planets.find(p => p.name === 'Venus');
     const jupiter = planets.find(p => p.name === 'Jupiter');
     const d9 = kundliContext.factSheet?.d9Chart;
+
+    // Calculate age for age-aware prediction (avoid blindly predicting
+    // future marriage for someone whose prime marriage-age window has
+    // already passed — instead, surface what window WAS strong)
+    let ageNote = '';
+    if (kundliContext.dob) {
+      const birth = new Date(kundliContext.dob);
+      const ageNow = Math.floor((Date.now() - birth.getTime()) / (365.25*24*60*60*1000));
+      if (ageNow >= 30) {
+        ageNote = `\nAGE AWARENESS: User is currently ${ageNow} years old. Don't just predict a vague future window — check if a strong marriage yog already existed in the PAST (commonly age 24-30, or whenever Venus/Jupiter dasha or transit was active) and mention that window explicitly using their dasha history. If they are already married, focus on relationship quality instead of "will marriage happen". If genuinely still unmarried at this age, be honest about why (which planet/yoga caused delay) and give a realistic near-term window rather than an arbitrarily optimistic one.`;
+      }
+    }
+
     block = `\n[MARRIAGE/RELATIONSHIP CONTEXT for ${firstName} — use ALL of this]:
 Marriage Score: ${mar?.score || 'N/A'}/100 (Confidence: ${mar?.confidence || 'N/A'}%)
 Supporting: ${mar?.supporting?.join(', ') || 'none'}
@@ -225,8 +238,8 @@ Jupiter position: ${jupiter ? jupiter.signHi + ' (' + jupiter.house + 'th house)
 D9 (Navamsa) Venus: ${d9?.Venus || 'N/A'}
 Marriage yogas: ${marYogas.length > 0 ? marYogas.map(y => y.name).join('; ') : 'none specific'}
 Dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD
-Varshaphal relationships: ${varsh?.areas?.find(a => a.area.includes('संबंध'))?.note || 'N/A'}
-INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Be specific about WHETHER and WHEN vivah looks likely. Give exact year/window, not vague phrases. Connect to their specific 7th lord and Venus position.`;
+Varshaphal relationships: ${varsh?.areas?.find(a => a.area.includes('संबंध'))?.note || 'N/A'}${ageNote}
+INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Be specific about WHETHER and WHEN vivah looks/looked likely — past or future as relevant to their age. Give exact year/window, not vague phrases. Connect to their specific 7th lord and Venus position.`;
   }
 
   else if (area === 'daily') {

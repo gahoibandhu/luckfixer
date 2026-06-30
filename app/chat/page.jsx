@@ -10,6 +10,90 @@ export const dynamic = 'force-dynamic';
 
 const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
 
+// ── Quick action configs ──────────────────────────────────────
+// Each action either asks 1-2 clarifying questions first (so the AI
+// gets a precise, specific question instead of a vague one — this
+// saves tokens on follow-up clarification and gives sharper predictions)
+// or fires immediately if no clarification is needed (e.g. "आज का गोचर").
+function dashaInfoOf(k) {
+  const vim = k?.planet_data?.vimshottari?.current;
+  return vim ? `(${vim.mahaDasha?.lordHi} MD, ${vim.antarDasha?.lordHi} AD)` : '';
+}
+function nameOf(k) { return k?.full_name?.split(' ')[0] || ''; }
+function ageOf(dob) {
+  if (!dob) return null;
+  const birth = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
+const QUICK_ACTION_CONFIG = {
+  career: {
+    label: '💼 करियर',
+    questions: [
+      { key:'detail', label:'अपनी situation बताएं (job/business/company/koi specific sawal)', type:'text', placeholder:'जैसे: IT job dhund raha hoon, ya Oriana Power mein interview hai, ya business shuru karna hai...' },
+    ],
+    buildPrompt: (k, ans) => {
+      const name = nameOf(k), dasha = dashaInfoOf(k);
+      const detail = ans.detail?.trim() ? ans.detail.trim() : 'general career outlook';
+      return `${name} ka career ke baare mein sawal hai: "${detail}". Janam ${k?.dob}, abhi ${dasha} chal raha hai. Career score, supporting/opposing factors, relevant yoga, aur agle 6 mahine ka specific date window batao jab career sabse active rahega. Unke exact sawal ka direct jawab do.`;
+    },
+  },
+  marriage: {
+    label: '💍 विवाह',
+    questions: [
+      { key:'detail', label:'अपना सवाल बताएं (status/specific concern)', type:'text', placeholder:'जैसे: shaadi kab hogi, ya abhi tak kyun nahi hui, ya rishta sahi hai kya...' },
+    ],
+    buildPrompt: (k, ans) => {
+      const name = nameOf(k), dasha = dashaInfoOf(k);
+      const detail = ans.detail?.trim() ? ans.detail.trim() : 'vivah/relationship ka status';
+      const age = ageOf(k?.dob);
+      const ageNote = age && age >= 30
+        ? ` IMPORTANT: ${name} ki age abhi ${age} saal hai. Agar already vivah ho chuka ho ya past mein strong yog the (jaise 27-32 ke beech), woh window bhi mention karo taaki prediction sirf future ke liye na ho — past ko bhi acknowledge karo jisse trust bane. Agar abhi tak nahi hua, toh honestly bolo ki kya delay hai aur aage ka realistic window kya hai.`
+        : '';
+      return `${name} ka vivah/relationship sawal: "${detail}".${ageNote} 7th lord, D9 chart, Venus position, marriage yoga, aur sabse strong vivah timing window batao (past aur future dono, jo bhi relevant ho). ${dasha} chal raha hai — isse connect karo. Unke exact sawal ka direct jawab do.`;
+    },
+  },
+  remedy: {
+    label: '🪔 उपाय',
+    questions: [
+      { key:'detail', label:'किस क्षेत्र के लिए उपाय चाहिए?', type:'text', placeholder:'जैसे: career ke liye, health ke liye, ya sirf general upay...' },
+    ],
+    buildPrompt: (k, ans) => {
+      const name = nameOf(k), dasha = dashaInfoOf(k);
+      const area = ans.detail?.trim() ? ans.detail.trim() : 'general life improvement';
+      return `${name} ki kundli mein "${area}" ke liye sabse zaroori upay kya hai abhi? ${dasha} dasha ke hisaab se ek focused, specific upay batao — exact mantra/daan/din/sankhya ke saath. Generic upay mat do, unke weakest planet ke specific basis pe do.`;
+    },
+  },
+  dasha: {
+    label: '📅 दशा',
+    questions: [],
+    buildPrompt: (k) => {
+      const name = nameOf(k), dasha = dashaInfoOf(k);
+      return `${name} ki abhi ${dasha} chal rahi hai — iska career, relationships aur health par kya exact prabhav hai? Agla antardasha change kab hoga aur kya naya laayega?`;
+    },
+  },
+  transit: {
+    label: '🔭 गोचर',
+    questions: [],
+    buildPrompt: (k) => {
+      const name = nameOf(k);
+      return `${name} ke liye abhi kaun se planets transit kar rahe hain? Sade Sati active hai ya nahi, aur ashtakavarga bindus ke hisaab se kaunsa transit strongest impact de raha hai?`;
+    },
+  },
+  annual: {
+    label: '📆 इस साल',
+    questions: [],
+    buildPrompt: (k) => {
+      const name = nameOf(k);
+      return `${name} ke liye ${new Date().getFullYear()} ka varshaphal kya hai? Muntha kahan hai, varshesh kaun hai, aur career/vivah/health mein kya expect karein?`;
+    },
+  },
+};
+
 export default function ChatPage() {
   const supabase    = createClient();
   const router      = useRouter();
@@ -31,6 +115,8 @@ export default function ChatPage() {
   const [langPref,         setLangPref]         = useState('auto');
   const [sidebarOpen,      setSidebarOpen]      = useState(false);
   const [panel,            setPanel]            = useState('sessions'); // 'sessions'|'kundlis'
+  const [activeQuickForm,  setActiveQuickForm]  = useState(null); // which quick-action form is open
+  const [quickFormAnswers, setQuickFormAnswers] = useState({});
 
   useEffect(() => { init(); }, []);
   useEffect(() => { messagesEnd.current?.scrollIntoView({ behavior:'smooth' }); }, [messages]);
@@ -338,26 +424,86 @@ export default function ChatPage() {
           </div>
         )}
 
-        {/* Quick actions */}
-        {kundli && messages.length > 0 && (
-          <div style={{ padding:'8px 12px 0', display:'flex', gap:'6px', flexWrap:'wrap', borderTop:'0.5px solid var(--color-border-tertiary)', flexShrink:0 }}>
+        {/* Quick action clarifying form — opens above quick buttons when active */}
+        {activeQuickForm && kundli && (
+          <div style={{ padding:'10px 12px', background:'var(--color-background-secondary)', borderTop:'0.5px solid var(--color-border-tertiary)', flexShrink:0 }}>
             {(() => {
-              const name = kundli?.full_name?.split(' ')[0] || '';
-              const dob = kundli?.dob || '';
-              const vim = kundli?.planet_data?.vimshottari?.current;
-              const dashaInfo = vim ? `(${vim.mahaDasha?.lordHi} MD, ${vim.antarDasha?.lordHi} AD)` : '';
-              const quickActions = [
-                ['🪔 उपाय', `${name} ki kundli mein sabse zaroori upay kya hain abhi? ${dashaInfo} dasha ke hisaab se specific mantra, daan, ya disha batao.`],
-                ['💼 करियर', `${name} ke career ke baare mein batao — ${dob} janam, abhi ${dashaInfo} chal raha hai. Career score, supporting/opposing factors, aur agle 6 mahine ka specific window batao.`],
-                ['💍 विवाह', `${name} ki kundli mein vivah/relationship ka status kya hai? 7th lord, D9 chart, Venus position, aur sabse strong vivah timing window batao. ${dashaInfo}`],
-                ['📅 दशा', `${name} ki abhi ${dashaInfo} chal rahi hai — iska career, relationships aur health par kya exact prabhav hai? Agle antardasha change kab hoga aur kya laayega?`],
-                ['🔭 गोचर', `${name} ke liye abhi kaun se planets transit kar rahe hain? Sade Sati active hai ya nahi, aur ashtakavarga bindus ke hisaab se kaunsa transit strongest impact de raha hai?`],
-                ['📆 इस साल', `${name} ke liye ${new Date().getFullYear()} ka varshaphal kya hai? Muntha kahan hai, varshesh kaun hai, aur career/vivah/health mein kya expect karein?`],
-              ];
-              return quickActions.map(([label, prompt]) => (
-                <button key={label} disabled={loading} onClick={() => sendMessage(null, prompt)} className="lf-quick-btn" style={{ fontSize:'11px', padding:'5px 10px' }}>{label}</button>
-              ));
+              const config = QUICK_ACTION_CONFIG[activeQuickForm];
+              if (!config) return null;
+              return (
+                <div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
+                    <p style={{ fontSize:'12px', fontWeight:'600', color:'var(--color-text-primary)', margin:0 }}>{config.label} — पहले बताएं</p>
+                    <button onClick={() => { setActiveQuickForm(null); setQuickFormAnswers({}); }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-tertiary)', fontSize:'14px', padding:'2px 6px' }}>✕</button>
+                  </div>
+                  {config.questions.map((q) => (
+                    <div key={q.key} style={{ marginBottom:'8px' }}>
+                      <p style={{ fontSize:'11px', color:'var(--color-text-secondary)', margin:'0 0 4px' }}>{q.label}</p>
+                      {q.type === 'choice' ? (
+                        <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
+                          {q.options.map(opt => (
+                            <button key={opt} onClick={() => setQuickFormAnswers(a => ({ ...a, [q.key]: opt }))}
+                              style={{
+                                padding:'5px 10px', fontSize:'11px', borderRadius:'14px', cursor:'pointer',
+                                border: `1px solid ${quickFormAnswers[q.key]===opt ? 'var(--color-brand)' : 'var(--color-border-tertiary)'}`,
+                                background: quickFormAnswers[q.key]===opt ? 'var(--color-brand-light)' : 'var(--color-background-primary)',
+                                color: quickFormAnswers[q.key]===opt ? 'var(--color-brand)' : 'var(--color-text-secondary)',
+                              }}>
+                              {opt}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <input
+                          autoFocus
+                          value={quickFormAnswers[q.key] || ''}
+                          onChange={e => setQuickFormAnswers(a => ({ ...a, [q.key]: e.target.value }))}
+                          placeholder={q.placeholder}
+                          style={{ width:'100%', fontSize:'12px', padding:'6px 10px' }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const prompt = config.buildPrompt(kundli, { ...quickFormAnswers, [q.key]: e.target.value });
+                              sendMessage(null, prompt);
+                              setActiveQuickForm(null);
+                              setQuickFormAnswers({});
+                            }
+                          }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => {
+                      const prompt = config.buildPrompt(kundli, quickFormAnswers);
+                      sendMessage(null, prompt);
+                      setActiveQuickForm(null);
+                      setQuickFormAnswers({});
+                    }}
+                    style={{ width:'100%', marginTop:'4px', padding:'8px', fontSize:'12px', fontWeight:'600', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'8px', cursor:'pointer' }}
+                  >
+                    जवाब पूछें →
+                  </button>
+                </div>
+              );
             })()}
+          </div>
+        )}
+
+        {/* Quick actions */}
+        {kundli && messages.length > 0 && !activeQuickForm && (
+          <div style={{ padding:'8px 12px 0', display:'flex', gap:'6px', flexWrap:'wrap', borderTop:'0.5px solid var(--color-border-tertiary)', flexShrink:0 }}>
+            {Object.entries(QUICK_ACTION_CONFIG).map(([key, config]) => (
+              <button key={key} disabled={loading} onClick={() => {
+                if (config.questions.length === 0) {
+                  sendMessage(null, config.buildPrompt(kundli, {}));
+                } else {
+                  setActiveQuickForm(key);
+                }
+              }} className="lf-quick-btn" style={{ fontSize:'11px', padding:'5px 10px' }}>
+                {config.label}
+              </button>
+            ))}
           </div>
         )}
 
