@@ -34,7 +34,7 @@ const QUICK_ACTION_CONFIG = {
   career: {
     label: '💼 करियर',
     questions: [
-      { key:'detail', label:'अपनी situation बताएं (job/business/company/koi specific sawal)', type:'text', placeholder:'जैसे: IT job dhund raha hoon, ya Oriana Power mein interview hai, ya business shuru karna hai...' },
+      { key:'detail', label:'अपनी situation बताएं — job, business, ya koi specific field', type:'text', placeholder:'जैसे: government job chahiye, ya naya business shuru karna hai, ya kisi field mein switch karna hai...' },
     ],
     buildPrompt: (k, ans) => {
       const name = nameOf(k), dasha = dashaInfoOf(k);
