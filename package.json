@@ -16,7 +16,8 @@
     "@supabase/ssr": "latest",
     "@google/generative-ai": "latest",
     "groq-sdk": "latest",
-    "astronomy-engine": "latest"
+    "astronomy-engine": "latest",
+    "resend": "latest"
   },
   "devDependencies": {
     "typescript": "latest",

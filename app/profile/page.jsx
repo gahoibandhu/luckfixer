@@ -20,6 +20,7 @@ export default function ProfilePage() {
   const [feedbackSent, setFeedbackSent] = useState({});
   const [newK,     setNewK]     = useState({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri' });
   const [analyzing,setAnalyzing]= useState(false);
+  const [wizardStep, setWizardStep] = useState(1); // 1=naam+dob, 2=time, 3=place
 
   useEffect(() => {
     loadAll();
@@ -130,6 +131,15 @@ export default function ProfilePage() {
     });
   }
 
+  function shareVarshaphalOnWhatsApp(k) {
+    const v = k.planet_data?.varshaphal;
+    if (!v) return;
+    const areas = v.areas?.filter(a => a.strength !== 'सामान्य').slice(0,3)
+      .map(a => `${a.area.split(' (')[0]}: ${a.strength}`).join(' | ') || '';
+    const text = `🔮 *Luckfixer 2.0 — वार्षिक फल ${v.varshYear}*\n\n${k.label || k.full_name}\n\n*${v.verdict}*\n\nमुंथा: ${v.muntha?.signHi} · वर्षेश: ${v.varshesh?.planetHi}\n${areas}\n\n✦ अपना वार्षिक फल जानें: luckfixer.jaigahoi.in`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  }
+
   async function addKundli(e) {
     e.preventDefault();
     if (!newK.latitude || !newK.longitude) {
@@ -146,6 +156,7 @@ export default function ProfilePage() {
     if (data.kundli) {
       setKundlis(k => [data.kundli, ...k]);
       setAddOpen(false);
+      setWizardStep(1);
       setNewK({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri' });
     } else if (data.error) {
       setGeoError(data.error);
@@ -214,68 +225,129 @@ export default function ProfilePage() {
       {/* Saved Kundlis */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
         <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:0 }}>सहेजी कुंडली ({kundlis.length})</p>
-        <button onClick={() => setAddOpen(a => !a)} style={{ fontSize:'13px', color:'var(--color-text-primary)', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', padding:'6px 12px', cursor:'pointer' }}>
+        <button onClick={() => { setAddOpen(a => !a); setWizardStep(1); }} style={{ fontSize:'13px', color:'var(--color-text-primary)', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', padding:'6px 12px', cursor:'pointer' }}>
           + नई कुंडली
         </button>
       </div>
 
-      {/* Add kundli form */}
+      {/* Add kundli wizard — one friendly step at a time, reduces drop-off */}
       {addOpen && (
-        <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-lg)', padding:'1.25rem', marginBottom:'1rem' }}>
-          <p style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 12px' }}>नई कुंडली जोड़ें</p>
-          <form onSubmit={addKundli} style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-            <div className="lf-form-grid">
-              <div>
-                <label className="lf-label">पूरा नाम *</label>
-                <input value={newK.full_name} onChange={e => setNewK(k => ({...k, full_name:e.target.value}))} required placeholder="नाम"/>
+        <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-lg)', padding:'1.5rem', marginBottom:'1rem' }}>
+
+          {/* Progress dots */}
+          <div style={{ display:'flex', gap:'6px', marginBottom:'1.25rem', justifyContent:'center' }}>
+            {[1,2,3].map(s => (
+              <div key={s} style={{
+                width: wizardStep===s ? '24px' : '8px', height:'8px', borderRadius:'4px',
+                background: s <= wizardStep ? 'var(--color-brand)' : 'var(--color-border-tertiary)',
+                transition:'all 0.25s ease',
+              }} />
+            ))}
+          </div>
+
+          <form onSubmit={addKundli}>
+
+            {/* Step 1: Name + DOB */}
+            {wizardStep === 1 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:'14px' }}>
+                <div style={{ textAlign:'center', marginBottom:'4px' }}>
+                  <p style={{ fontSize:'15px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 4px' }}>किसकी कुंडली बना रहे हैं?</p>
+                  <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>नाम और जन्म तिथि बताएं</p>
+                </div>
+                <div>
+                  <label className="lf-label">पूरा नाम *</label>
+                  <input value={newK.full_name} onChange={e => setNewK(k => ({...k, full_name:e.target.value}))} placeholder="जैसे: Gaurav Reja" autoFocus style={{ width:'100%', fontSize:'15px' }}/>
+                </div>
+                <div>
+                  <label className="lf-label">जन्म तिथि *</label>
+                  <input type="date" value={newK.dob} onChange={e => setNewK(k => ({...k, dob:e.target.value}))} style={{ width:'100%', fontSize:'15px' }}/>
+                </div>
+                <button type="button"
+                  disabled={!newK.full_name.trim() || !newK.dob}
+                  onClick={() => setWizardStep(2)}
+                  style={{ padding:'12px', background: (!newK.full_name.trim() || !newK.dob) ? 'var(--color-border-tertiary)' : 'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'10px', cursor: (!newK.full_name.trim() || !newK.dob) ? 'default' : 'pointer', fontSize:'14px', fontWeight:'500', marginTop:'6px' }}>
+                  आगे बढ़ें →
+                </button>
               </div>
-              <div>
-                <label className="lf-label">जन्म तिथि *</label>
-                <input type="date" value={newK.dob} onChange={e => setNewK(k => ({...k, dob:e.target.value}))} required/>
-              </div>
-              <div>
-                <label className="lf-label">जन्म समय *</label>
-                <input type="time" value={newK.birth_time} onChange={e => setNewK(k => ({...k, birth_time:e.target.value}))} required/>
-              </div>
-              <div style={{ gridColumn:'span 2' }}>
-                <label className="lf-label">जन्म स्थान *</label>
+            )}
+
+            {/* Step 2: Birth Time */}
+            {wizardStep === 2 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:'14px' }}>
+                <div style={{ textAlign:'center', marginBottom:'4px' }}>
+                  <p style={{ fontSize:'15px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 4px' }}>जन्म का समय क्या था?</p>
+                  <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0, lineHeight:'1.5' }}>
+                    जितना सटीक हो उतना अच्छा — जन्म प्रमाणपत्र या अस्पताल रिकॉर्ड से लें। 10-15 मिनट का अंतर भी असर डाल सकता है।
+                  </p>
+                </div>
+                <div>
+                  <label className="lf-label">जन्म समय *</label>
+                  <input type="time" value={newK.birth_time} onChange={e => setNewK(k => ({...k, birth_time:e.target.value}))} autoFocus style={{ width:'100%', fontSize:'18px', textAlign:'center', padding:'14px' }}/>
+                </div>
                 <div style={{ display:'flex', gap:'8px' }}>
-                  <input value={newK.birth_place} onChange={e => { setNewK(k => ({...k, birth_place:e.target.value, latitude:'', longitude:''})); setGeoResults([]); }} required placeholder="जैसे: Delhi, India" style={{ flex:1 }}/>
-                  <button type="button" onClick={geocodePlace} disabled={geocoding} style={{ padding:'8px 14px', fontSize:'13px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', whiteSpace:'nowrap', color:'var(--color-text-primary)', flexShrink:0 }}>
-                    {geocoding ? '...' : 'खोजें'}
+                  <button type="button" onClick={() => setWizardStep(1)} style={{ flex:'0 0 80px', padding:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'10px', cursor:'pointer', fontSize:'14px', color:'var(--color-text-secondary)' }}>
+                    ← वापस
+                  </button>
+                  <button type="button"
+                    disabled={!newK.birth_time}
+                    onClick={() => setWizardStep(3)}
+                    style={{ flex:1, padding:'12px', background: !newK.birth_time ? 'var(--color-border-tertiary)' : 'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'10px', cursor: !newK.birth_time ? 'default' : 'pointer', fontSize:'14px', fontWeight:'500' }}>
+                    आगे बढ़ें →
                   </button>
                 </div>
-                {geoResults.length > 0 && (
-                  <div style={{ marginTop:'6px', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', overflow:'hidden' }}>
-                    <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', padding:'6px 10px', margin:0, borderBottom:'0.5px solid var(--color-border-tertiary)' }}>कई स्थान मिले — सही चुनें:</p>
-                    {geoResults.map((r, i) => (
-                      <div key={i} onClick={() => selectLocation(r)} style={{ padding:'8px 10px', fontSize:'13px', cursor:'pointer', borderBottom: i < geoResults.length-1 ? '0.5px solid var(--color-border-tertiary)' : 'none', color:'var(--color-text-primary)' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'var(--color-background-secondary)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                        {r.display_name}
-                        <span style={{ display:'block', fontSize:'11px', color:'var(--color-text-tertiary)' }}>{r.latitude.toFixed(4)}, {r.longitude.toFixed(4)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
-              <div>
-                <label className="lf-label">Latitude</label>
-                <input type="number" step="0.0001" value={newK.latitude} onChange={e => setNewK(k => ({...k, latitude:e.target.value}))} placeholder="auto-fill"/>
-              </div>
-              <div>
-                <label className="lf-label">Longitude</label>
-                <input type="number" step="0.0001" value={newK.longitude} onChange={e => setNewK(k => ({...k, longitude:e.target.value}))} placeholder="auto-fill"/>
-              </div>
-              {/* Ayanamsa hidden - defaults to Lahiri */}
-            </div>
-            {geoError && <p style={{ fontSize:'12px', color:'var(--color-text-danger)', margin:0 }}>{geoError}</p>}
-            {newK.latitude && newK.longitude && (
-              <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:0 }}>✓ {newK.latitude}, {newK.longitude}</p>
             )}
-            <button type="submit" disabled={analyzing} style={{ padding:'12px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>
-              {analyzing ? 'AI analysis चल रहा है...' : 'कुंडली Save करें'}
-            </button>
+
+            {/* Step 3: Birth Place */}
+            {wizardStep === 3 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:'14px' }}>
+                <div style={{ textAlign:'center', marginBottom:'4px' }}>
+                  <p style={{ fontSize:'15px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 4px' }}>जन्म कहाँ हुआ था?</p>
+                  <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>शहर का नाम लिखें, हम बाकी ढूंढ लेंगे</p>
+                </div>
+                <div>
+                  <label className="lf-label">जन्म स्थान *</label>
+                  <div style={{ display:'flex', gap:'8px' }}>
+                    <input
+                      value={newK.birth_place}
+                      onChange={e => { setNewK(k => ({...k, birth_place:e.target.value, latitude:'', longitude:''})); setGeoResults([]); }}
+                      placeholder="जैसे: Orai, Uttar Pradesh"
+                      autoFocus
+                      style={{ flex:1, fontSize:'15px' }}
+                      onKeyDown={e => { if (e.key==='Enter') { e.preventDefault(); geocodePlace(); } }}
+                    />
+                    <button type="button" onClick={geocodePlace} disabled={geocoding} style={{ padding:'10px 16px', fontSize:'13px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'10px', cursor:'pointer', whiteSpace:'nowrap', color:'var(--color-text-primary)', flexShrink:0 }}>
+                      {geocoding ? '...' : 'खोजें'}
+                    </button>
+                  </div>
+                  {geoResults.length > 0 && (
+                    <div style={{ marginTop:'8px', border:'0.5px solid var(--color-border-secondary)', borderRadius:'10px', overflow:'hidden' }}>
+                      <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', padding:'6px 10px', margin:0, borderBottom:'0.5px solid var(--color-border-tertiary)' }}>सही स्थान चुनें:</p>
+                      {geoResults.map((r, i) => (
+                        <div key={i} onClick={() => selectLocation(r)} style={{ padding:'10px', fontSize:'13px', cursor:'pointer', borderBottom: i < geoResults.length-1 ? '0.5px solid var(--color-border-tertiary)' : 'none', color:'var(--color-text-primary)' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--color-background-secondary)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          {r.display_name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {newK.latitude && newK.longitude && (
+                    <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'8px 0 0' }}>✓ स्थान मिल गया</p>
+                  )}
+                  {geoError && <p style={{ fontSize:'12px', color:'var(--color-text-danger)', margin:'8px 0 0' }}>{geoError}</p>}
+                </div>
+                <div style={{ display:'flex', gap:'8px' }}>
+                  <button type="button" onClick={() => setWizardStep(2)} style={{ flex:'0 0 80px', padding:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'10px', cursor:'pointer', fontSize:'14px', color:'var(--color-text-secondary)' }}>
+                    ← वापस
+                  </button>
+                  <button type="submit" disabled={analyzing || !newK.latitude || !newK.longitude}
+                    style={{ flex:1, padding:'12px', background: (analyzing || !newK.latitude) ? 'var(--color-border-tertiary)' : 'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'10px', cursor: (analyzing || !newK.latitude) ? 'default' : 'pointer', fontSize:'14px', fontWeight:'500' }}>
+                    {analyzing ? '✨ कुंडली बन रही है...' : 'कुंडली बनाएं →'}
+                  </button>
+                </div>
+              </div>
+            )}
           </form>
         </div>
       )}
@@ -420,6 +492,13 @@ export default function ProfilePage() {
                       <span style={{ color: area.strength==='शुभ' ? 'var(--color-text-success)' : area.strength==='सावधानी' ? 'var(--color-text-danger)' : 'var(--color-text-warning)', fontWeight:'500' }}>{area.strength}</span>
                     </div>
                   ))}
+                  <button
+                    onClick={() => shareVarshaphalOnWhatsApp(k)}
+                    style={{ width:'100%', marginTop:'10px', padding:'8px', background:'#25D366', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'12px', fontWeight:'500', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px' }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .103 5.36.101 11.943c0 2.105.549 4.16 1.595 5.976L0 24l6.335-1.652a11.882 11.882 0 005.71 1.447h.005c6.582 0 11.94-5.36 11.943-11.943a11.87 11.87 0 00-3.473-8.403"/></svg>
+                    Share करें
+                  </button>
                 </AnalysisSection>
               )}
 

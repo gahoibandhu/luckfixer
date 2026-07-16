@@ -113,6 +113,8 @@ Project -> Settings -> Environment Variables -> add each of these (apply to Prod
 | GROQ_API_KEY | from Groq Cloud |
 | EPHEMERIS_SERVICE_URL | your Render service URL |
 | ADMIN_SECRET | any password you choose |
+| RESEND_API_KEY | from resend.com (for email notifications — outcome follow-ups, transit alerts) |
+| CRON_SECRET | any random string — protects the /api/cron/daily-digest endpoint from external triggering |
 
 After adding variables, trigger a redeploy: Deployments -> latest -> ⋯ -> Redeploy.
 
