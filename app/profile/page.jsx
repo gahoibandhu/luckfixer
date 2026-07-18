@@ -256,7 +256,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <label className="lf-label">पूरा नाम *</label>
-                  <input value={newK.full_name} onChange={e => setNewK(k => ({...k, full_name:e.target.value}))} placeholder="जैसे: Gaurav Reja" autoFocus style={{ width:'100%', fontSize:'15px' }}/>
+                  <input value={newK.full_name} onChange={e => setNewK(k => ({...k, full_name:e.target.value}))} placeholder="अपना पूरा नाम लिखें" autoFocus style={{ width:'100%', fontSize:'15px' }}/>
                 </div>
                 <div>
                   <label className="lf-label">जन्म तिथि *</label>
@@ -311,7 +311,7 @@ export default function ProfilePage() {
                     <input
                       value={newK.birth_place}
                       onChange={e => { setNewK(k => ({...k, birth_place:e.target.value, latitude:'', longitude:''})); setGeoResults([]); }}
-                      placeholder="जैसे: Orai, Uttar Pradesh"
+                      placeholder="शहर का नाम लिखें"
                       autoFocus
                       style={{ flex:1, fontSize:'15px' }}
                       onKeyDown={e => { if (e.key==='Enter') { e.preventDefault(); geocodePlace(); } }}

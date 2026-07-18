@@ -10,6 +10,45 @@ export const dynamic = 'force-dynamic';
 
 const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
 
+// ── Fast-reveal "typewriter" text component ─────────────────────
+// Reveals text in quick chunks (not one slow letter at a time) so it
+// FEELS like live streaming, but the total reveal duration is capped
+// (~0.5s–2.2s depending on length) so long responses don't take forever.
+// Only used for freshly-arrived assistant messages (marked `_animate`
+// on the message object) — messages loaded from chat history render
+// statically, instantly, with no replay.
+function TypewriterText({ text, enabled, onDone }) {
+  const [shown, setShown] = useState(enabled ? '' : text);
+
+  useEffect(() => {
+    if (!enabled) { setShown(text); return; }
+    if (!text) { onDone?.(); return; }
+
+    let i = 0;
+    const total = text.length;
+    const tickMs = 16; // ~60fps
+    const targetMs = Math.min(2200, Math.max(500, total * 6));
+    const ticks = Math.max(1, Math.round(targetMs / tickMs));
+    const chunk = Math.max(1, Math.ceil(total / ticks));
+
+    const interval = setInterval(() => {
+      i += chunk;
+      if (i >= total) {
+        setShown(text);
+        clearInterval(interval);
+        onDone?.();
+      } else {
+        setShown(text.slice(0, i));
+      }
+    }, tickMs);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, enabled]);
+
+  return <>{shown}</>;
+}
+
 // ── Quick action configs ──────────────────────────────────────
 // Each action either asks 1-2 clarifying questions first (so the AI
 // gets a precise, specific question instead of a vague one — this
@@ -118,6 +157,22 @@ export default function ChatPage() {
   const [activeQuickForm,  setActiveQuickForm]  = useState(null); // which quick-action form is open
   const [quickFormAnswers, setQuickFormAnswers] = useState({});
 
+  // ── Post-login vortex intro — shown once per browser tab session ──
+  const [showIntro,   setShowIntro]   = useState(false);
+  const [introFading, setIntroFading] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const alreadyShown = sessionStorage.getItem('lf_intro_shown');
+    if (!alreadyShown) {
+      setShowIntro(true);
+      sessionStorage.setItem('lf_intro_shown', '1');
+      const fadeTimer = setTimeout(() => setIntroFading(true), 1300);
+      const removeTimer = setTimeout(() => setShowIntro(false), 1700);
+      return () => { clearTimeout(fadeTimer); clearTimeout(removeTimer); };
+    }
+  }, []);
+
   useEffect(() => { init(); }, []);
   useEffect(() => { messagesEnd.current?.scrollIntoView({ behavior:'smooth' }); }, [messages]);
 
@@ -173,7 +228,7 @@ export default function ChatPage() {
         body: JSON.stringify({ isGreeting:true, messages:[{ role:'user', content:'hello' }], kundliContext: buildContext(k) }),
       });
       const data = await res.json();
-      setMessages([{ role:'assistant', content: data.content }]);
+      setMessages([{ role:'assistant', content: data.content, _animate: true }]);
       if (data.pendingFollowUpId) setPendingFollowUpId(data.pendingFollowUpId);
     } catch {
       setMessages([{ role:'assistant', content:`नमस्ते! ${k.full_name} की कुंडली लोड हो गई। कोई भी प्रश्न पूछें।` }]);
@@ -205,28 +260,62 @@ export default function ChatPage() {
     setMessages(m => [...m, userMsg]);
     setLoading(true);
 
-    let sid = sessionId;
-    if (!sid && userId) {
-      const { data: newSess } = await supabase.from('chat_sessions').insert({
-        user_id: userId, kundli_id: pendingKundliId || null, title: text.slice(0,40),
-      }).select().single();
-      if (newSess) { sid = newSess.id; setSessionId(sid); setSessions(prev => [newSess, ...prev]); }
-    }
+    // Extra safety net: if something hangs (network stall, no response,
+    // no exception thrown) for more than 45s, force-unstick the send button
+    // rather than leaving the user permanently blocked.
+    const safetyTimeout = setTimeout(() => setLoading(false), 45000);
 
-    const res = await fetch('/api/chat', {
-      method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({
-        messages: [...messages, userMsg].filter(m => m.role !== 'system').slice(-10),
-        sessionId: sid, kundliId: pendingKundliId || kundli?.id || null,
-        kundliContext: buildContext(kundli), langPref,
-        pendingFollowUpId: pendingFollowUpId || null,
-      }),
-    });
-    const data = await res.json();
-    if (pendingFollowUpId) setPendingFollowUpId(null);
-    if (res.status === 429) { setLimitErr(data.error); setMessages(m => m.slice(0,-1)); }
-    else { setMessages(m => [...m, { role:'assistant', content: data.content }]); if (data.usage) setUsage(data.usage); }
-    setLoading(false);
+    // CRITICAL: everything below is wrapped in try/catch/finally. Without
+    // this, any network hiccup or JSON-parse failure would throw an
+    // uncaught exception, leaving `loading` stuck at `true` forever —
+    // which silently blocks every future message (the "atak jaata hai"
+    // bug: send button does nothing on the 2nd+ question after any error).
+    try {
+      let sid = sessionId;
+      if (!sid && userId) {
+        const { data: newSess } = await supabase.from('chat_sessions').insert({
+          user_id: userId, kundli_id: pendingKundliId || null, title: text.slice(0,40),
+        }).select().single();
+        if (newSess) { sid = newSess.id; setSessionId(sid); setSessions(prev => [newSess, ...prev]); }
+      }
+
+      const res = await fetch('/api/chat', {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          messages: [...messages, userMsg].filter(m => m.role !== 'system').slice(-10),
+          sessionId: sid, kundliId: pendingKundliId || kundli?.id || null,
+          kundliContext: buildContext(kundli), langPref,
+          pendingFollowUpId: pendingFollowUpId || null,
+        }),
+      });
+
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        // Server returned non-JSON (e.g. a raw error page) — don't crash,
+        // show a graceful message instead.
+        data = { content: 'माफ़ करें, जवाब में कुछ गड़बड़ हुई। कृपया दोबारा भेजें।' };
+      }
+
+      if (pendingFollowUpId) setPendingFollowUpId(null);
+
+      if (res.status === 429) {
+        setLimitErr(data.error);
+        setMessages(m => m.slice(0, -1)); // remove the unanswered user message
+      } else {
+        setMessages(m => [...m, { role:'assistant', content: data.content || 'माफ़ करें, जवाब नहीं मिल पाया। कृपया दोबारा कोशिश करें।', _animate: true }]);
+        if (data.usage) setUsage(data.usage);
+      }
+    } catch (err) {
+      console.error('[Chat] sendMessage failed:', err);
+      setMessages(m => [...m, { role:'assistant', content: 'माफ़ करें, connection में समस्या हुई। कृपया दोबारा भेजें।' }]);
+    } finally {
+      // ALWAYS runs — success, error, or network failure — so the send
+      // button never gets permanently stuck.
+      clearTimeout(safetyTimeout);
+      setLoading(false);
+    }
   }
 
   async function deleteSession(sessId, e) {
@@ -248,6 +337,39 @@ export default function ChatPage() {
 
   return (
     <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'var(--color-background-tertiary)' }}>
+
+      {/* ── Post-login vortex intro — logo particles spiral inward once ── */}
+      {showIntro && (
+        <div style={{
+          position:'fixed', inset:0, zIndex:100,
+          background:'#0d0d0f',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          opacity: introFading ? 0 : 1,
+          transition:'opacity 0.4s ease',
+          pointerEvents: introFading ? 'none' : 'auto',
+        }}>
+          <div style={{ position:'relative', width:'160px', height:'160px', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            {Array.from({ length: 14 }).map((_, i) => (
+              <div key={i} style={{
+                position:'absolute', top:'50%', left:'50%', width:0, height:0,
+                transform:`rotate(${i * (360/14)}deg)`,
+              }}>
+                <div className="lf-vortex-particle" style={{ animationDelay:`${i * 25}ms` }} />
+              </div>
+            ))}
+            <img
+              src={LOGO_URL}
+              alt="Luckfixer"
+              style={{
+                width:'84px', height:'84px', borderRadius:'22%', objectFit:'cover',
+                animation:'lf-vortex-logo-in 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.75s both',
+                boxShadow:'0 0 40px rgba(74,222,128,0.35)',
+                position:'relative', zIndex:1,
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Mobile overlay */}
       {sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:20 }} />}
@@ -409,7 +531,11 @@ export default function ChatPage() {
                 }}>
                   {m.content === '...'
                     ? <div className="lf-thinking"><div className="lf-thinking-dot"/><div className="lf-thinking-dot"/><div className="lf-thinking-dot"/></div>
-                    : m.content}
+                    : m.role === 'assistant' && m._animate
+                      ? <TypewriterText text={m.content} enabled={true} onDone={() => {
+                          setMessages(prev => prev.map((mm, idx) => idx === i ? { ...mm, _animate: false } : mm));
+                        }} />
+                      : m.content}
                 </div>
               </div>
             ))}
@@ -424,8 +550,10 @@ export default function ChatPage() {
           </div>
         )}
 
-        {/* Quick action clarifying form — opens above quick buttons when active */}
-        {activeQuickForm && kundli && (
+        {/* Quick action buttons hidden — users write their own question so
+            predictions stay specific to their real situation instead of
+            clicking a generic button. Code kept for potential future use. */}
+        {false && activeQuickForm && kundli && (
           <div style={{ padding:'10px 12px', background:'var(--color-background-secondary)', borderTop:'0.5px solid var(--color-border-tertiary)', flexShrink:0 }}>
             {(() => {
               const config = QUICK_ACTION_CONFIG[activeQuickForm];
@@ -490,8 +618,8 @@ export default function ChatPage() {
           </div>
         )}
 
-        {/* Quick actions */}
-        {kundli && messages.length > 0 && !activeQuickForm && (
+        {/* Quick actions — hidden, see note above */}
+        {false && kundli && messages.length > 0 && !activeQuickForm && (
           <div style={{ padding:'8px 12px 0', display:'flex', gap:'6px', flexWrap:'wrap', borderTop:'0.5px solid var(--color-border-tertiary)', flexShrink:0 }}>
             {Object.entries(QUICK_ACTION_CONFIG).map(([key, config]) => (
               <button key={key} disabled={loading} onClick={() => {
@@ -530,6 +658,23 @@ export default function ChatPage() {
           .lf-sidebar-open { transform:translateX(0) !important; }
         }
         @keyframes lf-slideUp { from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);} }
+
+        /* ── Vortex intro — particles spiral inward and converge on logo ── */
+        .lf-vortex-particle {
+          position: absolute;
+          width: 8px; height: 8px;
+          border-radius: 50%;
+          background: radial-gradient(circle, #4ade80 0%, rgba(74,222,128,0) 70%);
+          animation: lf-vortex-spiral 0.85s cubic-bezier(0.6,0,0.4,1) forwards;
+        }
+        @keyframes lf-vortex-spiral {
+          0%   { transform: rotate(0deg) translateX(150px) scale(1);   opacity: 0.9; }
+          100% { transform: rotate(480deg) translateX(4px) scale(0.15); opacity: 0; }
+        }
+        @keyframes lf-vortex-logo-in {
+          0%   { transform: scale(0.2) rotate(-30deg); opacity: 0; }
+          100% { transform: scale(1) rotate(0deg);     opacity: 1; }
+        }
       `}</style>
     </div>
   );

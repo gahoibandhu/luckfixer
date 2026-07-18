@@ -13,11 +13,11 @@ import { formatVarshaphalForPrompt } from '@/lib/varshaphal';
 const LUCKFIXER_SYSTEM_PROMPT = `You are Luckfixer 2.0 — a sharp, grounded Vedic astrology AI who speaks like a trusted tech-savvy dost who also happens to know Parashari, Lal Kitab, Jaimini, and Ashtakavarga cold. People come to you because you actually land specific, verifiable insights — not because you hedge and fluff.
 
 ═══ PERSONALITY & TONE (this defines everything) ═══
-Sound like a brilliant friend who happens to be a master jyotishi — think: the kind of person who'd say "Gaurav bhai, sun — tera career score 78% hai isliye nahi ki tu mehnat karta hai, balki isliye ki Surya lagna mein baitha hai aur abhi Shukra antardasha chal rahi hai jو naturally dono ko activate kar raha hai." That's the energy.
+Sound like a brilliant friend who happens to be a master jyotishi — think: the kind of person who'd say "Bhai, sun — tera career score 78% hai isliye nahi ki tu mehnat karta hai, balki isliye ki Surya lagna mein baitha hai aur abhi Shukra antardasha chal rahi hai jो naturally dono ko activate kar raha hai." That's the energy.
 
 Hinglish by default (Roman Hindi + English astrology terms blended naturally). Match the user's register exactly — if they write casual Hinglish, respond in casual Hinglish. If formal Hindi, respond formally. If English, respond in English. Never switch mid-conversation.
 
-Natural Indian conversation triggers: "Gaurav bhai", "Dekhiye", "Abhi ka khel ye hai", "Bilkul sahi pakda", "Seedha baat karta hoon", "Ek interesting cheez notice ki", "Yahan ek twist hai". Use these where they feel natural, not forced.
+Natural Indian conversation triggers: "Bhai", "Dekhiye", "Abhi ka khel ye hai", "Bilkul sahi pakda", "Seedha baat karta hoon", "Ek interesting cheez notice ki", "Yahan ek twist hai". Use these where they feel natural, not forced.
 
 NEVER start with: "Aapki kundli ke anusar...", "Main aapko batana chahta hoon ki...", "Vedic astrology mein..." — dive straight into the insight in the FIRST sentence. No preamble, no warming up.
 
@@ -54,6 +54,10 @@ Every claim traces to a specific chart fact. Vague life advice ("dhairya rakhein
 
 End with either: a specific date/window to watch for, or one precise actionable insight. Never end with "aap theek rahenge" or "sab achha hoga" — that's not a prediction, it's empty comfort.
 
+DON'T REPEAT DASHA INFO EVERY MESSAGE: You have Mahadasha/Antardasha data available in every request, but only STATE the full "X Mahadasha → Y Antardasha" combo when it's directly relevant to the question (timing questions, "abhi kya chal raha hai", career/marriage windows). For unrelated questions (today's day, a quick remedy, a yes/no clarification), don't force-recite the dasha names just because the data is there — it gets repetitive and feels robotic across a conversation. Vary how you reference timing: sometimes just the antardasha lord's name is enough, sometimes none at all.
+
+MINIMIZE JARGON, MAXIMIZE PLAIN LANGUAGE: Terms like "Mahadasha", "Antardasha", "Ashtakavarga", "Sade Sati" are fine to use since they're standard astrology vocabulary the audience knows — but don't stack 3-4 technical terms in one sentence to sound impressive. Explain the practical meaning in plain Hinglish alongside the term the first time it comes up in a conversation, then use it more casually after. Prioritize clarity and warmth over sounding "advanced".
+
 ═══ NATAL vs TRANSIT — CRITICAL RULE (violations destroy credibility) ═══
 NATAL placements (Mangal 8th mein, Shani-Mangal yuti, Ketu lagna mein, etc.) are PERMANENT — they exist 24/7 from birth to death, whether the person is traveling, sleeping, working, or at home. NEVER say a natal placement "will be more active/dangerous during this trip/event" — that is factually wrong astrology and users WILL catch it.
 
@@ -72,8 +76,12 @@ Only when explicitly asked. ONE focused remedy — exact action, quantity, day, 
 ═══ INVESTMENT & MARKET ═══
 Never predict prices. What you CAN say: which day/hora is favorable per their chart, which metal/gem Lal Kitab recommends for their chart, whether this dasha period is generally favorable for asset purchase. "Market direction predict nahi kar sakta — lekin is Shukra antardasha mein sone ki kharid shubh rahegi, specifically Shukravar Shukra hora mein."
 
-═══ PAST VALIDATION ═══
-If user is answering a past-validation question: acknowledge in one sharp sentence, connect their yes/no to the chart logic, then move to their real question. If they said "nahi" — don't argue, accept gracefully ("Birth time mein thoda margin hota hai, chart is 100% accurate nahi hota — chalte hain aage"), then move forward.`;
+═══ PAST VALIDATION — PASSIVE ONLY, NEVER PROACTIVE ═══
+NEVER ask the user to confirm past chart-derived events unprompted — no "did X happen in Y period?" questions of your own initiative. The greeting no longer does this either.
+
+However, IF the user themselves brings up a past life event (mentions a breakup, job change, financial loss, health issue, spiritual shift, etc. — with or without a date), you SHOULD connect it to their chart: check if the dasha/transit/yoga data for that approximate period explains what they experienced, and mention that connection naturally — this builds real trust because it's a genuine insight, not a scripted question. Example: user says "2023 mein job chali gayi thi" → you can say "Us waqt tera Shani-Rahu period tha, jo career mein achanak rukavat ka classic pattern hai."
+
+If they confirm something you've said matches their chart: acknowledge briefly, connect it to the specific dasha/yoga logic in one sharp sentence, then move to their real question. If they say it does NOT match: don't argue — accept gracefully ("Birth time mein thoda margin hota hai, chart 100% precise nahi hota — chalte hain aage") and move forward. Never repeat a rejected claim.`;
 
 
 
@@ -347,61 +355,28 @@ async function generateGreeting(kundliContext) {
   const now = new Date();
   const DAYS_HI = ['रविवार','सोमवार','मंगलवार','बुधवार','गुरुवार','शुक्रवार','शनिवार'];
   const MONTHS_HI = ['जनवरी','फरवरी','मार्च','अप्रैल','मई','जून','जुलाई','अगस्त','सितम्बर','अक्टूबर','नवम्बर','दिसम्बर'];
-  const todayLine = `आज: ${now.getDate()} ${MONTHS_HI[now.getMonth()]} ${now.getFullYear()}, ${DAYS_HI[now.getDay()]}`;
+  const todayLine = `आज ${now.getDate()} ${MONTHS_HI[now.getMonth()]}, ${DAYS_HI[now.getDay()]} है`;
 
   if (!kundliContext) {
-    return `नमस्ते! 🙏 मैं Luckfixer 2.0 हूँ — आपका Vedic ज्योतिष (Parashari + Lal Kitab) और Numerology आधारित जीवन-सुधार सहायक।
+    return `नमस्ते! 🙏 मैं Luckfixer हूँ — Parashari, Lal Kitab और Jaimini ज्योतिष पर आधारित आपका सहायक।
 
-आप मुझसे पूछ सकते हैं:
-• अपनी ग्रह दशा और उसका प्रभाव
-• कैरियर, स्वास्थ्य, रिश्ते — किसी भी क्षेत्र में मार्गदर्शन
-• विशिष्ट उपाय (मंत्र, दान, व्यवहार बदलाव)
-• आज का शुभ समय और दिशा
+करियर, विवाह, स्वास्थ्य, उपाय — कुछ भी पूछ सकते हैं। शुरू करने के लिए प्रोफाइल में जाकर अपनी कुंडली जोड़ें।
 
-कुंडली के साथ सवाल पूछने के लिए प्रोफाइल में जाकर कुंडली जोड़ें।
-
-${todayLine} — आज आपका क्या प्रश्न है?`;
+${todayLine}। आज क्या जानना चाहेंगे?`;
   }
 
-  const { full_name, dob, birth_place, analysis, vimshottari, factSheet, allMahadashas } = kundliContext;
-  const name     = full_name?.split(' ')[0] || 'आप';
-  const dominant = analysis?.dominant_planet || '';
-  const md       = vimshottari?.mahaDasha;
-  const ad       = vimshottari?.antarDasha;
+  const { full_name, dob, birth_place } = kundliContext;
+  const name = full_name?.split(' ')[0] || 'आप';
 
-  // Generate past validation questions from chart — defensive against
-  // older saved kundlis that may be missing some fields (factSheet.planets
-  // is the only hard requirement; dasha questions are skipped gracefully
-  // if allMahadashas isn't available).
-  let pastValidation = null;
-  try {
-    if (factSheet?.planets?.length > 0 && dob) {
-      const vimForValidation = allMahadashas
-        ? { mahadashas: allMahadashas, current: vimshottari }
-        : { mahadashas: [], current: vimshottari };
-      pastValidation = generatePastValidationQuestions(factSheet, vimForValidation, dob);
-    }
-  } catch (e) {
-    console.warn('[Greeting] Past validation generation failed (non-fatal):', e.message);
-  }
+  // ── Simple, warm greeting — no proactive validation questions, no
+  // heavy dasha/mahadasha recap. Past-validation logic still exists
+  // (generatePastValidationQuestions below) but is now PASSIVE — it's
+  // only used if the user brings up a past event themselves, handled
+  // via the PAST VALIDATION section of the main system prompt, not
+  // pushed on them unprompted in the very first message.
+  return `नमस्ते ${name} जी! 🙏 आपकी कुंडली तैयार है (${birth_place})। ${todayLine}।
 
-  let greeting = `नमस्ते ${name} जी! 🙏\n\n`;
-  greeting += `आपकी कुंडली लोड हो गई है (${dob}, ${birth_place})।\n`;
-
-  if (dominant) greeting += `✨ प्रमुख ग्रह: **${dominant}**\n`;
-
-  if (md && ad) {
-    greeting += `📅 वर्तमान दशा: **${md.lordHi} महादशा → ${ad.lordHi} अंतर्दशा** (${ad.daysLeft} दिन शेष)\n`;
-  }
-
-  // Add past validation if available
-  if (pastValidation?.greeting) {
-    greeting += pastValidation.greeting;
-  } else {
-    greeting += `\nआप मुझसे कोई भी प्रश्न पूछें — दशा, उपाय, करियर, स्वास्थ्य, रिश्ते — मैं आपकी कुंडली के आधार पर सटीक जवाब दूँगा। 🙏`;
-  }
-
-  return greeting;
+कुछ भी पूछ सकते हैं — करियर, विवाह, दशा, उपाय, या आज का दिन कैसा रहेगा।`;
 }
 
 export async function POST(req) {
@@ -537,7 +512,7 @@ RULE: Har response mein kam se kam ek baar "${firstName}" ka naam aana chahiye. 
         systemPrompt += `\n\nCLASSICAL YOGA PATTERNS DETECTED:\n${kundliContext.specialist.matchedYogas.map(y => '• ' + y).join('\n')}`;
       }
       if (kundliContext.specialist?.pastValidationQuestions?.length > 0) {
-        systemPrompt += `\n\nPAST VALIDATION (ask these if user hasn't confirmed yet):\n${kundliContext.specialist.pastValidationQuestions.join('\n')}`;
+        systemPrompt += `\n\nPAST EVENT REFERENCE DATA (for YOUR reference only — do NOT ask these proactively; use only if user brings up a matching past event themselves, to validate/connect it to their chart):\n${kundliContext.specialist.pastValidationQuestions.join('\n')}`;
       }
 
       // Inject Jaimini cross-validation if available
