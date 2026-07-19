@@ -10,43 +10,53 @@ export const dynamic = 'force-dynamic';
 
 const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
 
-// ── Fast-reveal "typewriter" text component ─────────────────────
-// Reveals text in quick chunks (not one slow letter at a time) so it
-// FEELS like live streaming, but the total reveal duration is capped
-// (~0.5s–2.2s depending on length) so long responses don't take forever.
+const LANG_OPTIONS = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'hi',   label: 'हिंदी' },
+  { value: 'en',   label: 'English' },
+];
+
+// ── Word-by-word "typewriter" text component ────────────────────
+// Reveals text ONE WORD AT A TIME (not all at once), each word popping
+// in with a tiny fade+rise animation — this is clearly visible and
+// feels engaging, unlike a giant block of text appearing instantly.
+// Total reveal duration is capped (~0.4s–2.5s depending on length) so
+// long responses don't take forever to finish appearing.
 // Only used for freshly-arrived assistant messages (marked `_animate`
 // on the message object) — messages loaded from chat history render
 // statically, instantly, with no replay.
 function TypewriterText({ text, enabled, onDone }) {
-  const [shown, setShown] = useState(enabled ? '' : text);
+  const words = (text || '').split(/(\s+)/); // keep whitespace as separate tokens so spacing is preserved
+  const [count, setCount] = useState(enabled ? 0 : words.length);
 
   useEffect(() => {
-    if (!enabled) { setShown(text); return; }
-    if (!text) { onDone?.(); return; }
+    if (!enabled) { setCount(words.length); return; }
+    if (words.length === 0) { onDone?.(); return; }
 
     let i = 0;
-    const total = text.length;
-    const tickMs = 16; // ~60fps
-    const targetMs = Math.min(2200, Math.max(500, total * 6));
-    const ticks = Math.max(1, Math.round(targetMs / tickMs));
-    const chunk = Math.max(1, Math.ceil(total / ticks));
+    const targetMs = Math.min(2500, Math.max(400, words.length * 35));
+    const stepMs = Math.max(10, Math.round(targetMs / words.length));
 
     const interval = setInterval(() => {
-      i += chunk;
-      if (i >= total) {
-        setShown(text);
+      i++;
+      setCount(i);
+      if (i >= words.length) {
         clearInterval(interval);
         onDone?.();
-      } else {
-        setShown(text.slice(0, i));
       }
-    }, tickMs);
+    }, stepMs);
 
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, enabled]);
 
-  return <>{shown}</>;
+  return (
+    <>
+      {words.slice(0, count).map((w, idx) => (
+        <span key={idx} className={enabled ? 'lf-word-pop' : undefined}>{w}</span>
+      ))}
+    </>
+  );
 }
 
 // ── Quick action configs ──────────────────────────────────────
@@ -152,6 +162,7 @@ export default function ChatPage() {
   const [usage,            setUsage]            = useState({ freeChatsLeft:5, freeMinsLeft:10 });
   const [limitErr,         setLimitErr]         = useState('');
   const [langPref,         setLangPref]         = useState('auto');
+  const [langMenuOpen,     setLangMenuOpen]      = useState(false);
   const [sidebarOpen,      setSidebarOpen]      = useState(false);
   const [panel,            setPanel]            = useState('sessions'); // 'sessions'|'kundlis'
   const [activeQuickForm,  setActiveQuickForm]  = useState(null); // which quick-action form is open
@@ -483,11 +494,47 @@ export default function ChatPage() {
           ) : (
             <p style={{ flex:1, fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>← बाईं तरफ से कुंडली चुनें</p>
           )}
-          <select value={langPref} onChange={e => setLangPref(e.target.value)} style={{ fontSize:'11px', padding:'4px 6px', borderRadius:'6px', border:'0.5px solid var(--color-border-tertiary)', background:'var(--color-background-secondary)', color:'var(--color-text-secondary)', cursor:'pointer', flexShrink:0 }}>
-            <option value="auto">Auto</option>
-            <option value="hi">हिंदी</option>
-            <option value="en">English</option>
-          </select>
+          <div style={{ position:'relative', flexShrink:0 }}>
+            <button
+              onClick={() => setLangMenuOpen(o => !o)}
+              style={{
+                display:'flex', alignItems:'center', gap:'5px', fontSize:'12px', padding:'6px 10px',
+                borderRadius:'8px', border:'0.5px solid var(--color-border-tertiary)',
+                background:'var(--color-background-secondary)', color:'var(--color-text-primary)', cursor:'pointer',
+                fontWeight:'500',
+              }}
+            >
+              {LANG_OPTIONS.find(l => l.value === langPref)?.label || 'Auto'}
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: langMenuOpen ? 'rotate(180deg)' : 'none', transition:'transform 0.15s' }}><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            {langMenuOpen && (
+              <>
+                <div onClick={() => setLangMenuOpen(false)} style={{ position:'fixed', inset:0, zIndex:39 }} />
+                <div style={{
+                  position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:40,
+                  background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-secondary)',
+                  borderRadius:'10px', boxShadow:'0 4px 20px rgba(0,0,0,0.12)', overflow:'hidden', minWidth:'110px',
+                }}>
+                  {LANG_OPTIONS.map(opt => (
+                    <div
+                      key={opt.value}
+                      onClick={() => { setLangPref(opt.value); setLangMenuOpen(false); }}
+                      style={{
+                        padding:'9px 14px', fontSize:'13px', cursor:'pointer',
+                        background: langPref === opt.value ? 'var(--color-background-info)' : 'transparent',
+                        color: langPref === opt.value ? 'var(--color-text-info)' : 'var(--color-text-primary)',
+                        fontWeight: langPref === opt.value ? '600' : '400',
+                      }}
+                      onMouseEnter={e => { if (langPref !== opt.value) e.currentTarget.style.background = 'var(--color-background-secondary)'; }}
+                      onMouseLeave={e => { if (langPref !== opt.value) e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      {opt.label}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Welcome state */}
@@ -674,6 +721,16 @@ export default function ChatPage() {
         @keyframes lf-vortex-logo-in {
           0%   { transform: scale(0.2) rotate(-30deg); opacity: 0; }
           100% { transform: scale(1) rotate(0deg);     opacity: 1; }
+        }
+
+        /* Word-by-word reveal — each word pops in as it appears */
+        .lf-word-pop {
+          display: inline-block;
+          animation: lf-word-pop-in 0.16s ease both;
+        }
+        @keyframes lf-word-pop-in {
+          from { opacity: 0; transform: translateY(3px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

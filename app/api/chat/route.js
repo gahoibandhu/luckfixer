@@ -58,6 +58,11 @@ DON'T REPEAT DASHA INFO EVERY MESSAGE: You have Mahadasha/Antardasha data availa
 
 MINIMIZE JARGON, MAXIMIZE PLAIN LANGUAGE: Terms like "Mahadasha", "Antardasha", "Ashtakavarga", "Sade Sati" are fine to use since they're standard astrology vocabulary the audience knows — but don't stack 3-4 technical terms in one sentence to sound impressive. Explain the practical meaning in plain Hinglish alongside the term the first time it comes up in a conversation, then use it more casually after. Prioritize clarity and warmth over sounding "advanced".
 
+═══ NEVER INVENT DATA — ANTI-HALLUCINATION RULE ═══
+Only reference planets, houses, yogas, dasha periods, or dates that are EXPLICITLY present in the data provided to you below. Never invent a yoga name, a planetary combination, or a "classical technique" that isn't backed by the actual computed data — this is exactly the failure mode of fake astrology tools that impress people with invented terminology ("Bhrigu Cycle Trigger", "Financial Drain Patch") instead of real calculation. If you don't have data to answer something specific, say so honestly: "Is specific cheez ke liye mere paas exact data nahi hai" — rather than fabricating a plausible-sounding answer.
+
+CONSISTENCY ACROSS THE CONVERSATION: If you've already stated a fact about this person's chart earlier in this conversation (e.g. "your 7th lord is Venus"), don't contradict it later. Re-use established facts rather than re-deriving them differently each time.
+
 ═══ NATAL vs TRANSIT — CRITICAL RULE (violations destroy credibility) ═══
 NATAL placements (Mangal 8th mein, Shani-Mangal yuti, Ketu lagna mein, etc.) are PERMANENT — they exist 24/7 from birth to death, whether the person is traveling, sleeping, working, or at home. NEVER say a natal placement "will be more active/dangerous during this trip/event" — that is factually wrong astrology and users WILL catch it.
 
@@ -135,6 +140,81 @@ function getHoraGuidance(date, dashaLord) {
     shubhTime: shubhHoras.join(', ') || 'सुबह 6-7 बजे',
     avoidTime: avoid.join(', ') || 'दोपहर 12-1 बजे',
   };
+}
+
+// ── Extract a specific date mentioned in the user's message ──────
+// FIX for the "20 July ko Friday bata diya" bug: the AI is unreliable
+// at calculating what day-of-week an arbitrary future date falls on,
+// so if the user references ANY specific date beyond today/tomorrow
+// (e.g. "20 July ka din kaisa rahega", "15 August ko"), we detect it
+// here and compute its real day-of-week + hora server-side — the AI
+// never has to guess a date calculation again.
+const MONTH_NAMES_EN = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+const MONTH_ABBR_EN  = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const MONTH_NAMES_HI = ['जनवरी','फरवरी','मार्च','अप्रैल','मई','जून','जुलाई','अगस्त','सितम्बर','अक्टूबर','नवम्बर','दिसम्बर'];
+
+function extractMentionedDate(text, referenceDate) {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+
+  let day = null, month = null, year = null;
+
+  // Pattern 1: "20 july" / "20 july 2026" / "july 20"
+  for (let i = 0; i < 12; i++) {
+    const names = [MONTH_NAMES_EN[i], MONTH_ABBR_EN[i]];
+    for (const name of names) {
+      // "20 july" or "20 july 2026"
+      let m = lower.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+${name}\\b(?:\\s+(\\d{4}))?`));
+      if (m) { day = parseInt(m[1]); month = i; year = m[2] ? parseInt(m[2]) : null; break; }
+      // "july 20" or "july 20 2026"
+      m = lower.match(new RegExp(`\\b${name}\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:\\s+(\\d{4}))?`));
+      if (m) { day = parseInt(m[1]); month = i; year = m[2] ? parseInt(m[2]) : null; break; }
+    }
+    if (day !== null) break;
+  }
+
+  // Pattern 2: Hindi month names — "20 जुलाई"
+  if (day === null) {
+    for (let i = 0; i < 12; i++) {
+      const m = text.match(new RegExp(`(\\d{1,2})\\s*${MONTH_NAMES_HI[i]}(?:\\s*(\\d{4}))?`));
+      if (m) { day = parseInt(m[1]); month = i; year = m[2] ? parseInt(m[2]) : null; break; }
+    }
+  }
+
+  // Pattern 3: numeric DD/MM or DD-MM (or with year) — assume day/month/year order (Indian convention)
+  if (day === null) {
+    const m = lower.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/);
+    if (m) {
+      const d1 = parseInt(m[1]), d2 = parseInt(m[2]);
+      // Only treat as a date if the first number could plausibly be a day (1-31) and second a month (1-12)
+      if (d1 >= 1 && d1 <= 31 && d2 >= 1 && d2 <= 12) {
+        day = d1; month = d2 - 1;
+        if (m[3]) year = m[3].length === 2 ? 2000 + parseInt(m[3]) : parseInt(m[3]);
+      }
+    }
+  }
+
+  if (day === null || month === null || day < 1 || day > 31) return null;
+
+  const refYear = referenceDate.getFullYear();
+  let candidateYear = year || refYear;
+  let candidate = new Date(candidateYear, month, day);
+
+  // If no year was specified and the resulting date is more than ~14 days
+  // in the past relative to today, assume they mean next year's occurrence
+  // (people almost never ask "how will [date] be" about a date that already
+  // passed weeks ago — far more likely they mean the upcoming one).
+  if (!year) {
+    const diffDays = (referenceDate - candidate) / (1000 * 60 * 60 * 24);
+    if (diffDays > 14) {
+      candidate = new Date(refYear + 1, month, day);
+    }
+  }
+
+  // Sanity check the date actually exists (e.g. rejects Feb 30)
+  if (candidate.getMonth() !== month || candidate.getDate() !== day) return null;
+
+  return candidate;
 }
 
 function cleanupAiResponse(text) {
@@ -493,7 +573,30 @@ export async function POST(req) {
     const todayHora    = getHoraGuidance(now, dashaLord);
     const tomorrowHora = getHoraGuidance(tomorrow, dashaLord);
 
-    const dateBlock = `\n\n[AAJKI TITHI — server-side injected, 100% accurate — kabhi bhi khud calculate mat karo, yahi use karo]\nआज: ${todayStr} (${dayHi}) — दिन स्वामी: ${DAY_LORD_HI[now.getDay()]} — शुभ होरा: ${todayHora.shubhTime} — सतर्कता: ${todayHora.avoidTime}\nकल: ${tomorrowStr} (${tomorrowDayHi}) — दिन स्वामी: ${DAY_LORD_HI[tomorrow.getDay()]} — शुभ होरा: ${tomorrowHora.shubhTime} — सतर्कता: ${tomorrowHora.avoidTime}\nISO today: ${now.toISOString().split('T')[0]}\nIMPORTANT: Jab user kisi specific date ka din pooche (jaise "23 June ko kaunsa din hai"), toh seedha upar diye gaye data se answer do — kabhi apni training se guess mat karo.`;
+    // ── Detect any OTHER specific date the user mentioned (beyond today/
+    // tomorrow) — e.g. "20 July ka din kaisa rahega". Without this, the AI
+    // has to calculate the day-of-week itself and gets it wrong (the
+    // "20 July ko Friday bata diya" bug). We resolve it deterministically
+    // here so the AI never guesses a date calculation.
+    let mentionedDateBlock = '';
+    try {
+      const lastUserMsg = messages[messages.length - 1]?.content || '';
+      const mentionedDate = extractMentionedDate(lastUserMsg, now);
+      if (mentionedDate) {
+        const mdStr = `${mentionedDate.getDate()} ${MONTHS_HI[mentionedDate.getMonth()]} ${mentionedDate.getFullYear()}`;
+        const mdDay = DAYS_HI[mentionedDate.getDay()];
+        // Only bother computing Hora if the date isn't today/tomorrow (already covered above)
+        const isTodayOrTomorrow = mentionedDate.toDateString() === now.toDateString() || mentionedDate.toDateString() === tomorrow.toDateString();
+        if (!isTodayOrTomorrow) {
+          const mdHora = getHoraGuidance(mentionedDate, dashaLord);
+          mentionedDateBlock = `\n\n[USER-MENTIONED DATE — server-calculated, 100% accurate, use THIS not your own guess]\nUser ने पूछा है ${mdStr} के बारे में — यह ${mdDay} है। दिन स्वामी: ${DAY_LORD_HI[mentionedDate.getDay()]} — शुभ होरा: ${mdHora.shubhTime} — सतर्कता: ${mdHora.avoidTime}\nISO: ${mentionedDate.toISOString().split('T')[0]}`;
+        }
+      }
+    } catch (e) {
+      console.warn('[Chat] Date extraction failed (non-fatal):', e.message);
+    }
+
+    const dateBlock = `\n\n[AAJKI TITHI — server-side injected, 100% accurate — kabhi bhi khud calculate mat karo, yahi use karo]\nआज: ${todayStr} (${dayHi}) — दिन स्वामी: ${DAY_LORD_HI[now.getDay()]} — शुभ होरा: ${todayHora.shubhTime} — सतर्कता: ${todayHora.avoidTime}\nकल: ${tomorrowStr} (${tomorrowDayHi}) — दिन स्वामी: ${DAY_LORD_HI[tomorrow.getDay()]} — शुभ होरा: ${tomorrowHora.shubhTime} — सतर्कता: ${tomorrowHora.avoidTime}\nISO today: ${now.toISOString().split('T')[0]}\nIMPORTANT: Jab user kisi specific date ka din pooche (jaise "23 June ko kaunsa din hai"), toh seedha upar diye gaye data se answer do — kabhi apni training se guess mat karo. Agar user ne koi aur specific date mention ki hai (neeche "USER-MENTIONED DATE" section dekho), usi ko use karo — kabhi khud calculate mat karo.${mentionedDateBlock}`;
 
     let systemPrompt = LUCKFIXER_SYSTEM_PROMPT + dateBlock;
     if (kundliContext) {
