@@ -47,21 +47,40 @@ export async function GET(req) {
   }
 
   const { data: sessions, error } = await query;
-
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
-  const enriched = await Promise.all((sessions || []).map(async (s) => {
-    const [{ data: profile }, { count }] = await Promise.all([
-      adminSupabase.from('user_profiles').select('email, full_name').eq('id', s.user_id).maybeSingle(),
-      adminSupabase.from('chat_messages').select('*', { count: 'exact', head: true }).eq('session_id', s.id),
-    ]);
+  // ── PERFORMANCE FIX ──────────────────────────────────────────
+  // Previously this did an N+1 query pattern: for EACH session (up to
+  // 50), it fired 2 separate queries (profile lookup + message count),
+  // meaning up to 100 concurrent queries just to render one admin page.
+  // Now we batch: 1 query for ALL relevant profiles, 1 query for ALL
+  // relevant message rows (session_id only, counted in JS) — 2 queries
+  // total instead of up to 100, regardless of how many sessions exist.
+  const sessionIds = (sessions || []).map(s => s.id);
+  const userIds = [...new Set((sessions || []).map(s => s.user_id).filter(Boolean))];
+
+  const [{ data: profiles }, { data: msgRows }] = await Promise.all([
+    userIds.length > 0
+      ? adminSupabase.from('user_profiles').select('id, email, full_name').in('id', userIds)
+      : Promise.resolve({ data: [] }),
+    sessionIds.length > 0
+      ? adminSupabase.from('chat_messages').select('session_id').in('session_id', sessionIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+  const countMap = {};
+  (msgRows || []).forEach(m => { countMap[m.session_id] = (countMap[m.session_id] || 0) + 1; });
+
+  const enriched = (sessions || []).map(s => {
+    const profile = profileMap.get(s.user_id);
     return {
       ...s,
       user_email: profile?.email || 'unknown',
       user_name:  profile?.full_name || '',
-      message_count: count || 0,
+      message_count: countMap[s.id] || 0,
     };
-  }));
+  });
 
   // Default view: hide empty sessions (legacy safety net)
   const filtered = showDeleted ? enriched : enriched.filter(s => s.message_count > 0);

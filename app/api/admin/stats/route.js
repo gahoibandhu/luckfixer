@@ -18,23 +18,34 @@ export async function GET() {
   if (!admin) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
   const adminSupabase = getSupabaseAdmin();
-
-  // Total user count
-  const { count: totalUsers } = await adminSupabase
-    .from('user_profiles')
-    .select('*', { count: 'exact', head: true });
-
-  // Total kundlis saved
-  const { count: totalKundlis } = await adminSupabase
-    .from('saved_kundlis')
-    .select('*', { count: 'exact', head: true });
-
-  // Today's usage across all users
   const today = new Date().toISOString().split('T')[0];
-  const { data: todayUsage } = await adminSupabase
-    .from('usage_log')
-    .select('chat_count, free_mins_used, total_tokens')
-    .eq('log_date', today);
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  // ── PERFORMANCE FIX ─────────────────────────────────────────
+  // Previously these 7 queries ran sequentially (await one at a time),
+  // meaning total load time = sum of every query's round-trip latency.
+  // None of these queries depend on each other's results, so running
+  // them in parallel via Promise.all cuts admin panel load time down
+  // to roughly the SLOWEST single query instead of the sum of all 7 —
+  // this was the main cause of the admin panel feeling slow.
+  const [
+    { count: totalUsers },
+    { count: totalKundlis },
+    { data: todayUsage },
+    { data: weekUsage },
+    { data: plan },
+    { data: recentUsers },
+    { data: outcomeRows },
+  ] = await Promise.all([
+    adminSupabase.from('user_profiles').select('*', { count: 'exact', head: true }),
+    adminSupabase.from('saved_kundlis').select('*', { count: 'exact', head: true }),
+    adminSupabase.from('usage_log').select('chat_count, free_mins_used, total_tokens').eq('log_date', today),
+    adminSupabase.from('usage_log').select('log_date, chat_count, free_mins_used').gte('log_date', sevenDaysAgo.toISOString().split('T')[0]).order('log_date', { ascending: true }),
+    adminSupabase.from('plan_config').select('*').eq('plan_name', 'free').single(),
+    adminSupabase.from('user_profiles').select('id, full_name, email, mobile, created_at').order('created_at', { ascending: false }).limit(20),
+    adminSupabase.from('outcome_tracking').select('outcome').not('outcome', 'is', null),
+  ]);
 
   const todayTotals = (todayUsage || []).reduce((acc, row) => ({
     chats: acc.chats + (row.chat_count || 0),
@@ -42,19 +53,8 @@ export async function GET() {
     tokens: acc.tokens + (row.total_tokens || 0),
   }), { chats: 0, mins: 0, tokens: 0 });
 
-  // Active users today (had at least 1 chat)
   const activeToday = (todayUsage || []).filter(r => r.chat_count > 0).length;
 
-  // Last 7 days usage trend
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const { data: weekUsage } = await adminSupabase
-    .from('usage_log')
-    .select('log_date, chat_count, free_mins_used')
-    .gte('log_date', sevenDaysAgo.toISOString().split('T')[0])
-    .order('log_date', { ascending: true });
-
-  // Aggregate by date
   const dailyMap = {};
   (weekUsage || []).forEach(row => {
     if (!dailyMap[row.log_date]) dailyMap[row.log_date] = { date: row.log_date, chats: 0, mins: 0, users: 0 };
@@ -63,26 +63,6 @@ export async function GET() {
     dailyMap[row.log_date].users += 1;
   });
   const weekTrend = Object.values(dailyMap);
-
-  // Plan config
-  const { data: plan } = await adminSupabase
-    .from('plan_config')
-    .select('*')
-    .eq('plan_name', 'free')
-    .single();
-
-  // Recent users
-  const { data: recentUsers } = await adminSupabase
-    .from('user_profiles')
-    .select('id, full_name, email, mobile, created_at')
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  // Outcome tracking aggregate (all users combined for admin view)
-  const { data: outcomeRows } = await adminSupabase
-    .from('outcome_tracking')
-    .select('outcome')
-    .not('outcome', 'is', null);
 
   const outcomeStats = outcomeRows ? {
     total_tracked: outcomeRows.length,

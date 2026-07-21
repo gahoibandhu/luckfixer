@@ -203,6 +203,7 @@ export default function ChatPage() {
       .from('chat_sessions')
       .select('id,title,updated_at,kundli_id')
       .eq('user_id', session.user.id)
+      .or('deleted_by_user.is.null,deleted_by_user.eq.false')
       .order('updated_at', { ascending:false })
       .limit(30);
     setSessions(sess || []);

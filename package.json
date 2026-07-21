@@ -9,20 +9,20 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@google/generative-ai": "latest",
+    "@supabase/ssr": "latest",
+    "@supabase/supabase-js": "latest",
+    "astronomy-engine": "latest",
+    "groq-sdk": "latest",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "@supabase/supabase-js": "latest",
-    "@supabase/ssr": "latest",
-    "@google/generative-ai": "latest",
-    "groq-sdk": "latest",
-    "astronomy-engine": "latest",
     "resend": "latest"
   },
   "devDependencies": {
-    "typescript": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
-    "@types/react-dom": "latest"
+    "@types/react-dom": "latest",
+    "typescript": "5.9.3"
   }
 }
