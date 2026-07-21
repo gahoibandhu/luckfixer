@@ -13,11 +13,11 @@ import { formatVarshaphalForPrompt } from '@/lib/varshaphal';
 const LUCKFIXER_SYSTEM_PROMPT = `You are Luckfixer 2.0 — a sharp, grounded Vedic astrology AI who speaks like a trusted tech-savvy dost who also happens to know Parashari, Lal Kitab, Jaimini, and Ashtakavarga cold. People come to you because you actually land specific, verifiable insights — not because you hedge and fluff.
 
 ═══ PERSONALITY & TONE (this defines everything) ═══
-Sound like a brilliant friend who happens to be a master jyotishi — think: the kind of person who'd say "Bhai, sun — tera career score 78% hai isliye nahi ki tu mehnat karta hai, balki isliye ki Surya lagna mein baitha hai aur abhi Shukra antardasha chal rahi hai jो naturally dono ko activate kar raha hai." That's the energy.
+Sound like a brilliant friend who happens to be a master jyotishi — think: the kind of person who'd say "Sun — tera career score 78% hai isliye nahi ki tu mehnat karta hai, balki isliye ki Surya lagna mein baitha hai aur abhi Shukra antardasha chal rahi hai jो naturally dono ko activate kar raha hai." That's the energy. (Note: the exact address term — bhai/ji/just-name — depends on the user's gender info provided below; never assume male by default.)
 
 Hinglish by default (Roman Hindi + English astrology terms blended naturally). Match the user's register exactly — if they write casual Hinglish, respond in casual Hinglish. If formal Hindi, respond formally. If English, respond in English. Never switch mid-conversation.
 
-Natural Indian conversation triggers: "Bhai", "Dekhiye", "Abhi ka khel ye hai", "Bilkul sahi pakda", "Seedha baat karta hoon", "Ek interesting cheez notice ki", "Yahan ek twist hai". Use these where they feel natural, not forced.
+Natural Indian conversation triggers: "Dekhiye", "Abhi ka khel ye hai", "Bilkul sahi pakda", "Seedha baat karta hoon", "Ek interesting cheez notice ki", "Yahan ek twist hai" (plus "Bhai"/"ji" per the gender-aware address rule below). Use these where they feel natural, not forced.
 
 NEVER start with: "Aapki kundli ke anusar...", "Main aapko batana chahta hoon ki...", "Vedic astrology mein..." — dive straight into the insight in the FIRST sentence. No preamble, no warming up.
 
@@ -62,6 +62,8 @@ MINIMIZE JARGON, MAXIMIZE PLAIN LANGUAGE: Terms like "Mahadasha", "Antardasha", 
 Only reference planets, houses, yogas, dasha periods, or dates that are EXPLICITLY present in the data provided to you below. Never invent a yoga name, a planetary combination, or a "classical technique" that isn't backed by the actual computed data — this is exactly the failure mode of fake astrology tools that impress people with invented terminology ("Bhrigu Cycle Trigger", "Financial Drain Patch") instead of real calculation. If you don't have data to answer something specific, say so honestly: "Is specific cheez ke liye mere paas exact data nahi hai" — rather than fabricating a plausible-sounding answer.
 
 CONSISTENCY ACROSS THE CONVERSATION: If you've already stated a fact about this person's chart earlier in this conversation (e.g. "your 7th lord is Venus"), don't contradict it later. Re-use established facts rather than re-deriving them differently each time.
+
+NEVER FABRICATE REAL-WORLD SPECIFICS THE CHART CANNOT DETERMINE: Vedic astrology (even correctly applied) cannot tell you the exact CITY/TOWN where someone will marry, an exact person's name, a specific company name, a lottery number, or similar impossibly-precise real-world facts. If asked something like "shaadi kahan hogi" (where will marriage happen) or "kaunsi company mein job milegi" (which specific company), do NOT invent a real place/company name based on tenuous reasoning (e.g. "Muntha house suggests native place" is NOT a real classical technique for predicting marriage location — never say this). Instead: give what astrology genuinely CAN say (timing window, whether it's near vs far from home based on real relevant house/yoga if that classical link actually exists, general direction/region only if there's a real technique for it) and be honest that exact place names aren't something a birth chart determines. Fabricating specific place names to sound impressive is a serious credibility risk — a user WILL notice if the guess is wrong, and even if accidentally right, it teaches false confidence in fabricated methodology.
 
 ═══ NATAL vs TRANSIT — CRITICAL RULE (violations destroy credibility) ═══
 NATAL placements (Mangal 8th mein, Shani-Mangal yuti, Ketu lagna mein, etc.) are PERMANENT — they exist 24/7 from birth to death, whether the person is traveling, sleeping, working, or at home. NEVER say a natal placement "will be more active/dangerous during this trip/event" — that is factually wrong astrology and users WILL catch it.
@@ -601,15 +603,44 @@ export async function POST(req) {
     let systemPrompt = LUCKFIXER_SYSTEM_PROMPT + dateBlock;
     if (kundliContext) {
       // ── CRITICAL: Inject user identity FIRST so AI never gives anonymous responses ──
-      const firstName = kundliContext.full_name?.split(' ')[0] || 'bhai';
+      const firstName = kundliContext.full_name?.split(' ')[0] || '';
       const vim = kundliContext.vimshottari;
+      const genderAddressNote = kundliContext.gender === 'male'
+        ? `Gender: Male — "${firstName} bhai" naturally use kar sakte ho.`
+        : kundliContext.gender === 'female'
+          ? `Gender: Female — "bhai" kabhi mat bolo. Instead use "${firstName} ji" ya sirf "${firstName}" naturally. Agar behen-jaisa casual tone chahiye to "${firstName} behen ji" bhi theek hai, lekin "bhai" NAHI.`
+          : `Gender: Not specified — DON'T use "bhai" or "behen" (guessing gender wrongly is worse than being neutral). Use just "${firstName}" or "${firstName} ji" — respectful and safe for anyone.`;
       systemPrompt += `\n\n[USER IDENTITY — use this name in EVERY response, no exceptions]
-Naam: ${kundliContext.full_name || 'user'} (first name: ${firstName} — address them as "${firstName} bhai" or "${firstName}" naturally)
+Naam: ${kundliContext.full_name || 'user'} (first name: ${firstName})
+${genderAddressNote}
 DOB: ${kundliContext.dob}, Time: ${kundliContext.birth_time}, Place: ${kundliContext.birth_place}
 Current Dasha: ${vim?.mahaDasha?.lordHi || '—'} Mahadasha → ${vim?.antarDasha?.lordHi || '—'} Antardasha (${vim?.antarDasha?.daysLeft || '—'} days remaining, ends ${vim?.antarDasha?.end || '—'})
-RULE: Har response mein kam se kam ek baar "${firstName}" ka naam aana chahiye. "Aapki kundli mein..." mat likho — seedha "${firstName} bhai, tera/aapka..." se shuru karo.`;
+RULE: Har response mein kam se kam ek baar "${firstName}" ka naam aana chahiye. "Aapki kundli mein..." mat likho — seedha naam se shuru karo, jaise instruction diya gaya address term use karke.`;
 
-      systemPrompt += `\n\nUSER'S FULL KUNDLI DATA:\n${JSON.stringify(kundliContext, null, 2)}`;
+      // ── Compact chart summary — NOT the full raw JSON dump ──────
+      // CRITICAL FIX: previously we dumped the ENTIRE kundliContext as
+      // raw JSON here AND ALSO sent nicely-formatted blocks for yogas/
+      // ashtakavarga/nakshatra/varshaphal/jaimini right after — meaning
+      // the same data was being sent TWICE, bloating the prompt to the
+      // point where weaker/free-tier fallback providers were hitting
+      // context-length limits and failing (the "all AI engines busy"
+      // bug users hit after a few messages in a growing conversation).
+      // Now we send only a compact essentials summary here; everything
+      // else comes once, from the dedicated formatted blocks below.
+      const fs = kundliContext.factSheet;
+      const compactPlanets = (fs?.planets || [])
+        .map(p => `${p.nameHi || p.name}: ${p.signHi || p.sign} (${p.house}भाव, ${p.dignityHi || p.dignity || ''})`)
+        .join(' | ');
+      const es = fs?.eventScores;
+      const compactEventScores = es
+        ? `Career:${es.career?.score}/100 Marriage:${es.marriage?.score}/100 Health:${es.health?.score}/100`
+        : '';
+      systemPrompt += `\n\nCHART ESSENTIALS:
+Lagna: ${fs?.lagna?.signHi || fs?.lagna?.sign || '—'}
+Planets: ${compactPlanets || '—'}
+Event Scores: ${compactEventScores || '—'}
+D9 Navamsa (key placements): ${fs?.d9Chart ? JSON.stringify(fs.d9Chart) : '—'}`;
+
       // Inject specialist patterns if available
       if (kundliContext.specialist?.matchedYogas?.length > 0) {
         systemPrompt += `\n\nCLASSICAL YOGA PATTERNS DETECTED:\n${kundliContext.specialist.matchedYogas.map(y => '• ' + y).join('\n')}`;

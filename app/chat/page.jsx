@@ -217,7 +217,7 @@ export default function ChatPage() {
   function buildContext(k) {
     if (!k) return null;
     return {
-      full_name: k.full_name, dob: k.dob, birth_time: k.birth_time,
+      full_name: k.full_name, dob: k.dob, birth_time: k.birth_time, gender: k.gender,
       birth_place: k.birth_place, latitude: k.latitude, longitude: k.longitude,
       analysis: k.planet_data?.analysis, factSheet: k.planet_data?.factSheet,
       vimshottari: k.planet_data?.vimshottari?.current,

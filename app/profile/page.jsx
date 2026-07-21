@@ -18,7 +18,7 @@ export default function ProfilePage() {
   const [addOpen,  setAddOpen]  = useState(false);
   const [expandedKundli, setExpandedKundli] = useState(null);
   const [feedbackSent, setFeedbackSent] = useState({});
-  const [newK,     setNewK]     = useState({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri' });
+  const [newK,     setNewK]     = useState({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'' });
   const [analyzing,setAnalyzing]= useState(false);
   const [wizardStep, setWizardStep] = useState(1); // 1=naam+dob, 2=time, 3=place
 
@@ -157,7 +157,7 @@ export default function ProfilePage() {
       setKundlis(k => [data.kundli, ...k]);
       setAddOpen(false);
       setWizardStep(1);
-      setNewK({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri' });
+      setNewK({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'' });
     } else if (data.error) {
       setGeoError(data.error);
     }
@@ -261,6 +261,23 @@ export default function ProfilePage() {
                 <div>
                   <label className="lf-label">जन्म तिथि *</label>
                   <input type="date" value={newK.dob} onChange={e => setNewK(k => ({...k, dob:e.target.value}))} style={{ width:'100%', fontSize:'15px' }}/>
+                </div>
+                <div>
+                  <label className="lf-label">लिंग (वैकल्पिक — बेहतर संबोधन के लिए)</label>
+                  <div style={{ display:'flex', gap:'8px' }}>
+                    {[['male','पुरुष'],['female','महिला'],['other','अन्य']].map(([val, label]) => (
+                      <button key={val} type="button"
+                        onClick={() => setNewK(k => ({...k, gender: k.gender === val ? '' : val}))}
+                        style={{
+                          flex:1, padding:'9px', fontSize:'13px', borderRadius:'8px', cursor:'pointer',
+                          border: `1px solid ${newK.gender === val ? 'var(--color-brand)' : 'var(--color-border-tertiary)'}`,
+                          background: newK.gender === val ? 'var(--color-brand-light)' : 'var(--color-background-primary)',
+                          color: newK.gender === val ? 'var(--color-brand)' : 'var(--color-text-secondary)',
+                        }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <button type="button"
                   disabled={!newK.full_name.trim() || !newK.dob}

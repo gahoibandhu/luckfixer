@@ -23,6 +23,13 @@ export default function AdminPage() {
   const [showDeleted, setShowDeleted] = useState(false);
 
   const [planForm, setPlanForm] = useState({ free_mins_day: '', free_chats_day: '', charge_per_min: '', plan_type: 'chat' });
+
+  const [broadcastForm, setBroadcastForm] = useState({
+    subject: '', headline: 'नमस्ते! 🙏', bodyText: '', ctaLabel: 'Login करें →', ctaUrl: '', audience: 'all',
+  });
+  const [broadcastSending, setBroadcastSending] = useState(false);
+  const [broadcastResult, setBroadcastResult] = useState(null);
+  const [broadcastConfirm, setBroadcastConfirm] = useState(false);
   const [planSaving, setPlanSaving] = useState(false);
   const [planMsg, setPlanMsg] = useState('');
   const [demoUsers, setDemoUsers] = useState([]);
@@ -131,6 +138,24 @@ export default function AdminPage() {
     setDemoUsers(prev => prev.filter(u => u.user_id !== userId));
   }
 
+  async function sendBroadcast() {
+    setBroadcastSending(true);
+    setBroadcastResult(null);
+    try {
+      const res = await fetch('/api/admin/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(broadcastForm),
+      });
+      const data = await res.json();
+      setBroadcastResult(res.ok ? data : { error: data.error || 'Bhejne mein error aaya' });
+    } catch (e) {
+      setBroadcastResult({ error: e.message });
+    }
+    setBroadcastSending(false);
+    setBroadcastConfirm(false);
+  }
+
   async function savePlan(e) {
     e.preventDefault();
     setPlanSaving(true);
@@ -189,6 +214,7 @@ export default function AdminPage() {
           { id:'chats',    label:'Chat Audit' },
           { id:'plan',     label:'Plan Config' },
           { id:'demo',     label:'Demo Users' },
+          { id:'broadcast',label:'📢 Broadcast' },
         ].map(t => (
           <button key={t.id} onClick={() => switchTab(t.id)} style={{
             padding:'8px 16px', fontSize:'14px', border:'none', background:'none', cursor:'pointer',
@@ -381,6 +407,95 @@ export default function AdminPage() {
                 <button onClick={() => removeDemoUser(u.user_id)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-danger)', fontSize:'13px', padding:'4px 8px' }}>Remove</button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {tab === 'broadcast' && (
+        <div style={{ maxWidth:'520px' }}>
+          <div style={{ background:'var(--color-background-warning)', borderRadius:'var(--border-radius-md)', padding:'10px 14px', marginBottom:'1rem', fontSize:'12px', color:'var(--color-text-warning)' }}>
+            ⚠️ यह असली users को असली email भेजेगा। भेजने से पहले content ध्यान से check करें।
+          </div>
+
+          <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1.25rem' }}>
+            <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 14px' }}>📢 Broadcast Email</p>
+
+            <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+              <div>
+                <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', fontWeight:'500', display:'block', marginBottom:'4px' }}>Audience</label>
+                <div style={{ display:'flex', gap:'8px' }}>
+                  {[['all','सभी Users'],['active_30d','Active (30 din)']].map(([val,label]) => (
+                    <button key={val} type="button" onClick={() => setBroadcastForm(f => ({...f, audience: val}))}
+                      style={{
+                        flex:1, padding:'8px', fontSize:'12px', borderRadius:'8px', cursor:'pointer',
+                        border: `1px solid ${broadcastForm.audience===val ? 'var(--color-brand)' : 'var(--color-border-tertiary)'}`,
+                        background: broadcastForm.audience===val ? 'var(--color-brand-light)' : 'var(--color-background-primary)',
+                        color: broadcastForm.audience===val ? 'var(--color-brand)' : 'var(--color-text-secondary)',
+                      }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', fontWeight:'500', display:'block', marginBottom:'4px' }}>Subject Line *</label>
+                <input value={broadcastForm.subject} onChange={e => setBroadcastForm(f => ({...f, subject:e.target.value}))} placeholder="जैसे: आपकी कुंडली में नया अपडेट है 🔮" style={{ width:'100%', fontSize:'13px' }}/>
+              </div>
+
+              <div>
+                <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', fontWeight:'500', display:'block', marginBottom:'4px' }}>Headline (email के अंदर बड़ा टेक्स्ट)</label>
+                <input value={broadcastForm.headline} onChange={e => setBroadcastForm(f => ({...f, headline:e.target.value}))} style={{ width:'100%', fontSize:'13px' }}/>
+              </div>
+
+              <div>
+                <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', fontWeight:'500', display:'block', marginBottom:'4px' }}>Message *</label>
+                <textarea value={broadcastForm.bodyText} onChange={e => setBroadcastForm(f => ({...f, bodyText:e.target.value}))} rows={5} placeholder="अपना संदेश यहाँ लिखें..." style={{ width:'100%', fontSize:'13px', padding:'8px 10px', borderRadius:'8px', border:'0.5px solid var(--color-border-tertiary)', fontFamily:'inherit', resize:'vertical' }}/>
+              </div>
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
+                <div>
+                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', fontWeight:'500', display:'block', marginBottom:'4px' }}>Button Text</label>
+                  <input value={broadcastForm.ctaLabel} onChange={e => setBroadcastForm(f => ({...f, ctaLabel:e.target.value}))} style={{ width:'100%', fontSize:'13px' }}/>
+                </div>
+                <div>
+                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', fontWeight:'500', display:'block', marginBottom:'4px' }}>Button Link (optional)</label>
+                  <input value={broadcastForm.ctaUrl} onChange={e => setBroadcastForm(f => ({...f, ctaUrl:e.target.value}))} placeholder="default: /login" style={{ width:'100%', fontSize:'13px' }}/>
+                </div>
+              </div>
+
+              {!broadcastConfirm ? (
+                <button
+                  type="button"
+                  disabled={!broadcastForm.subject.trim() || !broadcastForm.bodyText.trim()}
+                  onClick={() => setBroadcastConfirm(true)}
+                  style={{ padding:'11px', background: (!broadcastForm.subject.trim() || !broadcastForm.bodyText.trim()) ? 'var(--color-border-tertiary)' : 'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}
+                >
+                  Preview & Send →
+                </button>
+              ) : (
+                <div style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'12px' }}>
+                  <p style={{ fontSize:'13px', fontWeight:'600', color:'var(--color-text-primary)', margin:'0 0 6px' }}>पक्का भेजना है?</p>
+                  <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 12px' }}>
+                    Audience: <strong>{broadcastForm.audience === 'all' ? 'सभी Users' : 'Active (30 din)'}</strong> को email जाएगा। यह undo नहीं हो सकता।
+                  </p>
+                  <div style={{ display:'flex', gap:'8px' }}>
+                    <button onClick={() => setBroadcastConfirm(false)} style={{ flex:1, padding:'9px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'8px', cursor:'pointer', fontSize:'13px', color:'var(--color-text-secondary)' }}>रद्द करें</button>
+                    <button onClick={sendBroadcast} disabled={broadcastSending} style={{ flex:1, padding:'9px', background:'var(--color-text-danger)', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'13px', fontWeight:'600' }}>
+                      {broadcastSending ? 'भेज रहे हैं...' : 'हाँ, भेजें'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {broadcastResult && (
+                <div style={{ padding:'10px 12px', background: broadcastResult.error ? 'var(--color-background-warning)' : 'var(--color-background-info)', borderRadius:'8px', fontSize:'12px', color: broadcastResult.error ? 'var(--color-text-warning)' : 'var(--color-text-info)' }}>
+                  {broadcastResult.error
+                    ? `Error: ${broadcastResult.error}`
+                    : `✓ ${broadcastResult.sent} email भेजे गए, ${broadcastResult.failed} fail हुए (कुल ${broadcastResult.totalRecipients} recipients)`}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -63,7 +63,7 @@ export async function POST(req) {
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { label, full_name, dob, birth_time, birth_place, latitude, longitude, ayanamsa } = body;
+  const { label, full_name, dob, birth_time, birth_place, latitude, longitude, ayanamsa, gender } = body;
 
   if (!full_name || !dob || !birth_time || !latitude || !longitude) {
     return Response.json({ error: 'Missing required fields' }, { status: 400 });
@@ -263,6 +263,7 @@ Return this exact JSON structure:
     latitude:     parseFloat(latitude),
     longitude:    parseFloat(longitude),
     ayanamsa:     ayanamsa || 'lahiri',
+    gender:       gender || null,
     planet_data: {
       planets: factSheet.planets,
       factSheet,
