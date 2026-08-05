@@ -4,7 +4,7 @@ import { getChatResponse } from '@/lib/ai-engine';
 import { checkUsageAllowed, recordUsage } from '@/lib/usage-guard';
 import { generatePastValidationQuestions } from '@/lib/past-validation';
 import { buildTransitReport } from '@/lib/transit';
-import { getPendingFollowUp, markFollowUpAsked, recordOutcome, detectOutcomeAnswer, buildFollowUpQuestion } from '@/lib/outcome-tracking';
+import { getPendingFollowUp, markFollowUpAsked, recordOutcome, detectOutcomeAnswer, buildFollowUpQuestion, getUserAccuracy } from '@/lib/outcome-tracking';
 import { formatYogasForPrompt } from '@/lib/yogas';
 import { formatAVForPrompt } from '@/lib/ashtakavarga';
 import { formatNakshatraForPrompt } from '@/lib/nakshatra';
@@ -92,7 +92,10 @@ NEVER ask the user to confirm past chart-derived events unprompted — no "did X
 
 However, IF the user themselves brings up a past life event (mentions a breakup, job change, financial loss, health issue, spiritual shift, etc. — with or without a date), you SHOULD connect it to their chart: check if the dasha/transit/yoga data for that approximate period explains what they experienced, and mention that connection naturally — this builds real trust because it's a genuine insight, not a scripted question. Example: user says "2023 mein job chali gayi thi" → you can say "Us waqt tera Shani-Rahu period tha, jo career mein achanak rukavat ka classic pattern hai."
 
-If they confirm something you've said matches their chart: acknowledge briefly, connect it to the specific dasha/yoga logic in one sharp sentence, then move to their real question. If they say it does NOT match: don't argue — accept gracefully ("Birth time mein thoda margin hota hai, chart 100% precise nahi hota — chalte hain aage") and move forward. Never repeat a rejected claim.`;
+If they confirm something you've said matches their chart: acknowledge briefly, connect it to the specific dasha/yoga logic in one sharp sentence, then move to their real question. If they say it does NOT match: don't argue — accept gracefully ("Birth time mein thoda margin hota hai, chart 100% precise nahi hota — chalte hain aage") and move forward. Never repeat a rejected claim.
+
+═══ ACCURACY / TRACK-RECORD QUESTIONS — ANSWER FROM REAL DATA ONLY, COUNTS NOT PERCENTAGES ═══
+If the user asks anything like "tumhari prediction kitni sahi nikli", "accuracy kya hai", "track record dikhao", "pehle ki predictions sach hui kya" — answer ONLY using the real data provided below under USER TRACK RECORD (if present). Always phrase this as raw counts ("6 predictions confirm hui hain 8 me se") — NEVER as a percentage. A "%" on a small sample looks falsely precise (a single lucky or unlucky guess turns into a misleading "100%" or "0%"), so counts are the honest way to communicate this. If USER TRACK RECORD shows not enough tracked predictions yet, say so plainly: "Abhi track record ban raha hai — jaise-jaise aur predictions confirm hongi, real numbers de sakunga." Never invent any number — percentage or count — that isn't explicitly given in USER TRACK RECORD. This same real data should also quietly calibrate your confidence elsewhere in the conversation: if the tracked record is strong, you can be more assertively specific with new date-windows; if it's thin or unproven, hedge a little more honestly ("confidence thoda kam hai kyunki abhi verify hona baaki hai") instead of overselling certainty.`;
 
 
 
@@ -624,6 +627,29 @@ export async function POST(req) {
     const dateBlock = `\n\n[AAJKI TITHI — server-side injected, 100% accurate — kabhi bhi khud calculate mat karo, yahi use karo]\nआज: ${todayStr} (${dayHi}) — दिन स्वामी: ${DAY_LORD_HI[now.getDay()]} — शुभ होरा: ${todayHora.shubhTime} — सतर्कता: ${todayHora.avoidTime}\nकल: ${tomorrowStr} (${tomorrowDayHi}) — दिन स्वामी: ${DAY_LORD_HI[tomorrow.getDay()]} — शुभ होरा: ${tomorrowHora.shubhTime} — सतर्कता: ${tomorrowHora.avoidTime}\nISO today: ${now.toISOString().split('T')[0]}\nIMPORTANT: Jab user kisi specific date ka din pooche (jaise "23 June ko kaunsa din hai"), toh seedha upar diye gaye data se answer do — kabhi apni training se guess mat karo. Agar user ne koi aur specific date mention ki hai (neeche "USER-MENTIONED DATE" section dekho), usi ko use karo — kabhi khud calculate mat karo.${mentionedDateBlock}`;
 
     let systemPrompt = LUCKFIXER_SYSTEM_PROMPT + dateBlock;
+
+    // ── User's real prediction track record — lets the AI honestly answer
+    // "tumhari prediction kitni sahi rahi" instead of guessing. Deliberately
+    // NOT expressed as a percentage: with a small sample size (a new user
+    // might only have 1-2 tracked outcomes) a "%" looks falsely precise —
+    // either a misleading 100% or a scary 0% from a single data point.
+    // Raw counts ("6 confirm hue 8 me se") convey the same honesty without
+    // that false-precision problem, and a minimum sample size gate means
+    // we simply say "abhi track record ban raha hai" until there's enough
+    // data for the number to mean anything.
+    const MIN_TRACKED_FOR_DISPLAY = 5;
+    try {
+      const accuracy = await getUserAccuracy(supabase, userId);
+      const tracked = accuracy?.total_tracked || 0;
+      if (accuracy && tracked >= MIN_TRACKED_FOR_DISPLAY) {
+        systemPrompt += `\n\n[USER TRACK RECORD — real numbers, use only when accuracy/track-record is asked, state as COUNTS not a percentage]\nTotal tracked predictions: ${tracked}\nConfirmed correct: ${accuracy.confirmed ?? 0}\nDenied/incorrect: ${accuracy.denied ?? 0}\nPartial: ${accuracy.partial ?? 0}\nExample phrasing: "${accuracy.confirmed ?? 0} predictions confirm hui hain ${tracked} me se — humara track record isi tarah samay ke saath transparent rehta hai." Never convert this to a "%" — counts only.`;
+      } else {
+        systemPrompt += `\n\n[USER TRACK RECORD]\nAbhi sirf ${tracked} prediction(s) tracked hain — meaningful track record ke liye kam se kam ${MIN_TRACKED_FOR_DISPLAY} chahiye. Agar accuracy/track-record poochha jaaye, honestly bolo: "Abhi track record ban raha hai — jaise-jaise aur predictions confirm hongi, main real numbers de sakunga." Kabhi ek ya do data-points se koi percentage ya "X% accurate" mat bolo — chhote sample se yeh misleading hota hai.`;
+      }
+    } catch (e) {
+      console.warn('[Chat] getUserAccuracy failed (non-fatal):', e.message);
+    }
+
     if (kundliContext) {
       // ── CRITICAL: Inject user identity FIRST so AI never gives anonymous responses ──
       const firstName = kundliContext.full_name?.split(' ')[0] || '';

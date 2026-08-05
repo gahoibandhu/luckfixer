@@ -388,6 +388,11 @@ export default function ProfilePage() {
             <div style={{ flex:1, minWidth:0 }}>
               <p style={{ fontWeight:'500', fontSize:'15px', margin:'0 0 2px', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.label || k.full_name}</p>
               <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>{k.dob} · {k.birth_place}</p>
+              {k.planet_data?.yogas?.filter(y => !y.isChallenging)?.length > 0 && (
+                <span style={{ display:'inline-block', marginTop:'4px', fontSize:'10px', fontWeight:'500', padding:'2px 8px', borderRadius:'10px', background:'var(--color-background-info)', color:'var(--color-text-info)' }}>
+                  🔍 {k.planet_data.yogas.filter(y => !y.isChallenging).length} शास्त्रीय योग पहचाने गए
+                </span>
+              )}
             </div>
             <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)', flexShrink:0 }}>{k.birth_time}</span>
             <button onClick={() => router.push(`/chat?kundliId=${k.id}`)} style={{ padding:'7px 14px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500', flexShrink:0 }}>

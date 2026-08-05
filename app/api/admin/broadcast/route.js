@@ -1,5 +1,5 @@
 // app/api/admin/broadcast/route.js
-// Admin-only: send a broadcast email to all (or filtered) users,
+// Admin-only: send a broadcast email to all / active / specific users,
 // encouraging them to log in / come back / see a new feature.
 // Also logs every broadcast to broadcast_log for history/summary view.
 
@@ -15,13 +15,33 @@ function getAdminDb() {
   );
 }
 
-// GET — fetch broadcast history for the admin panel summary view
-export async function GET() {
+// GET — two modes:
+//   ?q=search-term   -> user search results, for picking specific recipients
+//   (no params)       -> broadcast history for the admin panel summary view
+export async function GET(req) {
   const supabase = await createClient();
   const admin = await requireAdmin(supabase);
   if (!admin) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
   const adminDb = getAdminDb();
+  const { searchParams } = new URL(req.url);
+  const q = searchParams.get('q');
+
+  if (q !== null) {
+    const term = q.trim();
+    if (term.length < 2) return Response.json({ users: [] });
+
+    const { data, error } = await adminDb
+      .from('user_profiles')
+      .select('id, email, full_name')
+      .or(`email.ilike.%${term}%,full_name.ilike.%${term}%`)
+      .order('created_at', { ascending: false })
+      .limit(25);
+
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ users: data || [] });
+  }
+
   const { data, error } = await adminDb
     .from('broadcast_log')
     .select('*')
@@ -38,15 +58,19 @@ export async function POST(req) {
   if (!admin) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
   const body = await req.json();
-  const { subject, headline, bodyText, ctaLabel, ctaUrl, audience } = body;
+  const { subject, headline, bodyText, ctaLabel, ctaUrl, audience, userIds } = body;
 
   if (!subject || !bodyText) {
     return Response.json({ error: 'subject aur bodyText zaroori hain' }, { status: 400 });
   }
 
+  if (audience === 'specific' && (!Array.isArray(userIds) || userIds.length === 0)) {
+    return Response.json({ error: 'specific audience ke liye kam se kam ek user chuno' }, { status: 400 });
+  }
+
   const adminDb = getAdminDb();
 
-  // audience: 'all' (default) | 'active_30d' (logged in / active in last 30 days)
+  // audience: 'all' (default) | 'active_30d' | 'specific' (explicit userIds list)
   let query = adminDb.from('user_profiles').select('email, created_at');
 
   if (audience === 'active_30d') {
@@ -60,6 +84,8 @@ export async function POST(req) {
       return Response.json({ sent: 0, failed: 0, note: 'Koi active user nahi mila pichhle 30 din mein' });
     }
     query = adminDb.from('user_profiles').select('email').in('id', activeIds);
+  } else if (audience === 'specific') {
+    query = adminDb.from('user_profiles').select('email').in('id', userIds);
   }
 
   const { data: users, error } = await query;

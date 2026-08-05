@@ -25,13 +25,18 @@ export default function AdminPage() {
   const [planForm, setPlanForm] = useState({ free_mins_day: '', free_chats_day: '', charge_per_min: '', plan_type: 'chat' });
 
   const [broadcastForm, setBroadcastForm] = useState({
-    subject: '', headline: 'नमस्ते! 🙏', bodyText: '', ctaLabel: 'Login करें →', ctaUrl: '', audience: 'all',
+    subject: '', headline: 'नमस्ते! 🙏', bodyText: '', ctaLabel: 'Login करें →', ctaUrl: '',
+    audience: 'all', userIds: [],
   });
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastResult, setBroadcastResult] = useState(null);
   const [broadcastConfirm, setBroadcastConfirm] = useState(false);
   const [broadcastHistory, setBroadcastHistory] = useState([]);
   const [broadcastHistoryLoaded, setBroadcastHistoryLoaded] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [userResults, setUserResults] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState([]); // [{id, email, full_name}]
+  const [searchingUsers, setSearchingUsers] = useState(false);
   const [planSaving, setPlanSaving] = useState(false);
   const [planMsg, setPlanMsg] = useState('');
   const [demoUsers, setDemoUsers] = useState([]);
@@ -157,6 +162,57 @@ export default function AdminPage() {
     }
     setBroadcastSending(false);
     setBroadcastConfirm(false);
+  }
+
+  async function searchUsers() {
+    if (userSearch.trim().length < 2) { setUserResults([]); return; }
+    setSearchingUsers(true);
+    try {
+      const res = await fetch(`/api/admin/broadcast?q=${encodeURIComponent(userSearch)}`);
+      const data = await res.json();
+      setUserResults(data.users || []);
+    } catch (e) {
+      setUserResults([]);
+    }
+    setSearchingUsers(false);
+  }
+
+  function toggleUserSelect(u) {
+    setSelectedUsers(prev => {
+      const exists = prev.some(s => s.id === u.id);
+      const next = exists ? prev.filter(s => s.id !== u.id) : [...prev, u];
+      setBroadcastForm(f => ({ ...f, userIds: next.map(s => s.id) }));
+      return next;
+    });
+  }
+
+  // Predefined promotional templates — one click fills the whole form
+  const BROADCAST_TEMPLATES = [
+    {
+      label: '🆕 नया फीचर',
+      subject: 'आपकी कुंडली में नया अपडेट है 🔮',
+      headline: 'कुछ नया आया है आपके लिए! 🙏',
+      bodyText: 'नमस्ते! Luckfixer 2.0 में हमने एक नया फीचर जोड़ा है जो आपकी कुंडली का विश्लेषण और बेहतर बनाता है। एक बार ज़रूर देखें — शायद आपकी अगली बड़ी जानकारी यहीं छुपी हो।',
+      ctaLabel: 'अभी देखें →',
+    },
+    {
+      label: '👋 वापस आइए',
+      subject: 'आपकी कुंडली आपका इंतज़ार कर रही है 🙏',
+      headline: 'कुछ दिनों से आप नहीं आए...',
+      bodyText: 'हमें आपकी याद आई! आपकी कुंडली में शायद कुछ नया दिख रहा हो — दशा बदल गई हो, या कोई गोचर सक्रिय हो गया हो। दो मिनट निकालिए और देखिए अभी आपके लिए क्या खास है।',
+      ctaLabel: 'वापस चलें →',
+    },
+    {
+      label: '🪔 त्योहार शुभकामनाएं',
+      subject: 'त्योहार की हार्दिक शुभकामनाएं 🪔',
+      headline: 'त्योहार की शुभकामनाएं! 🙏',
+      bodyText: 'इस शुभ अवसर पर Luckfixer 2.0 परिवार की ओर से आपको और आपके परिवार को हार्दिक शुभकामनाएं। यह समय नए संकल्प और सही दिशा तय करने का है — अपनी कुंडली देखकर जानिए आने वाला समय आपके लिए कैसा रहेगा।',
+      ctaLabel: 'कुंडली देखें →',
+    },
+  ];
+
+  function applyTemplate(t) {
+    setBroadcastForm(f => ({ ...f, subject: t.subject, headline: t.headline, bodyText: t.bodyText, ctaLabel: t.ctaLabel }));
   }
 
   async function savePlan(e) {
@@ -423,9 +479,19 @@ export default function AdminPage() {
       )}
 
       {tab === 'broadcast' && (
-        <div style={{ maxWidth:'520px' }}>
+        <div style={{ maxWidth:'560px' }}>
           <div style={{ background:'var(--color-background-warning)', borderRadius:'var(--border-radius-md)', padding:'10px 14px', marginBottom:'1rem', fontSize:'12px', color:'var(--color-text-warning)' }}>
             ⚠️ यह असली users को असली email भेजेगा। भेजने से पहले content ध्यान से check करें।
+          </div>
+
+          {/* Predefined promotional templates */}
+          <div style={{ display:'flex', gap:'8px', marginBottom:'1rem', flexWrap:'wrap' }}>
+            {BROADCAST_TEMPLATES.map(t => (
+              <button key={t.label} type="button" onClick={() => applyTemplate(t)}
+                style={{ padding:'8px 14px', fontSize:'12px', borderRadius:'20px', cursor:'pointer', border:'0.5px solid var(--color-border-secondary)', background:'var(--color-background-primary)', color:'var(--color-text-primary)' }}>
+                {t.label}
+              </button>
+            ))}
           </div>
 
           <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1.25rem' }}>
@@ -435,7 +501,7 @@ export default function AdminPage() {
               <div>
                 <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', fontWeight:'500', display:'block', marginBottom:'4px' }}>Audience</label>
                 <div style={{ display:'flex', gap:'8px' }}>
-                  {[['all','सभी Users'],['active_30d','Active (30 din)']].map(([val,label]) => (
+                  {[['all','सभी Users'],['active_30d','Active (30 din)'],['specific','चुने हुए Users']].map(([val,label]) => (
                     <button key={val} type="button" onClick={() => setBroadcastForm(f => ({...f, audience: val}))}
                       style={{
                         flex:1, padding:'8px', fontSize:'12px', borderRadius:'8px', cursor:'pointer',
@@ -448,6 +514,46 @@ export default function AdminPage() {
                   ))}
                 </div>
               </div>
+
+              {broadcastForm.audience === 'specific' && (
+                <div style={{ border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'10px' }}>
+                  <div style={{ display:'flex', gap:'8px', marginBottom:'8px' }}>
+                    <input value={userSearch} onChange={e => setUserSearch(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && searchUsers()}
+                      placeholder="नाम या email से खोजें..." style={{ flex:1, fontSize:'13px' }}/>
+                    <button type="button" onClick={searchUsers} disabled={searchingUsers}
+                      style={{ padding:'8px 14px', fontSize:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', cursor:'pointer' }}>
+                      {searchingUsers ? '...' : 'खोजें'}
+                    </button>
+                  </div>
+
+                  {userResults.length > 0 && (
+                    <div style={{ maxHeight:'160px', overflowY:'auto', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'8px', marginBottom:'8px' }}>
+                      {userResults.map(u => {
+                        const checked = selectedUsers.some(s => s.id === u.id);
+                        return (
+                          <label key={u.id} style={{ display:'flex', alignItems:'center', gap:'8px', padding:'7px 10px', fontSize:'12px', cursor:'pointer', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
+                            <input type="checkbox" checked={checked} onChange={() => toggleUserSelect(u)} />
+                            <span style={{ color:'var(--color-text-primary)' }}>{u.full_name || '(no name)'}</span>
+                            <span style={{ color:'var(--color-text-tertiary)' }}>{u.email}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {selectedUsers.length > 0 && (
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:'6px' }}>
+                      {selectedUsers.map(u => (
+                        <span key={u.id} onClick={() => toggleUserSelect(u)} style={{ fontSize:'11px', padding:'4px 8px', background:'var(--color-background-secondary)', borderRadius:'12px', cursor:'pointer', color:'var(--color-text-primary)' }}>
+                          {u.email} ✕
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'6px 0 0' }}>{selectedUsers.length} user चुने गए</p>
+                </div>
+              )}
 
               <div>
                 <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', fontWeight:'500', display:'block', marginBottom:'4px' }}>Subject Line *</label>
@@ -478,9 +584,9 @@ export default function AdminPage() {
               {!broadcastConfirm ? (
                 <button
                   type="button"
-                  disabled={!broadcastForm.subject.trim() || !broadcastForm.bodyText.trim()}
+                  disabled={!broadcastForm.subject.trim() || !broadcastForm.bodyText.trim() || (broadcastForm.audience === 'specific' && selectedUsers.length === 0)}
                   onClick={() => setBroadcastConfirm(true)}
-                  style={{ padding:'11px', background: (!broadcastForm.subject.trim() || !broadcastForm.bodyText.trim()) ? 'var(--color-border-tertiary)' : 'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}
+                  style={{ padding:'11px', background: (!broadcastForm.subject.trim() || !broadcastForm.bodyText.trim() || (broadcastForm.audience === 'specific' && selectedUsers.length === 0)) ? 'var(--color-border-tertiary)' : 'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}
                 >
                   Preview & Send →
                 </button>
@@ -488,7 +594,7 @@ export default function AdminPage() {
                 <div style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'12px' }}>
                   <p style={{ fontSize:'13px', fontWeight:'600', color:'var(--color-text-primary)', margin:'0 0 6px' }}>पक्का भेजना है?</p>
                   <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 12px' }}>
-                    Audience: <strong>{broadcastForm.audience === 'all' ? 'सभी Users' : 'Active (30 din)'}</strong> को email जाएगा। यह undo नहीं हो सकता।
+                    Audience: <strong>{broadcastForm.audience === 'all' ? 'सभी Users' : broadcastForm.audience === 'active_30d' ? 'Active (30 din)' : `${selectedUsers.length} चुने हुए Users`}</strong> को email जाएगा। यह undo नहीं हो सकता।
                   </p>
                   <div style={{ display:'flex', gap:'8px' }}>
                     <button onClick={() => setBroadcastConfirm(false)} style={{ flex:1, padding:'9px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'8px', cursor:'pointer', fontSize:'13px', color:'var(--color-text-secondary)' }}>रद्द करें</button>
@@ -523,7 +629,7 @@ export default function AdminPage() {
                   <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)', whiteSpace:'nowrap', flexShrink:0 }}>{new Date(b.created_at).toLocaleDateString('hi-IN')}</span>
                 </div>
                 <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)' }}>
-                  {b.audience === 'all' ? 'सभी Users' : 'Active (30 din)'} · <span style={{ color:'var(--color-text-success)' }}>{b.sent_count} sent</span>
+                  {b.audience === 'all' ? 'सभी Users' : b.audience === 'active_30d' ? 'Active (30 din)' : 'चुने हुए Users'} · <span style={{ color:'var(--color-text-success)' }}>{b.sent_count} sent</span>
                   {b.failed_count > 0 && <span style={{ color:'var(--color-text-danger)' }}> · {b.failed_count} failed</span>}
                   {' '}· कुल {b.total_recipients}
                 </p>
