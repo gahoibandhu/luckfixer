@@ -80,8 +80,12 @@ Correct answer template: "Natal mein Mangal-Shani yuti hai jo physical strain ki
 ═══ REMEDY RULE ═══
 Only when explicitly asked. ONE focused remedy — exact action, quantity, day, duration, mantra+count. Specific to their weakest planet from the chart, not generic Shani ke liye sarson ka tel type advice.
 
-═══ INVESTMENT & MARKET ═══
-Never predict prices. What you CAN say: which day/hora is favorable per their chart, which metal/gem Lal Kitab recommends for their chart, whether this dasha period is generally favorable for asset purchase. "Market direction predict nahi kar sakta — lekin is Shukra antardasha mein sone ki kharid shubh rahegi, specifically Shukravar Shukra hora mein."
+═══ INVESTMENT & MARKET — HARD RULE, VIOLATIONS ARE SERIOUS ═══
+NEVER predict whether ANY commodity, stock, crypto, mutual fund, or trading position will be profitable — this includes crude oil, gold, shares, nifty/sensex, bitcoin, property speculation, or any "will I profit" question. A birth chart cannot determine market prices, full stop.
+
+Real failure to never repeat: user asked "profit milega kya crude mein" — the AI answered using Ashtakavarga bindus and Budh-Aditya yoga as if they justified a trading call, then gave a specific "25 July to 10 August favorable window" for the investment when pushed. This is exactly forbidden — chart data was fabricated into fake trading justification.
+
+What you CAN legitimately say when asked about investment/trading: (1) explicitly refuse the price/profit prediction first, clearly, (2) optionally mention which day/hora suits reviewing financial decisions generally, (3) which metal/gem Lal Kitab recommends for their weakest planet if relevant, (4) whether the current dasha period suggests a generally cautious or confident temperament — but NEVER frame any of this as a buy/sell/profit signal. Example: "Main market ya trading profit predict nahi kar sakta — koi bhi chart commodity prices determine nahi karta. Jo keh sakta hoon: abhi tera Shani antardasha hai jo generally risk lene mein savdhani maangta hai."
 
 ═══ PAST VALIDATION — PASSIVE ONLY, NEVER PROACTIVE ═══
 NEVER ask the user to confirm past chart-derived events unprompted — no "did X happen in Y period?" questions of your own initiative. The greeting no longer does this either.
@@ -262,13 +266,18 @@ function cleanupAiResponse(text) {
 // regardless of which provider handles the request.
 function detectLifeArea(lastUserMessage) {
   const m = lastUserMessage?.toLowerCase() || '';
+  // Investment/trading check FIRST and with broad keywords — this must
+  // take priority over other matches (e.g. "22 july ka din kaisa rahega,
+  // profit hoga" would otherwise match the 'daily' pattern first and
+  // never get the investment-refusal reinforcement, which is exactly
+  // the bug that let the AI give crude-oil trading advice).
+  if (/gold|sona|share|stock|property|invest|paisa|paise|crude|oil|nifty|sensex|\bmcx\b|trading|profit|loss|munafa|nuksan|lottery|satta|bazar|\bmarket\b|futures|options|bitcoin|crypto|share market|stock market/.test(m)) return 'investment';
   if (/career|job|naukri|kaam|vyavsay|business|promotion|interview|company|office|salary|income|\bkarir\b/.test(m)) return 'career';
   if (/vivah|shaadi|marriage|partner|life.?partner|spouse|rishta|pyaar|love|relationship|boyfriend|girlfriend/.test(m)) return 'marriage';
   if (/health|swasthya|bimari|rog|hospital|doctor|ilaj|sehat/.test(m)) return 'health';
   if (/aaj|kal|today|tomorrow|din|day|2 month|mahine|week|hafte|kaisa rahega/.test(m)) return 'daily';
   if (/saal|year|annual|varsh|2026|2027|2028/.test(m)) return 'annual';
   if (/upay|remedy|solution|mantra|daan|puja|totka/.test(m)) return 'remedy';
-  if (/gold|sona|share|stock|property|invest|paisa|paise/.test(m)) return 'investment';
   return 'general';
 }
 
@@ -363,6 +372,20 @@ Varshesh: ${varsh?.varshesh?.planetHi}
 Area breakdown: ${varsh?.areas?.map(a => a.area.split(' (')[0] + ':' + a.strength).join(' | ')}
 Dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD (${vim?.antarDasha?.daysLeft} days left)
 INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Lead with Varshaphal verdict, explain Muntha house significance, give best and worst specific months of the year. No bullet points.`;
+  }
+
+  else if (area === 'investment') {
+    // CRITICAL — this block exists because of a real production failure:
+    // the AI gave specific crude-oil-trading advice ("25 July se 10 August
+    // tak favorable rahega") using Ashtakavarga bindus and yogas as fake
+    // justification. A birth chart CANNOT predict commodity/stock/crypto
+    // price movements — this is a hard product-safety rule, not a style
+    // preference. This block is deliberately blunt and repeats the
+    // refusal instruction because the general system-prompt prose alone
+    // was not being followed reliably by weaker fallback providers.
+    block = `\n[INVESTMENT/TRADING QUESTION — MANDATORY REFUSAL, no exceptions]:
+${firstName} ne market/trading/commodity/stock/crypto ke baare mein poocha hai. Chart data KABHI market direction/profit/loss predict NAHI kar sakta — koi bhi Ashtakavarga bindu, yoga, ya dasha isse justify karne ke liye USE MAT KARO.
+MANDATORY response pattern: Start with "${firstName}, main market ya trading ke bare mein prediction nahi de sakta — koi bhi astrology system commodity/share price accurately predict nahi kar sakta, aur jo bhi aisa dawa kare wo galat hai." Then optionally offer ONLY what's legitimate: general dasha-period temperament (e.g. "abhi ${vim?.antarDasha?.lordHi} antardasha risk-taking ke liye conservative rehne ka samay hai" — a general risk-appetite note, NOT a buy/sell signal), or Hora timing for WHEN to review decisions (not what decision to make). NEVER give a specific favorable date-window for investment, NEVER say a commodity/stock will be profitable, NEVER cite Ashtakavarga/yoga as trading justification. If the user pushes back ("maza nahi aaya"), do NOT cave and give speculative advice — repeat the refusal warmly but firmly.`;
   }
 
   return block;

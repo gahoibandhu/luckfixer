@@ -11,6 +11,9 @@
     },
     "app/api/cron/daily-digest/route.js": {
       "maxDuration": 60
+    },
+    "app/api/admin/broadcast/route.js": {
+      "maxDuration": 60
     }
   },
   "crons": [

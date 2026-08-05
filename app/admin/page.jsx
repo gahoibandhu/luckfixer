@@ -30,6 +30,8 @@ export default function AdminPage() {
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastResult, setBroadcastResult] = useState(null);
   const [broadcastConfirm, setBroadcastConfirm] = useState(false);
+  const [broadcastHistory, setBroadcastHistory] = useState([]);
+  const [broadcastHistoryLoaded, setBroadcastHistoryLoaded] = useState(false);
   const [planSaving, setPlanSaving] = useState(false);
   const [planMsg, setPlanMsg] = useState('');
   const [demoUsers, setDemoUsers] = useState([]);
@@ -149,6 +151,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       setBroadcastResult(res.ok ? data : { error: data.error || 'Bhejne mein error aaya' });
+      if (res.ok) loadBroadcastHistory(); // refresh history to show this new send
     } catch (e) {
       setBroadcastResult({ error: e.message });
     }
@@ -185,6 +188,14 @@ export default function AdminPage() {
     setTab(t);
     if (t === 'chats' && sessions.length === 0) loadSessions();
     if (t === 'demo' && demoUsers.length === 0) loadDemoUsers();
+    if (t === 'broadcast' && !broadcastHistoryLoaded) loadBroadcastHistory();
+  }
+
+  async function loadBroadcastHistory() {
+    const res = await fetch('/api/admin/broadcast');
+    const data = await res.json();
+    setBroadcastHistory(data.history || []);
+    setBroadcastHistoryLoaded(true);
   }
 
   if (authorized === null) {
@@ -496,6 +507,28 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Broadcast history summary */}
+          <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden', marginTop:'1rem' }}>
+            <div style={{ padding:'10px 14px', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
+              <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:0 }}>Pichhle Broadcasts</p>
+            </div>
+            {broadcastHistory.length === 0 ? (
+              <p style={{ padding:'1rem', fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>अभी तक कोई broadcast नहीं भेजा गया।</p>
+            ) : broadcastHistory.map((b, i) => (
+              <div key={b.id} style={{ padding:'10px 14px', borderBottom: i < broadcastHistory.length-1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'8px' }}>
+                  <p style={{ margin:'0 0 3px', fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>{b.subject}</p>
+                  <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)', whiteSpace:'nowrap', flexShrink:0 }}>{new Date(b.created_at).toLocaleDateString('hi-IN')}</span>
+                </div>
+                <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)' }}>
+                  {b.audience === 'all' ? 'सभी Users' : 'Active (30 din)'} · <span style={{ color:'var(--color-text-success)' }}>{b.sent_count} sent</span>
+                  {b.failed_count > 0 && <span style={{ color:'var(--color-text-danger)' }}> · {b.failed_count} failed</span>}
+                  {' '}· कुल {b.total_recipients}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       )}

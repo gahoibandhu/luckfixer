@@ -161,7 +161,7 @@ export default function ChatPage() {
   const [loading,          setLoading]          = useState(false);
   const [usage,            setUsage]            = useState({ freeChatsLeft:5, freeMinsLeft:10 });
   const [limitErr,         setLimitErr]         = useState('');
-  const [langPref,         setLangPref]         = useState('auto');
+  const [langPref,         setLangPref]         = useState('hi');
   const [langMenuOpen,     setLangMenuOpen]      = useState(false);
   const [sidebarOpen,      setSidebarOpen]      = useState(false);
   const [panel,            setPanel]            = useState('sessions'); // 'sessions'|'kundlis'
@@ -344,11 +344,11 @@ export default function ChatPage() {
     width: '240px', flexShrink: 0,
     background: 'var(--color-background-primary)',
     borderRight: '0.5px solid var(--color-border-tertiary)',
-    display: 'flex', flexDirection: 'column', height: '100vh',
+    display: 'flex', flexDirection: 'column', height: '100dvh',
   };
 
   return (
-    <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'var(--color-background-tertiary)' }}>
+    <div style={{ display:'flex', height:'100dvh', overflow:'hidden', background:'var(--color-background-tertiary)' }}>
 
       {/* ── Post-login vortex intro — logo particles spiral inward once ── */}
       {showIntro && (

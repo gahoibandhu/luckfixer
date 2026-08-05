@@ -33,7 +33,7 @@ export const metadata = {
     description: DESCRIPTION,
     images: [LOGO_URL],
   },
-  icons: { icon: LOGO_URL, apple: LOGO_URL },
+  icons: { icon: '/api/icon', apple: '/api/icon' },
 };
 
 export const viewport = {
