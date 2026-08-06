@@ -389,8 +389,11 @@ export default function ProfilePage() {
               <p style={{ fontWeight:'500', fontSize:'15px', margin:'0 0 2px', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.label || k.full_name}</p>
               <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>{k.dob} · {k.birth_place}</p>
               {k.planet_data?.yogas?.filter(y => !y.isChallenging)?.length > 0 && (
-                <span style={{ display:'inline-block', marginTop:'4px', fontSize:'10px', fontWeight:'500', padding:'2px 8px', borderRadius:'10px', background:'var(--color-background-info)', color:'var(--color-text-info)' }}>
-                  🔍 {k.planet_data.yogas.filter(y => !y.isChallenging).length} शास्त्रीय योग पहचाने गए
+                <span
+                  onClick={() => setExpandedKundli(expanded ? null : k.id)}
+                  style={{ display:'inline-block', marginTop:'4px', fontSize:'10px', fontWeight:'500', padding:'2px 8px', borderRadius:'10px', background:'var(--color-background-info)', color:'var(--color-text-info)', cursor:'pointer' }}
+                >
+                  🔍 {k.planet_data.yogas.filter(y => !y.isChallenging).length} शास्त्रीय योग पहचाने गए — देखें
                 </span>
               )}
             </div>
@@ -405,6 +408,29 @@ export default function ProfilePage() {
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
           </div>
+
+          {expanded && k.planet_data?.yogas?.length > 0 && (
+            <div style={{ borderTop:'0.5px solid var(--color-border-tertiary)', padding:'1rem 1.25rem', display:'flex', flexDirection:'column', gap:'10px', background:'var(--color-background-secondary)' }}>
+              <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'1.5px', textTransform:'uppercase', color:'var(--color-text-info)', margin:0 }}>पहचाने गए शास्त्रीय योग</p>
+              {k.planet_data.yogas.filter(y => !y.isChallenging).map((y, i) => (
+                <div key={i} style={{ fontSize:'13px', lineHeight:'1.5' }}>
+                  <p style={{ margin:'0 0 2px', fontWeight:'500', color:'var(--color-text-primary)' }}>{y.name}</p>
+                  <p style={{ margin:0, color:'var(--color-text-secondary)' }}>{y.description}</p>
+                </div>
+              ))}
+              {k.planet_data.yogas.some(y => y.isChallenging) && (
+                <>
+                  <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'1.5px', textTransform:'uppercase', color:'var(--color-text-warning)', margin:'6px 0 0' }}>ध्यान देने योग्य</p>
+                  {k.planet_data.yogas.filter(y => y.isChallenging).map((y, i) => (
+                    <div key={i} style={{ fontSize:'13px', lineHeight:'1.5' }}>
+                      <p style={{ margin:'0 0 2px', fontWeight:'500', color:'var(--color-text-primary)' }}>{y.name}</p>
+                      <p style={{ margin:0, color:'var(--color-text-secondary)' }}>{y.description}</p>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
 
           {expanded && a && (
             <div style={{ borderTop:'0.5px solid var(--color-border-tertiary)', padding:'1rem 1.25rem', display:'flex', flexDirection:'column', gap:'14px' }}>
