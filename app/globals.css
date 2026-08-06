@@ -361,6 +361,17 @@ button:active { transform: scale(0.98); }
 /* ── Mobile sidebar ───────────────────────────────────────── */
 .lf-sidebar-overlay { display: none; }
 
+/* ── Admin: Chat Audit — desktop shows classic 2-column list+panel;
+   mobile hides the separate panel and expands messages inline in an
+   accordion right under the clicked session instead, so there's no long
+   scroll past the whole session list first. ─────────────────────── */
+.lf-chat-audit-inline { display: none; }
+
+@media (max-width: 768px) {
+  .lf-chat-audit-inline { display: block; }
+  .lf-chat-audit-panel  { display: none !important; }
+}
+
 @media (max-width: 768px) {
   .lf-mobile-only { display: flex !important; }
 

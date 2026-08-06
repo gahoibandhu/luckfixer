@@ -24,7 +24,7 @@ NEVER start with: "Aapki kundli ke anusar...", "Main aapko batana chahta hoon ki
 ═══ FORMAT — ALWAYS PROSE, NEVER LISTS ═══
 Write in continuous flowing paragraphs — ZERO bullet points, ZERO asterisks (*), ZERO hashes (#), ZERO dashes as list markers, ZERO numbered lists. If you feel the urge to use bullets, convert those thoughts into flowing sentences connected with "aur", "lekin", "isliye", "jabki", "iske saath hi".
 
-Target 100-160 words. Dense with real chart facts, light on filler. A longer answer with genuine insight beats a short answer that says nothing specific.
+Target 100-160 words for a single, focused question. Dense with real chart facts, light on filler. A longer answer with genuine insight beats a short answer that says nothing specific. EXCEPTION: if the user asked several distinct questions in one message, you'll see a [MULTI-PART QUESTION DETECTED] note below with a higher word budget — use that room to fully answer the most important 3-4 parts rather than skimming everything shallowly.
 
 ═══ SMART CONTEXT DETECTION — CRITICAL ═══
 When user asks about a specific life area, pull ONLY the relevant data and make it personal. Examples:
@@ -110,7 +110,25 @@ If the user asks anything like "tumhari prediction kitni sahi nikli", "accuracy 
 // keeping an unrelated one. This version only does two safe things:
 // (1) strip markdown bullet/bold formatting, (2) hard-truncate at a
 // sentence boundary if the response is extremely long. Nothing else.
+// Root-cause fix for a real quality bug: when a user asks several distinct
+// questions in ONE message (very common in astrology chat — "shaadi kab
+// hogi, partner kaisa hoga, bachche kitne honge, career kaisa rahega...")
+// the flat 160-word hard cap forces the AI to either skim every topic
+// shallowly or get cut off mid-topic without ever reaching the mandatory
+// closing action-item — exactly what real users were seeing. We now scale
+// the word budget up (capped, so it never turns into an unreadable wall
+// of text) based on how many distinct questions were actually asked, and
+// separately tell the AI to fully answer 2-3 of them rather than weakly
+// touching all of them, when there are too many to do justice to.
+function countQuestionParts(text) {
+  if (!text) return 1;
+  const qMarks = (text.match(/\?/g) || []).length;
+  const hindiQWords = (text.match(/\b(kya|kaisa|kaisi|kaise|kab|kitne|kitni|kaun|kaunsa|kyun|kahan|kahaan)\b|क्या|कैसा|कैसी|कैसे|कब|कितने|कितनी|कौन|क्यों|कहाँ|कहां/gi) || []).length;
+  return Math.max(1, qMarks, Math.min(hindiQWords, 6)); // cap the heuristic itself so one repeated word doesn't runaway
+}
+
 const HARD_WORD_LIMIT = 160;
+const MAX_WORD_LIMIT_MULTI_PART = 320; // ceiling even for very multi-part questions — stays readable in a chat bubble
 
 // Day lords (Hora rulers) — Sunday=0 to Saturday=6
 const DAY_LORD_HI = ['सूर्य','चंद्र','मंगल','बुध','बृहस्पति','शुक्र','शनि'];
@@ -226,7 +244,7 @@ function extractMentionedDate(text, referenceDate) {
   return candidate;
 }
 
-function cleanupAiResponse(text) {
+function cleanupAiResponse(text, wordLimit = HARD_WORD_LIMIT) {
   if (!text || typeof text !== 'string') return text;
 
   let cleaned = text;
@@ -248,16 +266,18 @@ function cleanupAiResponse(text) {
   // 5. Fix spacing issues from collapsed lists
   cleaned = cleaned.replace(/\s{2,}/g, ' ');
 
-  // 6. Hard truncation at sentence boundary
+  // 6. Hard truncation at sentence boundary — wordLimit is dynamic now
+  // (see countQuestionParts) so multi-part questions get more room
+  // instead of getting cut off before every sub-question is addressed.
   const words = cleaned.split(/\s+/);
-  if (words.length <= HARD_WORD_LIMIT) return cleaned.trim();
+  if (words.length <= wordLimit) return cleaned.trim();
 
   const sentences = cleaned.split(/(?<=[।.!?])\s+/).map(s => s.trim()).filter(Boolean);
   let acc = [], count = 0;
   for (const s of sentences) {
     acc.push(s);
     count += s.split(/\s+/).length;
-    if (count >= HARD_WORD_LIMIT) break;
+    if (count >= wordLimit) break;
   }
   return acc.join(' ').trim();
 }
@@ -775,13 +795,45 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
       }
     }
 
+    // ── Multi-part question handling ──────────────────────────────
+    // Real quality bug this fixes: users very often ask several distinct
+    // things in one message ("shaadi kab hogi, partner kaisa hoga, bachche
+    // kitne, career kaisa rahega, shubh samachar kab aayega") — a flat
+    // 160-word cap forced the AI to skim everything shallowly or get cut
+    // off mid-topic, without ever answering the last 2-3 parts or reaching
+    // the mandatory closing action-item. We now scale the word budget up
+    // (capped) based on how many distinct questions were asked, AND tell
+    // the AI explicitly to prioritize depth on a few over shallow coverage
+    // of everything, when there are too many parts to do justice to.
+    const lastUserMsg = messages[messages.length - 1]?.content || '';
+    const questionParts = countQuestionParts(lastUserMsg);
+    const dynamicWordLimit = questionParts >= 3
+      ? Math.min(HARD_WORD_LIMIT + (questionParts - 1) * 55, MAX_WORD_LIMIT_MULTI_PART)
+      : HARD_WORD_LIMIT;
+
+    if (questionParts >= 3) {
+      systemPrompt += `\n\n[MULTI-PART QUESTION DETECTED — ${questionParts} distinct questions in one message]\nUser ne ek saath kai sawal poochhe hain. Sabko halka-phulka chhoo kar mat jao — usse jawab adhoora aur generic lagta hai. Instead: sabse important 3-4 sawalon ko poora, specific (exact planet/degree/dasha se grounded) jawab do, aur bacha hua 1-2 kam-important sawal ke liye seedha bolo "baaki sawal ka jawab agli baar detail mein denge" ya unhe combine karke ek line mein cover karo. Kabhi bhi sentence beech mein mat chhodo — har jawab poora aur complete hona chahiye, chahe usse kam sawal cover ho paayein.`;
+    }
+
+    // ── Repeat-question detection ──────────────────────────────────
+    // Real quality bug this fixes: if a user re-sends the same question
+    // (retry, or genuinely repeating themselves), weaker fallback models
+    // at low temperature regenerate a near-identical answer — which reads
+    // as robotic/broken to the user. Detect this and explicitly ask for
+    // a fresh angle instead of a repeat.
+    const priorUserMsgs = messages.slice(0, -1).filter(m => m.role === 'user');
+    const previousUserMsg = priorUserMsgs[priorUserMsgs.length - 1]?.content?.trim();
+    if (previousUserMsg && previousUserMsg === lastUserMsg.trim()) {
+      systemPrompt += `\n\n[REPEATED QUESTION — user ne yeh EXACT same sawal dobara poocha hai]\nPichhla jawab word-for-word ya bahut similar mat dohrao. Is baar naya angle do — koi extra specific detail (jo pehle nahi bataya), ya poochho ki unhe pichhla jawab clear nahi hua kya, ya kisi specific part pe zyada depth do jo pehle skip hua tha.`;
+    }
+
     // ── Call AI (graceful fallback — never throws) ───────────
     const aiResponse = await getChatResponse(systemPrompt, messages, langPref || 'auto');
 
     // Deterministic safety net — guarantees crisp, non-repetitive output
     // regardless of which provider answered or how well it followed the
     // prompt's length/format instructions.
-    aiResponse.content = cleanupAiResponse(aiResponse.content);
+    aiResponse.content = cleanupAiResponse(aiResponse.content, dynamicWordLimit);
 
     const durationMs   = Date.now() - startTime;
     const durationMins = parseFloat((durationMs / 60000).toFixed(4));

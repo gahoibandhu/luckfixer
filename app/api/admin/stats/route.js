@@ -37,6 +37,7 @@ export async function GET() {
     { data: plan },
     { data: recentUsers },
     { data: outcomeRows },
+    { data: modelRows },
   ] = await Promise.all([
     adminSupabase.from('user_profiles').select('*', { count: 'exact', head: true }),
     adminSupabase.from('saved_kundlis').select('*', { count: 'exact', head: true }),
@@ -45,7 +46,25 @@ export async function GET() {
     adminSupabase.from('plan_config').select('*').eq('plan_name', 'free').single(),
     adminSupabase.from('user_profiles').select('id, full_name, email, mobile, created_at').order('created_at', { ascending: false }).limit(20),
     adminSupabase.from('outcome_tracking').select('outcome').not('outcome', 'is', null),
+    // ── Model usage breakdown (last 7 days) — surfaces exactly how often
+    // Gemini (primary) vs weaker fallback providers (SambaNova/OpenRouter/
+    // HuggingFace/Groq) are actually answering chats. If quality feels
+    // poor, this number tells you whether it's because most real traffic
+    // is landing on Gemini's free-tier rate limit and silently falling
+    // back to a weaker model that doesn't follow the system prompt as
+    // reliably — rather than guessing from anecdotal chat transcripts.
+    adminSupabase.from('chat_messages').select('model_used').eq('role', 'assistant').gte('created_at', sevenDaysAgo.toISOString()).not('model_used', 'is', null),
   ]);
+
+  const modelBreakdown = {};
+  (modelRows || []).forEach(r => {
+    const key = r.model_used || 'unknown';
+    modelBreakdown[key] = (modelBreakdown[key] || 0) + 1;
+  });
+  const modelBreakdownTotal = (modelRows || []).length;
+  const modelBreakdownList = Object.entries(modelBreakdown)
+    .map(([model, count]) => ({ model, count, pct: modelBreakdownTotal > 0 ? Math.round(count / modelBreakdownTotal * 100) : 0 }))
+    .sort((a, b) => b.count - a.count);
 
   const todayTotals = (todayUsage || []).reduce((acc, row) => ({
     chats: acc.chats + (row.chat_count || 0),
@@ -83,5 +102,6 @@ export async function GET() {
     plan,
     recentUsers: recentUsers || [],
     outcomeStats,
+    modelBreakdown: modelBreakdownList,
   });
 }

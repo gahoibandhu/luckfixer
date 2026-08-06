@@ -308,6 +308,34 @@ export default function AdminPage() {
             </>}
           </div>
 
+          {/* Model usage breakdown — shows how much traffic is landing on
+              Gemini (primary) vs weaker fallback providers. If chat/prediction
+              quality feels inconsistent, check this first: a high fallback %
+              usually means Gemini's rate limit is being hit under real load,
+              and SambaNova/OpenRouter/HuggingFace/Groq don't follow the full
+              system prompt as reliably as Gemini does. */}
+          {stats.modelBreakdown && stats.modelBreakdown.length > 0 && (
+            <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1rem 1.25rem', marginBottom:'1.5rem' }}>
+              <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>AI Model Usage (पिछले 7 दिन)</p>
+              {stats.modelBreakdown.map(m => (
+                <div key={m.model} style={{ marginBottom:'8px' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', marginBottom:'3px' }}>
+                    <span style={{ color: m.model.includes('gemini') ? 'var(--color-text-success)' : 'var(--color-text-warning)', fontWeight:'500' }}>{m.model}</span>
+                    <span style={{ color:'var(--color-text-secondary)' }}>{m.count} ({m.pct}%)</span>
+                  </div>
+                  <div style={{ height:'6px', background:'var(--color-background-secondary)', borderRadius:'3px', overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${m.pct}%`, background: m.model.includes('gemini') ? 'var(--color-text-success)' : 'var(--color-text-warning)' }} />
+                  </div>
+                </div>
+              ))}
+              {stats.modelBreakdown.filter(m => !m.model.includes('gemini')).reduce((a,m) => a + m.pct, 0) > 30 && (
+                <p style={{ fontSize:'11px', color:'var(--color-text-warning)', margin:'8px 0 0' }}>
+                  ⚠️ 30% से ज़्यादा chats fallback providers pe जा रही हैं — Gemini का free-tier rate limit check karo, quality inconsistency isi ki wajah se ho sakti hai।
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Kundli Migration */}
           {migrationStatus && migrationStatus.needsMigration > 0 && (
             <div style={{ background:'var(--color-background-warning)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1rem 1.25rem', marginBottom:'1.5rem' }}>
@@ -364,18 +392,39 @@ export default function AdminPage() {
             {sessions.length === 0 ? (
               <p style={{ padding:'1rem', fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>{showDeleted ? 'कोई deleted sessions नहीं' : 'कोई sessions नहीं'}</p>
             ) : sessions.map(s => (
-              <div key={s.id} style={{ borderBottom:'0.5px solid var(--color-border-tertiary)', display:'flex', alignItems:'center' }}>
-                <div onClick={() => openSession(s.id)} style={{ flex:1, padding:'10px 14px', cursor:'pointer', fontSize:'13px', background: activeSession===s.id ? 'var(--color-background-secondary)' : 'transparent' }}>
-                  <p style={{ margin:'0 0 2px', fontWeight:'500', color:'var(--color-text-primary)' }}>{s.user_email}</p>
-                  <p style={{ margin:0, color:'var(--color-text-tertiary)', fontSize:'12px' }}>{s.title} · {s.message_count} messages</p>
-                  <p style={{ margin:0, color:'var(--color-text-tertiary)', fontSize:'11px' }}>{new Date(s.updated_at).toLocaleString('hi-IN')}</p>
+              <div key={s.id} style={{ borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
+                <div style={{ display:'flex', alignItems:'center' }}>
+                  <div onClick={() => openSession(s.id)} style={{ flex:1, padding:'10px 14px', cursor:'pointer', fontSize:'13px', background: activeSession===s.id ? 'var(--color-background-secondary)' : 'transparent' }}>
+                    <p style={{ margin:'0 0 2px', fontWeight:'500', color:'var(--color-text-primary)' }}>{s.user_email}</p>
+                    <p style={{ margin:0, color:'var(--color-text-tertiary)', fontSize:'12px' }}>{s.title} · {s.message_count} messages</p>
+                    <p style={{ margin:0, color:'var(--color-text-tertiary)', fontSize:'11px' }}>{new Date(s.updated_at).toLocaleString('hi-IN')}</p>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); adminDeleteSession(s.id); }} title="Delete session" style={{ background:'none', border:'none', cursor:'pointer', padding:'8px 10px', color:'var(--color-text-danger)', fontSize:'14px', flexShrink:0 }}>🗑</button>
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); adminDeleteSession(s.id); }} title="Delete session" style={{ background:'none', border:'none', cursor:'pointer', padding:'8px 10px', color:'var(--color-text-danger)', fontSize:'14px', flexShrink:0 }}>🗑</button>
+
+                {/* Mobile-only accordion: expands right here on click, so users
+                    don't have to scroll past the whole session list first.
+                    Hidden on desktop via .lf-chat-audit-inline CSS (globals.css) —
+                    desktop keeps the classic side-by-side panel below instead. */}
+                {activeSession === s.id && (
+                  <div className="lf-chat-audit-inline" style={{ padding:'10px 14px', borderTop:'0.5px dashed var(--color-border-tertiary)', background:'var(--color-background-secondary)' }}>
+                    {messages.length === 0 ? (
+                      <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>कोई messages नहीं</p>
+                    ) : messages.map(m => (
+                      <div key={m.id} style={{ marginBottom:'10px' }}>
+                        <p style={{ margin:'0 0 2px', fontSize:'11px', fontWeight:'500', color: m.role==='user' ? 'var(--color-text-info)' : 'var(--color-text-success)', letterSpacing:'1px', textTransform:'uppercase' }}>
+                          {m.role} {m.model_used ? `· ${m.model_used}` : ''}
+                        </p>
+                        <p style={{ margin:0, fontSize:'13px', color:'var(--color-text-primary)', lineHeight:'1.6', whiteSpace:'pre-wrap' }}>{m.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
 
-          <div style={{ flex:'1 1 380px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1rem', maxHeight:'500px', overflowY:'auto' }}>
+          <div className="lf-chat-audit-panel" style={{ flex:'1 1 380px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1rem', maxHeight:'500px', overflowY:'auto' }}>
             {!activeSession ? (
               <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>एक session चुनें</p>
             ) : messages.length === 0 ? (
