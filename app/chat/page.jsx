@@ -16,31 +16,33 @@ const LANG_OPTIONS = [
   { value: 'en',   label: 'English' },
 ];
 
-// ── Word-by-word "typewriter" text component ────────────────────
-// Reveals text ONE WORD AT A TIME (not all at once), each word popping
-// in with a tiny fade+rise animation — this is clearly visible and
-// feels engaging, unlike a giant block of text appearing instantly.
-// Total reveal duration is capped (~0.4s–2.5s depending on length) so
-// long responses don't take forever to finish appearing.
+// ── Letter-by-letter "typewriter" text component ─────────────────
+// Reveals text ONE CHARACTER AT A TIME (not word-by-word) — deliberately
+// paced slower than instant-reveal so a response takes real time to
+// finish appearing, giving people time to actually read it as it comes
+// in, rather than a wall of text landing all at once. A blinking cursor
+// shows while it's still "typing". Very long replies are still capped
+// at a max total duration so they don't drag on forever.
 // Only used for freshly-arrived assistant messages (marked `_animate`
 // on the message object) — messages loaded from chat history render
 // statically, instantly, with no replay.
 function TypewriterText({ text, enabled, onDone }) {
-  const words = (text || '').split(/(\s+)/); // keep whitespace as separate tokens so spacing is preserved
-  const [count, setCount] = useState(enabled ? 0 : words.length);
+  const chars = Array.from(text || ''); // Array.from (not .split('')) so Devanagari combining marks/matras don't get split apart mid-character
+  const [count, setCount] = useState(enabled ? 0 : chars.length);
 
   useEffect(() => {
-    if (!enabled) { setCount(words.length); return; }
-    if (words.length === 0) { onDone?.(); return; }
+    if (!enabled) { setCount(chars.length); return; }
+    if (chars.length === 0) { onDone?.(); return; }
 
     let i = 0;
-    const targetMs = Math.min(2500, Math.max(400, words.length * 35));
-    const stepMs = Math.max(10, Math.round(targetMs / words.length));
+    const CHAR_MS = 22;          // normal pace — ~45 characters/sec
+    const MAX_TOTAL_MS = 14000;  // don't let very long replies drag past ~14s
+    const stepMs = Math.min(CHAR_MS, MAX_TOTAL_MS / chars.length);
 
     const interval = setInterval(() => {
       i++;
       setCount(i);
-      if (i >= words.length) {
+      if (i >= chars.length) {
         clearInterval(interval);
         onDone?.();
       }
@@ -50,11 +52,12 @@ function TypewriterText({ text, enabled, onDone }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, enabled]);
 
+  const done = count >= chars.length;
+
   return (
     <>
-      {words.slice(0, count).map((w, idx) => (
-        <span key={idx} className={enabled ? 'lf-word-pop' : undefined}>{w}</span>
-      ))}
+      {chars.slice(0, count).join('')}
+      {enabled && !done && <span className="lf-type-cursor">▌</span>}
     </>
   );
 }
@@ -724,14 +727,16 @@ export default function ChatPage() {
           100% { transform: scale(1) rotate(0deg);     opacity: 1; }
         }
 
-        /* Word-by-word reveal — each word pops in as it appears */
-        .lf-word-pop {
+        /* Letter-by-letter reveal — blinking cursor while "typing" */
+        .lf-type-cursor {
           display: inline-block;
-          animation: lf-word-pop-in 0.16s ease both;
+          animation: lf-cursor-blink 0.8s step-end infinite;
+          color: var(--color-text-info);
+          font-weight: 700;
         }
-        @keyframes lf-word-pop-in {
-          from { opacity: 0; transform: translateY(3px); }
-          to   { opacity: 1; transform: translateY(0); }
+        @keyframes lf-cursor-blink {
+          0%, 50%  { opacity: 1; }
+          51%, 100% { opacity: 0; }
         }
       `}</style>
     </div>
