@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import KundliDetailPanel from '@/components/KundliDetailPanel';
+import { t, UI_LANGUAGES } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
@@ -168,6 +169,7 @@ export default function ChatPage() {
   const [usage,            setUsage]            = useState({ freeChatsLeft:5, freeMinsLeft:10 });
   const [limitErr,         setLimitErr]         = useState('');
   const [langPref,         setLangPref]         = useState('hi');
+  const [uiLang,           setUiLang]           = useState('hi'); // app's own UI chrome language — separate from langPref (AI reply language)
   const [langMenuOpen,     setLangMenuOpen]      = useState(false);
   const [sidebarOpen,      setSidebarOpen]      = useState(false);
   const [panel,            setPanel]            = useState('sessions'); // 'sessions'|'kundlis'
@@ -281,9 +283,17 @@ export default function ChatPage() {
     el.style.height = Math.min(el.scrollHeight, 160) + 'px';
   }
 
+  function changeUiLang(code) {
+    setUiLang(code);
+    if (typeof window !== 'undefined') window.localStorage.setItem('lf_ui_lang', code);
+  }
+
   useEffect(() => { messagesEnd.current?.scrollIntoView({ behavior:'smooth' }); }, [messages]);
 
   async function init() {
+    const savedUiLang = typeof window !== 'undefined' ? window.localStorage.getItem('lf_ui_lang') : null;
+    if (savedUiLang) setUiLang(savedUiLang);
+
     const urlKundliId = new URLSearchParams(window.location.search).get('kundliId');
     const { data:{ session } } = await supabase.auth.getSession();
     if (!session) { router.push('/login'); return; }
@@ -561,15 +571,34 @@ export default function ChatPage() {
         {/* Bottom nav */}
         <div style={{ borderTop:'0.5px solid var(--color-border-tertiary)', padding:'8px', flexShrink:0 }}>
           <div style={{ display:'flex', justifyContent:'space-between', fontSize:'11px', color:'var(--color-text-tertiary)', marginBottom:'8px', padding:'0 2px' }}>
-            <span>Chats: <strong style={{ color:'var(--color-text-primary)' }}>{usage.freeChatsLeft}</strong></span>
-            <span>Mins: <strong style={{ color:'var(--color-text-primary)' }}>{typeof usage.freeMinsLeft === 'number' ? usage.freeMinsLeft.toFixed(1) : usage.freeMinsLeft}</strong></span>
+            <span>{t('freeChatsLeft', uiLang)}: <strong style={{ color:'var(--color-text-primary)' }}>{usage.freeChatsLeft}</strong></span>
+            <span>{t('freeMinsLeft', uiLang)}: <strong style={{ color:'var(--color-text-primary)' }}>{typeof usage.freeMinsLeft === 'number' ? usage.freeMinsLeft.toFixed(1) : usage.freeMinsLeft}</strong></span>
           </div>
-          {[['🕉️ राम शलाका','/ram-shalaka'],['💍 मिलान','/milan'],['👤 प्रोफाइल','/profile']].map(([label,path]) => (
+          {[['🕉️ राम शलाका','/ram-shalaka'],['💍 मिलान','/milan'],['👤 प्रोफाइल','/profile']].map(([hiLabel,path]) => {
+            const key = path === '/ram-shalaka' ? 'ramShalaka' : path === '/milan' ? 'milan' : 'profile';
+            return (
             <button key={path} onClick={() => router.push(path)} style={{ width:'100%', padding:'6px', marginBottom:'3px', fontSize:'12px', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'7px', cursor:'pointer', color:'var(--color-text-secondary)', textAlign:'left' }}>
-              {label}
+              {t(key, uiLang)}
             </button>
-          ))}
-          <button onClick={signOut} style={{ width:'100%', padding:'6px', fontSize:'11px', background:'none', border:'none', cursor:'pointer', color:'var(--color-text-tertiary)' }}>Logout</button>
+            );
+          })}
+
+          {/* UI language toggle — separate from the AI reply-language
+              selector above; this switches the app's own buttons/labels. */}
+          <div style={{ display:'flex', gap:'4px', margin:'6px 0' }}>
+            {UI_LANGUAGES.map(l => (
+              <button key={l.code} onClick={() => changeUiLang(l.code)} style={{
+                flex:1, padding:'5px', fontSize:'11px', borderRadius:'7px', cursor:'pointer',
+                border: uiLang===l.code ? '1px solid var(--color-brand)' : '0.5px solid var(--color-border-tertiary)',
+                background: uiLang===l.code ? 'var(--color-brand-light)' : 'none',
+                color: uiLang===l.code ? 'var(--color-brand)' : 'var(--color-text-tertiary)',
+              }}>
+                {l.label}
+              </button>
+            ))}
+          </div>
+
+          <button onClick={signOut} style={{ width:'100%', padding:'6px', fontSize:'11px', background:'none', border:'none', cursor:'pointer', color:'var(--color-text-tertiary)' }}>{t('logout', uiLang)}</button>
         </div>
       </div>
 
@@ -588,8 +617,8 @@ export default function ChatPage() {
                 <p style={{ margin:0, fontSize:'14px', fontWeight:'500', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{kundli.label || kundli.full_name}</p>
                 <p style={{ margin:0, fontSize:'11px', color:'var(--color-text-tertiary)' }}>{kundli.dob} · {kundli.birth_place?.split(',')[0]}</p>
               </div>
-              <button onClick={() => setDetailPanelOpen(true)} style={{ flexShrink:0, padding:'4px 10px', fontSize:'11px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'20px', cursor:'pointer', color:'var(--color-text-secondary)' }}>📊 विवरण</button>
-              <button onClick={() => { setPanel('kundlis'); setSidebarOpen(true); }} style={{ flexShrink:0, padding:'4px 10px', fontSize:'11px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'20px', cursor:'pointer', color:'var(--color-text-secondary)' }}>बदलें</button>
+              <button onClick={() => setDetailPanelOpen(true)} style={{ flexShrink:0, padding:'4px 10px', fontSize:'11px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'20px', cursor:'pointer', color:'var(--color-text-secondary)' }}>{t('kundliDetails', uiLang)}</button>
+              <button onClick={() => { setPanel('kundlis'); setSidebarOpen(true); }} style={{ flexShrink:0, padding:'4px 10px', fontSize:'11px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'20px', cursor:'pointer', color:'var(--color-text-secondary)' }}>{t('changeKundli', uiLang)}</button>
             </>
           ) : (
             <p style={{ flex:1, fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>← बाईं तरफ से कुंडली चुनें</p>
@@ -645,7 +674,7 @@ export default function ChatPage() {
               {kundlis.length === 0 ? 'पहले कुंडली जोड़ें' : 'कुंडली चुनें और शुरू करें'}
             </h2>
             <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)', margin:'0 0 20px', maxWidth:'260px', lineHeight:'1.6' }}>
-              {kundlis.length === 0 ? 'प्रोफाइल में जाकर अपनी जन्म कुंडली जोड़ें।' : 'बाईं तरफ से कुंडली select करें या नीचे click करें।'}
+              {kundlis.length === 0 ? t('noKundliYet', uiLang) : t('selectKundliPrompt', uiLang)}
             </p>
             {kundlis.length === 0 ? (
               <button onClick={() => router.push('/profile')} style={{ padding:'10px 20px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>कुंडली जोड़ें →</button>
@@ -684,14 +713,27 @@ export default function ChatPage() {
                   {m.role === 'assistant' && m.content !== '...' && !m._animate && voiceOutputSupported && (
                     <button
                       onClick={() => speakMessage(m.content, i)}
-                      title={speakingIndex === i ? 'रोकें' : 'सुनें'}
-                      className={`lf-composer-icon-btn ${speakingIndex === i ? 'lf-speaker-active' : ''}`}
-                      style={{ width:'26px', height:'26px', marginLeft:'-2px' }}
+                      title={speakingIndex === i ? t('stop', uiLang) : t('listen', uiLang)}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '5px',
+                        marginTop: '6px', padding: '6px 12px', borderRadius: '16px',
+                        border: speakingIndex === i ? 'none' : '0.5px solid var(--color-border-secondary)',
+                        background: speakingIndex === i ? 'var(--color-brand)' : 'var(--color-background-secondary)',
+                        color: speakingIndex === i ? '#fff' : 'var(--color-text-secondary)',
+                        cursor: 'pointer', fontSize: '12px', fontWeight: '500',
+                        minHeight: '32px',
+                      }}
                     >
                       {speakingIndex === i ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
+                        <>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
+                          {t('stop', uiLang)}
+                        </>
                       ) : (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg>
+                        <>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg>
+                          {t('listen', uiLang)}
+                        </>
                       )}
                     </button>
                   )}
@@ -798,7 +840,7 @@ export default function ChatPage() {
         <div style={{ padding:'10px 12px 14px', background:'var(--color-background-primary)', borderTop: messages.length>0 ? '0.5px solid var(--color-border-tertiary)' : 'none', flexShrink:0 }}>
           {!kundli ? (
             <div className="lf-composer" style={{ opacity:0.5 }}>
-              <textarea disabled rows={1} placeholder="पहले बाईं तरफ से कुंडली चुनें..." style={{ flex:1, fontSize:'15px', cursor:'not-allowed' }}/>
+              <textarea disabled rows={1} placeholder={t('selectKundliFirst', uiLang)} style={{ flex:1, fontSize:'15px', cursor:'not-allowed' }}/>
               <button disabled className="lf-composer-icon-btn lf-composer-send" style={{ opacity:0.5 }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
               </button>
@@ -821,7 +863,7 @@ export default function ChatPage() {
                 ref={inputRef}
                 value={input}
                 onChange={e => { setInput(e.target.value); autoGrow(e.target); }}
-                placeholder={listening ? 'सुन रहा हूं...' : 'अपना प्रश्न पूछें...'}
+                placeholder={listening ? t('listening', uiLang) : t('askQuestion', uiLang)}
                 disabled={loading}
                 rows={1}
                 style={{ flex:1, fontSize:'15px' }}

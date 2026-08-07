@@ -12,7 +12,7 @@ import { detectYogas, formatYogasForPrompt } from '@/lib/yogas';
 import { buildAshtakavarga, formatAVForPrompt } from '@/lib/ashtakavarga';
 import { buildNakshatraSheet, formatNakshatraForPrompt } from '@/lib/nakshatra';
 import { buildVarshaphal, formatVarshaphalForPrompt } from '@/lib/varshaphal';
-import { RAM_SHALAKA_VERSES } from '@/lib/ram-shalaka';
+import { RAM_SHALAKA_ANSWERS } from '@/lib/ram-shalaka';
 
 // GET — fetch all kundlis for logged-in user
 export async function GET() {
@@ -254,18 +254,21 @@ Return this exact JSON structure:
   const aiResult = await getLuckfixerResponse(systemPrompt, userPrompt, true);
 
   // ── Closing verse — deterministic, not AI-generated, so accuracy is
-  // guaranteed. Picks a Ramcharitmanas chaupai / Sanskrit shloka whose
-  // sentiment (shubh/dhairya/saavdhani, from lib/ram-shalaka.js) matches
-  // this chart's overall tone, purely to close the reading beautifully —
-  // never used as astrological "evidence" for any claim.
+  // guaranteed. Picks a verified Ramcharitmanas chaupai (from the Ram
+  // Shalaka answer set, lib/ram-shalaka.js) whose sentiment (shubh/
+  // dhairya/saavdhani) matches this chart's overall tone, purely to
+  // close the reading beautifully — never used as astrological
+  // "evidence" for any claim.
   const score = aiResult.content.metric_score || 50;
   const matchingTone = score >= 60 ? 'shubh' : score >= 40 ? 'dhairya' : 'saavdhani';
-  const versePool = RAM_SHALAKA_VERSES.filter(v => v.tone === matchingTone);
-  const pool = versePool.length > 0 ? versePool : RAM_SHALAKA_VERSES;
+  const allAnswers = Object.values(RAM_SHALAKA_ANSWERS);
+  const versePool = allAnswers.filter(v => v.tone === matchingTone);
+  const pool = versePool.length > 0 ? versePool : allAnswers;
   // Deterministic-but-varied pick: hash the person's name+dob so the same
   // chart always gets the same verse, but different charts likely differ.
   const hashSeed = `${full_name}${dob}`.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const closingVerse = pool[hashSeed % pool.length];
+  const picked = pool[hashSeed % pool.length];
+  const closingVerse = { verse: picked.verse, source: `रामचरितमानस, ${picked.kand}` };
 
   // ── Save kundli ────────────────────────────────────────────
   const { data: kundli, error } = await supabase.from('saved_kundlis').insert({

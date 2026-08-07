@@ -1,61 +1,64 @@
 'use client';
 // app/ram-shalaka/page.jsx
 //
-// Ram Shalaka — traditional letter-based guidance practice. The person
-// holds a question in mind, closes their eyes, and taps any letter —
-// the corresponding verse is revealed as their answer/guidance.
+// The real Ram Shalaka Prashnavali: a 15x15 table of 225 akshars,
+// exactly as printed in popular Ramcharitmanas editions. Pick any cell
+// (traditionally with eyes closed) — the app finds your answer using
+// the same "every 9th letter" method described in the tradition.
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { RAM_SHALAKA_VERSES, getVerseForLetter } from '@/lib/ram-shalaka';
+import { RAM_SHALAKA_GRID, getAnswerForCell } from '@/lib/ram-shalaka';
 
 export const dynamic = 'force-dynamic';
 
 const TONE_STYLE = {
-  shubh:     { label: 'शुभ संकेत',       color: 'var(--color-text-success)', bg: 'var(--color-background-secondary)' },
-  dhairya:   { label: 'धैर्य का संकेत',   color: 'var(--color-text-warning)', bg: 'var(--color-background-warning)' },
-  saavdhani: { label: 'सावधानी का संकेत', color: 'var(--color-text-info)',    bg: 'var(--color-background-info)' },
+  shubh:     { label: 'शुभ उत्तर',      color: 'var(--color-text-success)', bg: 'var(--color-background-secondary)' },
+  dhairya:   { label: 'धैर्य का उत्तर',  color: 'var(--color-text-warning)', bg: 'var(--color-background-warning)' },
+  saavdhani: { label: 'सावधानी का उत्तर', color: 'var(--color-text-info)',   bg: 'var(--color-background-info)' },
 };
 
 export default function RamShalakaPage() {
   const router = useRouter();
   const [question, setQuestion] = useState('');
   const [result, setResult] = useState(null);
+  const [pickedCell, setPickedCell] = useState(null); // {row, col} — highlights the chosen letter
   const [revealing, setRevealing] = useState(false);
+  const [showFullChaupai, setShowFullChaupai] = useState(false);
 
-  function pickLetter(letter) {
+  function pickCell(row, col) {
     if (revealing) return;
+    setPickedCell({ row, col });
     setRevealing(true);
-    // A brief pause before reveal — mirrors the moment of opening the
-    // text after placing a finger on the page, rather than an instant
-    // jarring pop.
     setTimeout(() => {
-      setResult(getVerseForLetter(letter));
+      setResult(getAnswerForCell(row, col));
       setRevealing(false);
-    }, 500);
+    }, 600);
   }
 
   function reset() {
     setResult(null);
+    setPickedCell(null);
     setQuestion('');
+    setShowFullChaupai(false);
   }
 
   return (
-    <div style={{ maxWidth: '640px', margin: '0 auto', padding: '1.5rem 1rem 3rem' }}>
+    <div style={{ maxWidth: '720px', margin: '0 auto', padding: '1.5rem 1rem 3rem' }}>
       <button onClick={() => router.push('/chat')} style={{ fontSize: '13px', color: 'var(--color-text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: '1rem' }}>
         ← वापस चैट पर
       </button>
 
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-        <p style={{ fontSize: '11px', letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>राम शलाका</p>
-        <h1 style={{ fontSize: '22px', fontWeight: '500', color: 'var(--color-text-primary)', marginBottom: '6px' }}>अक्षर प्रश्नावली</h1>
-        <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: '1.6' }}>
-          मन में अपना प्रश्न सोचें, आंखें बंद करें, और नीचे दिए किसी भी अक्षर पर बिना सोचे उंगली रखें।
+        <p style={{ fontSize: '11px', letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>श्री राम शलाका प्रश्नावली</p>
+        <h1 style={{ fontSize: '22px', fontWeight: '500', color: 'var(--color-text-primary)', marginBottom: '6px' }}>रामचरितमानस से मार्गदर्शन</h1>
+        <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: '1.6', maxWidth: '480px', margin: '0 auto' }}>
+          मन में अपना प्रश्न स्थिर करें, श्रीराम का स्मरण करें, और आंखें बंद करके नीचे दी सारणी में किसी भी अक्षर पर उंगली रखें।
         </p>
       </div>
 
       {!result && (
         <>
-          <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ marginBottom: '1.25rem' }}>
             <input
               value={question}
               onChange={e => setQuestion(e.target.value)}
@@ -65,35 +68,41 @@ export default function RamShalakaPage() {
           </div>
 
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(52px, 1fr))',
-            gap: '10px',
             background: 'var(--color-background-primary)',
             border: '0.5px solid var(--color-border-tertiary)',
             borderRadius: 'var(--border-radius-lg)',
-            padding: '1.25rem',
+            padding: '10px',
+            overflowX: 'auto',
           }}>
-            {RAM_SHALAKA_VERSES.map(v => (
-              <button
-                key={v.letter}
-                onClick={() => pickLetter(v.letter)}
-                disabled={revealing}
-                style={{
-                  aspectRatio: '1',
-                  fontSize: '20px',
-                  fontWeight: '500',
-                  borderRadius: '50%',
-                  border: '0.5px solid var(--color-border-secondary)',
-                  background: 'var(--color-background-secondary)',
-                  color: 'var(--color-text-primary)',
-                  cursor: revealing ? 'default' : 'pointer',
-                  opacity: revealing ? 0.5 : 1,
-                  transition: 'transform 0.1s ease',
-                }}
-              >
-                {v.letter}
-              </button>
-            ))}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(15, minmax(28px, 1fr))',
+              gap: '3px',
+              minWidth: '460px',
+            }}>
+              {RAM_SHALAKA_GRID.map((rowArr, r) =>
+                rowArr.map((akshar, c) => (
+                  <button
+                    key={`${r}-${c}`}
+                    onClick={() => pickCell(r, c)}
+                    disabled={revealing}
+                    style={{
+                      aspectRatio: '1',
+                      fontSize: '12px',
+                      padding: 0,
+                      borderRadius: '4px',
+                      border: pickedCell?.row === r && pickedCell?.col === c ? '1.5px solid var(--color-brand)' : '0.5px solid var(--color-border-tertiary)',
+                      background: pickedCell?.row === r && pickedCell?.col === c ? 'var(--color-brand-light)' : 'var(--color-background-secondary)',
+                      color: 'var(--color-text-primary)',
+                      cursor: revealing ? 'default' : 'pointer',
+                      transition: 'background 0.1s ease',
+                    }}
+                  >
+                    {akshar}
+                  </button>
+                ))
+              )}
+            </div>
           </div>
 
           {revealing && (
@@ -101,6 +110,10 @@ export default function RamShalakaPage() {
               ग्रंथ खुल रहा है...
             </p>
           )}
+
+          <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', textAlign: 'center', marginTop: '10px' }}>
+            15×15 = 225 अक्षरों की पारंपरिक सारणी — जैसी रामचरितमानस के प्रचलित संस्करणों में छपती है।
+          </p>
         </>
       )}
 
@@ -123,19 +136,35 @@ export default function RamShalakaPage() {
               color: TONE_STYLE[result.tone]?.color,
               background: TONE_STYLE[result.tone]?.bg,
             }}>
-              {TONE_STYLE[result.tone]?.label}
+              {TONE_STYLE[result.tone]?.label} · {result.kand}
             </span>
 
-            <p style={{ fontSize: '19px', lineHeight: '1.9', color: 'var(--color-text-primary)', fontWeight: '500', marginBottom: '10px' }}>
+            <p style={{ fontSize: '19px', lineHeight: '1.9', color: 'var(--color-text-primary)', fontWeight: '500', marginBottom: '4px' }}>
               {result.verse}
             </p>
-            <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '1.25rem' }}>
-              — {result.source}
-            </p>
 
-            <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: '1.7', textAlign: 'left' }}>
-              {result.meaning}
-            </p>
+            {showFullChaupai && (
+              <p style={{ fontSize: '15px', lineHeight: '1.8', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
+                {result.contextLines}
+              </p>
+            )}
+
+            <button onClick={() => setShowFullChaupai(s => !s)} style={{ background: 'none', border: 'none', color: 'var(--color-text-info)', fontSize: '12px', cursor: 'pointer', margin: '6px 0 1.25rem', padding: 0 }}>
+              {showFullChaupai ? 'कम दिखाएं' : 'पूरी चौपाई देखें →'}
+            </button>
+
+            <div style={{ textAlign: 'left' }}>
+              <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 4px' }}>प्रसंग</p>
+              <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: '1.7', margin: '0 0 14px' }}>{result.prasang}</p>
+
+              <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 4px' }}>भावार्थ</p>
+              <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: '1.7', margin: '0 0 14px' }}>{result.bhavarth}</p>
+
+              <div style={{ background: 'var(--color-background-secondary)', borderRadius: '10px', padding: '12px' }}>
+                <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 4px' }}>शलाका उत्तर का भाव</p>
+                <p style={{ fontSize: '13px', color: 'var(--color-text-primary)', lineHeight: '1.7', margin: 0 }}>{result.shalakaBhav}</p>
+              </div>
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '1.25rem' }}>
@@ -148,7 +177,7 @@ export default function RamShalakaPage() {
           </div>
 
           <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', textAlign: 'center', marginTop: '1rem' }}>
-            यह एक पारंपरिक श्रद्धा-आधारित अभ्यास है, वैज्ञानिक भविष्यवाणी नहीं।
+            राम शलाका एक श्रद्धा-आधारित पारंपरिक अभ्यास है, भविष्यवाणी नहीं — एक ही प्रश्न बार-बार न पूछें।
           </p>
         </div>
       )}
