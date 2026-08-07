@@ -21,6 +21,8 @@ export default function AdminPage() {
   const [activeSession, setActiveSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [dateFilter, setDateFilter] = useState('');
+  const [activeKundli, setActiveKundli] = useState(null);
 
   const [planForm, setPlanForm] = useState({ free_mins_day: '', free_chats_day: '', charge_per_min: '', plan_type: 'chat' });
 
@@ -73,12 +75,16 @@ export default function AdminPage() {
     }
   }
 
-  async function loadSessions(deleted = false) {
-    const res = await fetch(`/api/admin/chats${deleted ? '?deleted=true' : ''}`);
+  async function loadSessions(deleted = false, date = dateFilter) {
+    const params = new URLSearchParams();
+    if (deleted) params.set('deleted', 'true');
+    if (date) params.set('date', date);
+    const res = await fetch(`/api/admin/chats${params.toString() ? '?' + params.toString() : ''}`);
     const data = await res.json();
     setSessions(data.sessions || []);
     setActiveSession(null);
     setMessages([]);
+    setActiveKundli(null);
   }
 
   async function toggleDeletedView() {
@@ -87,11 +93,26 @@ export default function AdminPage() {
     await loadSessions(next);
   }
 
+  function applyDateFilter(date) {
+    setDateFilter(date);
+    loadSessions(showDeleted, date);
+  }
+
   async function openSession(sessionId) {
+    // Toggle: clicking the already-open session collapses it instead of
+    // re-fetching / staying stuck open — this was the reported bug
+    // ("chat audit expand hota hai collapse nahi").
+    if (activeSession === sessionId) {
+      setActiveSession(null);
+      setMessages([]);
+      setActiveKundli(null);
+      return;
+    }
     setActiveSession(sessionId);
     const res = await fetch(`/api/admin/chats?sessionId=${sessionId}`);
     const data = await res.json();
     setMessages(data.messages || []);
+    setActiveKundli(data.kundli || null);
   }
 
   async function adminDeleteSession(sessionId) {
@@ -379,13 +400,26 @@ export default function AdminPage() {
       {/* CHAT AUDIT TAB */}
       {tab === 'chats' && (
         <div>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px', flexWrap:'wrap', gap:'8px' }}>
             <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:0 }}>
               {showDeleted ? 'Deleted Sessions (Record Management)' : 'Active Sessions'}
             </p>
-            <button onClick={toggleDeletedView} style={{ fontSize:'12px', padding:'6px 12px', background: showDeleted ? 'var(--color-background-secondary)' : 'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-primary)' }}>
-              {showDeleted ? '← सामान्य view' : 'Deleted देखें'}
-            </button>
+            <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={e => applyDateFilter(e.target.value)}
+                style={{ fontSize:'12px', padding:'5px 8px' }}
+              />
+              {dateFilter && (
+                <button onClick={() => applyDateFilter('')} style={{ fontSize:'11px', padding:'5px 8px', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-tertiary)' }}>
+                  ✕ Clear
+                </button>
+              )}
+              <button onClick={toggleDeletedView} style={{ fontSize:'12px', padding:'6px 12px', background: showDeleted ? 'var(--color-background-secondary)' : 'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-primary)' }}>
+                {showDeleted ? '← सामान्य view' : 'Deleted देखें'}
+              </button>
+            </div>
           </div>
         <div style={{ display:'flex', gap:'1rem', flexWrap:'wrap' }}>
           <div style={{ flex:'1 1 280px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden', maxHeight:'500px', overflowY:'auto' }}>
@@ -397,6 +431,9 @@ export default function AdminPage() {
                   <div onClick={() => openSession(s.id)} style={{ flex:1, padding:'10px 14px', cursor:'pointer', fontSize:'13px', background: activeSession===s.id ? 'var(--color-background-secondary)' : 'transparent' }}>
                     <p style={{ margin:'0 0 2px', fontWeight:'500', color:'var(--color-text-primary)' }}>{s.user_email}</p>
                     <p style={{ margin:0, color:'var(--color-text-tertiary)', fontSize:'12px' }}>{s.title} · {s.message_count} messages</p>
+                    {s.kundli_name && (
+                      <p style={{ margin:'2px 0 0', color:'var(--color-text-info)', fontSize:'11px' }}>📊 {s.kundli_name} · {s.kundli_dob}{s.kundli_luck_score != null ? ` · Score ${s.kundli_luck_score}` : ''}</p>
+                    )}
                     <p style={{ margin:0, color:'var(--color-text-tertiary)', fontSize:'11px' }}>{new Date(s.updated_at).toLocaleString('hi-IN')}</p>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); adminDeleteSession(s.id); }} title="Delete session" style={{ background:'none', border:'none', cursor:'pointer', padding:'8px 10px', color:'var(--color-text-danger)', fontSize:'14px', flexShrink:0 }}>🗑</button>
@@ -405,9 +442,17 @@ export default function AdminPage() {
                 {/* Mobile-only accordion: expands right here on click, so users
                     don't have to scroll past the whole session list first.
                     Hidden on desktop via .lf-chat-audit-inline CSS (globals.css) —
-                    desktop keeps the classic side-by-side panel below instead. */}
+                    desktop keeps the classic side-by-side panel below instead.
+                    Clicking the same session again collapses it (openSession
+                    toggles activeSession back to null). */}
                 {activeSession === s.id && (
                   <div className="lf-chat-audit-inline" style={{ padding:'10px 14px', borderTop:'0.5px dashed var(--color-border-tertiary)', background:'var(--color-background-secondary)' }}>
+                    {activeKundli && (
+                      <div style={{ padding:'8px 10px', marginBottom:'10px', background:'var(--color-background-info)', borderRadius:'8px', fontSize:'12px', color:'var(--color-text-info)' }}>
+                        <p style={{ margin:'0 0 2px', fontWeight:'500' }}>{activeKundli.label || activeKundli.full_name}</p>
+                        <p style={{ margin:0 }}>{activeKundli.dob} · {activeKundli.birth_time} · {activeKundli.birth_place} {activeKundli.luck_score != null ? `· Score ${activeKundli.luck_score}` : ''}</p>
+                      </div>
+                    )}
                     {messages.length === 0 ? (
                       <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>कोई messages नहीं</p>
                     ) : messages.map(m => (
@@ -427,16 +472,26 @@ export default function AdminPage() {
           <div className="lf-chat-audit-panel" style={{ flex:'1 1 380px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1rem', maxHeight:'500px', overflowY:'auto' }}>
             {!activeSession ? (
               <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>एक session चुनें</p>
-            ) : messages.length === 0 ? (
-              <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>कोई messages नहीं</p>
-            ) : messages.map(m => (
-              <div key={m.id} style={{ marginBottom:'10px' }}>
-                <p style={{ margin:'0 0 2px', fontSize:'11px', fontWeight:'500', color: m.role==='user' ? 'var(--color-text-info)' : 'var(--color-text-success)', letterSpacing:'1px', textTransform:'uppercase' }}>
-                  {m.role} {m.model_used ? `· ${m.model_used}` : ''}
-                </p>
-                <p style={{ margin:0, fontSize:'13px', color:'var(--color-text-primary)', lineHeight:'1.6', whiteSpace:'pre-wrap' }}>{m.content}</p>
-              </div>
-            ))}
+            ) : (
+              <>
+                {activeKundli && (
+                  <div style={{ padding:'10px 12px', marginBottom:'12px', background:'var(--color-background-info)', borderRadius:'8px', fontSize:'12px', color:'var(--color-text-info)' }}>
+                    <p style={{ margin:'0 0 2px', fontWeight:'500' }}>📊 {activeKundli.label || activeKundli.full_name}</p>
+                    <p style={{ margin:0 }}>{activeKundli.dob} · {activeKundli.birth_time} · {activeKundli.birth_place} {activeKundli.luck_score != null ? `· Score ${activeKundli.luck_score}` : ''}</p>
+                  </div>
+                )}
+                {messages.length === 0 ? (
+                  <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>कोई messages नहीं</p>
+                ) : messages.map(m => (
+                  <div key={m.id} style={{ marginBottom:'10px' }}>
+                    <p style={{ margin:'0 0 2px', fontSize:'11px', fontWeight:'500', color: m.role==='user' ? 'var(--color-text-info)' : 'var(--color-text-success)', letterSpacing:'1px', textTransform:'uppercase' }}>
+                      {m.role} {m.model_used ? `· ${m.model_used}` : ''}
+                    </p>
+                    <p style={{ margin:0, fontSize:'13px', color:'var(--color-text-primary)', lineHeight:'1.6', whiteSpace:'pre-wrap' }}>{m.content}</p>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         </div>
         </div>

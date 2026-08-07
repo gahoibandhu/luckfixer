@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
+import KundliDetailPanel from '@/components/KundliDetailPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -168,6 +169,7 @@ export default function ChatPage() {
   const [langMenuOpen,     setLangMenuOpen]      = useState(false);
   const [sidebarOpen,      setSidebarOpen]      = useState(false);
   const [panel,            setPanel]            = useState('sessions'); // 'sessions'|'kundlis'
+  const [detailPanelOpen,  setDetailPanelOpen]   = useState(false);
   const [activeQuickForm,  setActiveQuickForm]  = useState(null); // which quick-action form is open
   const [quickFormAnswers, setQuickFormAnswers] = useState({});
 
@@ -235,7 +237,7 @@ export default function ChatPage() {
 
   async function selectKundli(k) {
     setKundli(k); setPendingKundliId(k.id);
-    setSidebarOpen(false); setSessionId(null); setLimitErr('');
+    setSidebarOpen(false); setSessionId(null); setLimitErr(''); setDetailPanelOpen(false);
     setMessages([{ role:'assistant', content:'...' }]);
     try {
       const res = await fetch('/api/chat', {
@@ -469,7 +471,7 @@ export default function ChatPage() {
             <span>Chats: <strong style={{ color:'var(--color-text-primary)' }}>{usage.freeChatsLeft}</strong></span>
             <span>Mins: <strong style={{ color:'var(--color-text-primary)' }}>{typeof usage.freeMinsLeft === 'number' ? usage.freeMinsLeft.toFixed(1) : usage.freeMinsLeft}</strong></span>
           </div>
-          {[['💍 मिलान','/milan'],['👤 प्रोफाइल','/profile']].map(([label,path]) => (
+          {[['🕉️ राम शलाका','/ram-shalaka'],['💍 मिलान','/milan'],['👤 प्रोफाइल','/profile']].map(([label,path]) => (
             <button key={path} onClick={() => router.push(path)} style={{ width:'100%', padding:'6px', marginBottom:'3px', fontSize:'12px', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'7px', cursor:'pointer', color:'var(--color-text-secondary)', textAlign:'left' }}>
               {label}
             </button>
@@ -493,6 +495,7 @@ export default function ChatPage() {
                 <p style={{ margin:0, fontSize:'14px', fontWeight:'500', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{kundli.label || kundli.full_name}</p>
                 <p style={{ margin:0, fontSize:'11px', color:'var(--color-text-tertiary)' }}>{kundli.dob} · {kundli.birth_place?.split(',')[0]}</p>
               </div>
+              <button onClick={() => setDetailPanelOpen(true)} style={{ flexShrink:0, padding:'4px 10px', fontSize:'11px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'20px', cursor:'pointer', color:'var(--color-text-secondary)' }}>📊 विवरण</button>
               <button onClick={() => { setPanel('kundlis'); setSidebarOpen(true); }} style={{ flexShrink:0, padding:'4px 10px', fontSize:'11px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'20px', cursor:'pointer', color:'var(--color-text-secondary)' }}>बदलें</button>
             </>
           ) : (
@@ -739,6 +742,8 @@ export default function ChatPage() {
           51%, 100% { opacity: 0; }
         }
       `}</style>
+
+      <KundliDetailPanel kundli={kundli} open={detailPanelOpen} onClose={() => setDetailPanelOpen(false)} />
     </div>
   );
 }

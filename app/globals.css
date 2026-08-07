@@ -361,6 +361,55 @@ button:active { transform: scale(0.98); }
 /* ── Mobile sidebar ───────────────────────────────────────── */
 .lf-sidebar-overlay { display: none; }
 
+/* ── Kundli Detail Panel — desktop: right-docked side panel;
+   mobile: bottom sheet. Same component, different layout via CSS. ── */
+.lf-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 40;
+}
+
+.lf-detail-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 400px;
+  max-width: 92vw;
+  background: var(--color-background-primary);
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+  animation: lf-panel-slide-in-right 0.22s ease;
+}
+
+@keyframes lf-panel-slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@media (max-width: 768px) {
+  .lf-detail-panel {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: 82vh;
+    border-radius: 16px 16px 0 0;
+    animation: lf-panel-slide-in-up 0.22s ease;
+  }
+
+  @keyframes lf-panel-slide-in-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+}
+
 /* ── Admin: Chat Audit — desktop shows classic 2-column list+panel;
    mobile hides the separate panel and expands messages inline in an
    accordion right under the clicked session instead, so there's no long

@@ -12,6 +12,7 @@ import { detectYogas, formatYogasForPrompt } from '@/lib/yogas';
 import { buildAshtakavarga, formatAVForPrompt } from '@/lib/ashtakavarga';
 import { buildNakshatraSheet, formatNakshatraForPrompt } from '@/lib/nakshatra';
 import { buildVarshaphal, formatVarshaphalForPrompt } from '@/lib/varshaphal';
+import { RAM_SHALAKA_VERSES } from '@/lib/ram-shalaka';
 
 // GET — fetch all kundlis for logged-in user
 export async function GET() {
@@ -252,6 +253,20 @@ Return this exact JSON structure:
 
   const aiResult = await getLuckfixerResponse(systemPrompt, userPrompt, true);
 
+  // ── Closing verse — deterministic, not AI-generated, so accuracy is
+  // guaranteed. Picks a Ramcharitmanas chaupai / Sanskrit shloka whose
+  // sentiment (shubh/dhairya/saavdhani, from lib/ram-shalaka.js) matches
+  // this chart's overall tone, purely to close the reading beautifully —
+  // never used as astrological "evidence" for any claim.
+  const score = aiResult.content.metric_score || 50;
+  const matchingTone = score >= 60 ? 'shubh' : score >= 40 ? 'dhairya' : 'saavdhani';
+  const versePool = RAM_SHALAKA_VERSES.filter(v => v.tone === matchingTone);
+  const pool = versePool.length > 0 ? versePool : RAM_SHALAKA_VERSES;
+  // Deterministic-but-varied pick: hash the person's name+dob so the same
+  // chart always gets the same verse, but different charts likely differ.
+  const hashSeed = `${full_name}${dob}`.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const closingVerse = pool[hashSeed % pool.length];
+
   // ── Save kundli ────────────────────────────────────────────
   const { data: kundli, error } = await supabase.from('saved_kundlis').insert({
     user_id:      user.id,
@@ -278,6 +293,7 @@ Return this exact JSON structure:
       varshaphal,
       transitSnapshot: transit,
       analysis: aiResult.content,
+      closingVerse,
     },
     luck_score:   aiResult.content.metric_score || 50,
     last_analysis: new Date().toISOString(),

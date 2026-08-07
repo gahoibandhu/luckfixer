@@ -827,6 +827,23 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
       systemPrompt += `\n\n[REPEATED QUESTION — user ne yeh EXACT same sawal dobara poocha hai]\nPichhla jawab word-for-word ya bahut similar mat dohrao. Is baar naya angle do — koi extra specific detail (jo pehle nahi bataya), ya poochho ki unhe pichhla jawab clear nahi hua kya, ya kisi specific part pe zyada depth do jo pehle skip hua tha.`;
     }
 
+    // ── Offer an upaay (remedy) after 2 exchanges ───────────────────
+    // Requested behaviour: once the conversation has gone on for a
+    // couple of turns (person has asked at least 2 questions), and no
+    // remedy has been offered yet, naturally mention that a specific
+    // upaay is available — written IN the chat reply itself (not a
+    // separate UI button), so it feels like a natural offer from a
+    // knowledgeable elder rather than a sales popup. Only fires once —
+    // we check whether a remedy was already given earlier in this
+    // conversation so it doesn't repeat the offer every single turn.
+    const turnCount = priorUserMsgs.length + 1; // this message is the Nth user turn
+    const remedyAlreadyOffered = messages
+      .filter(m => m.role === 'assistant')
+      .some(m => /उपाय|remedy/i.test(m.content || ''));
+    if (turnCount >= 2 && !remedyAlreadyOffered && kundliContext) {
+      systemPrompt += `\n\n[OFFER AN UPAAY — ${turnCount}th message in this conversation, no remedy given yet]\nIs jawab ke ant mein (ya jahan naturally fit ho), ek line mein bina zabardasti ke offer karo ki agar woh chahein to unke liye ek specific upaay (Lal Kitab ya Vedic remedy) bata sakte ho — jaise "chaho to main iske liye ek specific upaay bhi bata sakta hoon". Zabardasti mat thopo, agar unka sawal already kisi upaay ke baare mein hai to seedha upaay de do, offer mat karo.`;
+    }
+
     // ── Call AI (graceful fallback — never throws) ───────────
     const aiResponse = await getChatResponse(systemPrompt, messages, langPref || 'auto');
 
