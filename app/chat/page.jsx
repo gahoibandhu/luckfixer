@@ -152,6 +152,8 @@ export default function ChatPage() {
   const router      = useRouter();
   const messagesEnd = useRef(null);
   const inputRef    = useRef(null);
+  const recognitionRef = useRef(null);
+  const utteranceRef   = useRef(null);
 
   const [userId,           setUserId]           = useState(null);
   const [kundlis,          setKundlis]          = useState([]);
@@ -173,6 +175,12 @@ export default function ChatPage() {
   const [activeQuickForm,  setActiveQuickForm]  = useState(null); // which quick-action form is open
   const [quickFormAnswers, setQuickFormAnswers] = useState({});
 
+  // ── Voice input/output state ─────────────────────────────────
+  const [voiceInputSupported,  setVoiceInputSupported]  = useState(false);
+  const [voiceOutputSupported, setVoiceOutputSupported]  = useState(false);
+  const [listening,            setListening]            = useState(false);
+  const [speakingIndex,        setSpeakingIndex]         = useState(null);
+
   // ── Post-login vortex intro — shown once per browser tab session ──
   const [showIntro,   setShowIntro]   = useState(false);
   const [introFading, setIntroFading] = useState(false);
@@ -190,6 +198,89 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => { init(); }, []);
+
+  // ── Voice feature detection (client-side only, browser APIs) ────
+  useEffect(() => {
+    const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    setVoiceInputSupported(!!SR);
+    setVoiceOutputSupported(typeof window !== 'undefined' && 'speechSynthesis' in window);
+    return () => {
+      recognitionRef.current?.stop?.();
+      if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  // Maps the app's language preference to a BCP-47 tag both the
+  // SpeechRecognition and SpeechSynthesis APIs understand.
+  function voiceLangTag() {
+    if (langPref === 'en') return 'en-IN';
+    return 'hi-IN'; // covers both 'hi' and 'auto'/hinglish — Hindi ASR/TTS handles Hinglish speech reasonably
+  }
+
+  function toggleVoiceInput() {
+    const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SR) return;
+
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    // Stop any ongoing speech output before listening, so the mic doesn't
+    // pick up the app's own voice.
+    if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+    setSpeakingIndex(null);
+
+    const recognition = new SR();
+    recognition.lang = voiceLangTag();
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognition.onresult = (event) => {
+      let transcript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setInput(transcript);
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
+  }
+
+  function speakMessage(text, index) {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+
+    // Clicking the speaker on a message that's already being read stops it.
+    if (speakingIndex === index) {
+      window.speechSynthesis.cancel();
+      setSpeakingIndex(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel(); // stop any other message currently being read
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = voiceLangTag();
+    utterance.rate = 0.95;
+    utterance.onend = () => setSpeakingIndex(null);
+    utterance.onerror = () => setSpeakingIndex(null);
+    utteranceRef.current = utterance;
+    setSpeakingIndex(index);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  // Auto-grows the composer textarea as the person types (capped by
+  // max-height in CSS, which switches to internal scroll beyond that).
+  function autoGrow(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+  }
+
   useEffect(() => { messagesEnd.current?.scrollIntoView({ behavior:'smooth' }); }, [messages]);
 
   async function init() {
@@ -273,6 +364,8 @@ export default function ChatPage() {
     const text = quickPrompt || input;
     if (!text?.trim() || loading) return;
     setLimitErr(''); setInput('');
+    if (inputRef.current) inputRef.current.style.height = 'auto'; // collapse composer back to 1 row
+    if (listening) { recognitionRef.current?.stop(); setListening(false); }
     const userMsg = { role:'user', content: text };
     setMessages(m => [...m, userMsg]);
     setLoading(true);
@@ -570,32 +663,44 @@ export default function ChatPage() {
 
         {/* Messages */}
         {messages.length > 0 && (
-          <div style={{ flex:1, overflowY:'auto', padding:'16px 16px 8px' }}>
+          <div style={{ flex:1, overflowY:'auto', padding:'20px 16px 8px' }}>
             {messages.map((m,i) => (
-              <div key={i} style={{ display:'flex', justifyContent: m.role==='user' ? 'flex-end' : 'flex-start', marginBottom:'14px', alignItems:'flex-end', gap:'8px' }}>
-                {m.role==='assistant' && <img src={LOGO_URL} alt="" style={{ width:'26px', height:'26px', borderRadius:'7px', objectFit:'cover', flexShrink:0 }} />}
-                <div style={{
-                  maxWidth:'72%', padding:'10px 14px', fontSize:'14px', lineHeight:'1.65',
-                  borderRadius: m.role==='user' ? '18px 18px 4px 18px' : '4px 18px 18px 18px',
-                  background: m.role==='user' ? 'var(--color-text-primary)' : 'var(--color-background-primary)',
-                  color: m.role==='user' ? 'var(--color-background-primary)' : 'var(--color-text-primary)',
-                  border: m.role==='assistant' ? '0.5px solid var(--color-border-tertiary)' : 'none',
-                  boxShadow: m.role==='assistant' ? '0 1px 4px rgba(0,0,0,0.05)' : 'none',
-                  animation: 'lf-slideUp 0.2s ease both',
-                }}>
-                  {m.content === '...'
-                    ? <div className="lf-thinking"><div className="lf-thinking-dot"/><div className="lf-thinking-dot"/><div className="lf-thinking-dot"/></div>
-                    : m.role === 'assistant' && m._animate
-                      ? <TypewriterText text={m.content} enabled={true} onDone={() => {
-                          setMessages(prev => prev.map((mm, idx) => idx === i ? { ...mm, _animate: false } : mm));
-                        }} />
-                      : m.content}
+              <div key={i} style={{ display:'flex', justifyContent: m.role==='user' ? 'flex-end' : 'flex-start', marginBottom:'20px', alignItems:'flex-start', gap:'10px' }}>
+                {m.role==='assistant' && <img src={LOGO_URL} alt="" style={{ width:'28px', height:'28px', borderRadius:'8px', objectFit:'cover', flexShrink:0, marginTop:'2px' }} />}
+                <div style={{ maxWidth: m.role==='user' ? '75%' : '84%' }}>
+                  <div style={
+                    m.role==='user'
+                      ? { padding:'10px 16px', fontSize:'15px', lineHeight:'1.65', borderRadius:'20px 20px 4px 20px', background:'var(--color-background-secondary)', color:'var(--color-text-primary)', animation:'lf-slideUp 0.2s ease both' }
+                      : { padding:'2px 0', fontSize:'15px', lineHeight:'1.75', color:'var(--color-text-primary)', animation:'lf-slideUp 0.2s ease both' }
+                  }>
+                    {m.content === '...'
+                      ? <div className="lf-thinking"><div className="lf-thinking-dot"/><div className="lf-thinking-dot"/><div className="lf-thinking-dot"/></div>
+                      : m.role === 'assistant' && m._animate
+                        ? <TypewriterText text={m.content} enabled={true} onDone={() => {
+                            setMessages(prev => prev.map((mm, idx) => idx === i ? { ...mm, _animate: false } : mm));
+                          }} />
+                        : m.content}
+                  </div>
+                  {m.role === 'assistant' && m.content !== '...' && !m._animate && voiceOutputSupported && (
+                    <button
+                      onClick={() => speakMessage(m.content, i)}
+                      title={speakingIndex === i ? 'रोकें' : 'सुनें'}
+                      className={`lf-composer-icon-btn ${speakingIndex === i ? 'lf-speaker-active' : ''}`}
+                      style={{ width:'26px', height:'26px', marginLeft:'-2px' }}
+                    >
+                      {speakingIndex === i ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
             {loading && (
-              <div style={{ display:'flex', marginBottom:'14px', alignItems:'flex-end', gap:'8px' }}>
-                <img src={LOGO_URL} alt="" style={{ width:'26px', height:'26px', borderRadius:'7px', objectFit:'cover', flexShrink:0 }} />
+              <div style={{ display:'flex', marginBottom:'14px', alignItems:'flex-start', gap:'10px' }}>
+                <img src={LOGO_URL} alt="" style={{ width:'28px', height:'28px', borderRadius:'8px', objectFit:'cover', flexShrink:0, marginTop:'2px' }} />
                 <div className="lf-thinking"><div className="lf-thinking-dot"/><div className="lf-thinking-dot"/><div className="lf-thinking-dot"/></div>
               </div>
             )}
@@ -690,16 +795,41 @@ export default function ChatPage() {
         )}
 
         {/* Input */}
-        <div style={{ padding:'10px 12px 12px', background:'var(--color-background-primary)', borderTop: messages.length>0 ? '0.5px solid var(--color-border-tertiary)' : 'none', flexShrink:0 }}>
+        <div style={{ padding:'10px 12px 14px', background:'var(--color-background-primary)', borderTop: messages.length>0 ? '0.5px solid var(--color-border-tertiary)' : 'none', flexShrink:0 }}>
           {!kundli ? (
-            <div style={{ display:'flex', gap:'8px' }}>
-              <input disabled placeholder="पहले बाईं तरफ से कुंडली चुनें..." style={{ flex:1, fontSize:'14px', opacity:0.45, cursor:'not-allowed', borderRadius:'10px' }}/>
-              <button disabled style={{ padding:'10px 16px', background:'var(--color-border-tertiary)', color:'var(--color-text-tertiary)', border:'none', borderRadius:'10px', fontSize:'14px' }}>भेजें</button>
+            <div className="lf-composer" style={{ opacity:0.5 }}>
+              <textarea disabled rows={1} placeholder="पहले बाईं तरफ से कुंडली चुनें..." style={{ flex:1, fontSize:'15px', cursor:'not-allowed' }}/>
+              <button disabled className="lf-composer-icon-btn lf-composer-send" style={{ opacity:0.5 }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+              </button>
             </div>
           ) : (
-            <form onSubmit={sendMessage} style={{ display:'flex', gap:'8px' }}>
-              <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} placeholder="अपना प्रश्न पूछें..." disabled={loading} style={{ flex:1, fontSize:'14px', borderRadius:'10px' }} onKeyDown={e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage(e);}}}/>
-              <button type="submit" disabled={loading||!input.trim()} style={{ padding:'10px 16px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'10px', cursor:'pointer', fontSize:'14px', fontWeight:'500', flexShrink:0, opacity: loading||!input.trim()?0.5:1 }}>भेजें</button>
+            <form onSubmit={sendMessage} className="lf-composer">
+              {voiceInputSupported && (
+                <button
+                  type="button"
+                  onClick={toggleVoiceInput}
+                  title={listening ? 'रोकें' : 'बोलकर पूछें'}
+                  className={`lf-composer-icon-btn ${listening ? 'lf-mic-listening' : ''}`}
+                >
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill={listening ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                    <rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0014 0M12 19v3"/>
+                  </svg>
+                </button>
+              )}
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={e => { setInput(e.target.value); autoGrow(e.target); }}
+                placeholder={listening ? 'सुन रहा हूं...' : 'अपना प्रश्न पूछें...'}
+                disabled={loading}
+                rows={1}
+                style={{ flex:1, fontSize:'15px' }}
+                onKeyDown={e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage(e);}}}
+              />
+              <button type="submit" disabled={loading||!input.trim()} className="lf-composer-icon-btn lf-composer-send">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+              </button>
             </form>
           )}
         </div>
