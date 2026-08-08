@@ -9,6 +9,7 @@ import { formatYogasForPrompt } from '@/lib/yogas';
 import { formatAVForPrompt } from '@/lib/ashtakavarga';
 import { formatNakshatraForPrompt } from '@/lib/nakshatra';
 import { formatVarshaphalForPrompt } from '@/lib/varshaphal';
+import { findYogaPeriods } from '@/lib/vimshottari';
 
 const LUCKFIXER_SYSTEM_PROMPT = `You are Luckfixer 2.0 — a sharp, grounded Vedic astrology AI who speaks like a trusted tech-savvy dost who also happens to know Parashari, Lal Kitab, Jaimini, and Ashtakavarga cold. People come to you because you actually land specific, verifiable insights — not because you hedge and fluff.
 
@@ -61,9 +62,11 @@ MINIMIZE JARGON, MAXIMIZE PLAIN LANGUAGE: Terms like "Mahadasha", "Antardasha", 
 ═══ NEVER INVENT DATA — ANTI-HALLUCINATION RULE ═══
 Only reference planets, houses, yogas, dasha periods, or dates that are EXPLICITLY present in the data provided to you below. Never invent a yoga name, a planetary combination, or a "classical technique" that isn't backed by the actual computed data — this is exactly the failure mode of fake astrology tools that impress people with invented terminology ("Bhrigu Cycle Trigger", "Financial Drain Patch") instead of real calculation. If you don't have data to answer something specific, say so honestly: "Is specific cheez ke liye mere paas exact data nahi hai" — rather than fabricating a plausible-sounding answer.
 
-CONSISTENCY ACROSS THE CONVERSATION: If you've already stated a fact about this person's chart earlier in this conversation (e.g. "your 7th lord is Venus"), don't contradict it later. Re-use established facts rather than re-deriving them differently each time.
+CONSISTENCY ACROSS THE CONVERSATION: If you've already stated a fact about this person's chart earlier in this conversation (e.g. "your 7th lord is Venus"), don't contradict it later. Re-use established facts rather than re-deriving them differently each time. This includes NUMBERS: if you gave a timing window earlier (e.g. "next 12-15 months"), reuse that exact window later in the conversation for the same topic — don't quietly redrive a slightly different number (e.g. "12-14 months") each time you're asked a similar question. Small drifting numbers make the whole reading feel invented rather than calculated.
 
 NEVER FABRICATE REAL-WORLD SPECIFICS THE CHART CANNOT DETERMINE: Vedic astrology (even correctly applied) cannot tell you the exact CITY/TOWN where someone will marry, an exact person's name, a specific company name, a lottery number, or similar impossibly-precise real-world facts. If asked something like "shaadi kahan hogi" (where will marriage happen) or "kaunsi company mein job milegi" (which specific company), do NOT invent a real place/company name based on tenuous reasoning (e.g. "Muntha house suggests native place" is NOT a real classical technique for predicting marriage location — never say this). Instead: give what astrology genuinely CAN say (timing window, whether it's near vs far from home based on real relevant house/yoga if that classical link actually exists, general direction/region only if there's a real technique for it) and be honest that exact place names aren't something a birth chart determines. Fabricating specific place names to sound impressive is a serious credibility risk — a user WILL notice if the guess is wrong, and even if accidentally right, it teaches false confidence in fabricated methodology.
+
+NEVER GUESS ALREADY-LIVED REAL-WORLD FACTS — ASK INSTEAD: A birth chart shows themes, tendencies and timing windows — it CANNOT verify facts about what has already actually happened in someone's real life (are they currently married, do they already have children, did they already get a specific job, are they currently employed, etc.). If the user directly asks something like "kya lagta hai meri shaadi ho chuki hai ya nahi", "main abhi married hoon ya single", "mere bachche hain kya" — this is not a prediction question, it's asking you to confirm a real-world fact you have zero way to actually know. NEVER answer this with a confident guess dressed up in dasha/yoga reasoning (this is one of the most damaging things you can do to trust — if the confident guess is wrong, and it easily can be, the person loses all faith in everything else you've said). Instead, say plainly that the chart can't confirm already-lived facts like this, and ask them directly — then use whatever they tell you to give a much better, grounded answer to their actual underlying question.
 
 ═══ NATAL vs TRANSIT — CRITICAL RULE (violations destroy credibility) ═══
 NATAL placements (Mangal 8th mein, Shani-Mangal yuti, Ketu lagna mein, etc.) are PERMANENT — they exist 24/7 from birth to death, whether the person is traveling, sleeping, working, or at home. NEVER say a natal placement "will be more active/dangerous during this trip/event" — that is factually wrong astrology and users WILL catch it.
@@ -295,9 +298,18 @@ function detectLifeArea(lastUserMessage) {
   // never get the investment-refusal reinforcement, which is exactly
   // the bug that let the AI give crude-oil trading advice).
   if (/gold|sona|share|stock|property|invest|paisa|paise|crude|oil|nifty|sensex|\bmcx\b|trading|profit|loss|munafa|nuksan|lottery|satta|bazar|\bmarket\b|futures|options|bitcoin|crypto|share market|stock market/.test(m)) return 'investment';
+  // Death/lifespan check EARLY and broad — this must win over 'health'
+  // when a message combines serious illness with survival ("papa ki
+  // tabiyat kharab hai, bachenge kya") rather than falling into the
+  // regular health block, which is not equipped (and should never be
+  // used) to answer life-or-death questions.
+  if (/maut|mrityu|death|marega|mar jaayega|mar jayega|expire|dega|swarg|guzar|dehant|kab tak jiyega|kitna jiyega|life span|umra kitni|zinda rahega|bachega|bachenge|bach jayega|bach jaayega|survive/.test(m)) return 'death_query';
   if (/career|job|naukri|kaam|vyavsay|business|promotion|interview|company|office|salary|income|\bkarir\b/.test(m)) return 'career';
   if (/vivah|shaadi|marriage|partner|life.?partner|spouse|rishta|pyaar|love|relationship|boyfriend|girlfriend/.test(m)) return 'marriage';
+  if (/bachche|bachcha|santan|aulad|beta|beti|pregnancy|pregnant|child|children|garbh|gods.?bharai/.test(m)) return 'children';
   if (/health|swasthya|bimari|rog|hospital|doctor|ilaj|sehat/.test(m)) return 'health';
+  if (/videsh|foreign|abroad|videsh yatra|study abroad|settle abroad|migration|visa|videsh jana/.test(m)) return 'foreign_travel';
+  if (/dhan|paisa aayega|financial gain|financial loss|nuksan hoga|fayda hoga|wealth|income badhega|kamai/.test(m) && !/gold|sona|share|stock|crude|nifty|sensex|\bmcx\b|trading|bitcoin|crypto|share market|stock market|lottery|satta/.test(m)) return 'finance';
   if (/aaj|kal|today|tomorrow|din|day|2 month|mahine|week|hafte|kaisa rahega/.test(m)) return 'daily';
   if (/saal|year|annual|varsh|2026|2027|2028/.test(m)) return 'annual';
   if (/upay|remedy|solution|mantra|daan|puja|totka/.test(m)) return 'remedy';
@@ -317,6 +329,29 @@ function buildFocusedContext(area, kundliContext) {
   const PLANETS_HI = { Sun:'सूर्य', Moon:'चंद्र', Mars:'मंगल', Mercury:'बुध', Jupiter:'बृहस्पति', Venus:'शुक्र', Saturn:'शनि', Rahu:'राहु', Ketu:'केतु' };
   const toPlanetHi = p => PLANETS_HI[p] || p;
 
+  // ── Real dasha-yoga timing scan (the actual classical technique for
+  // "kis kis saal yog bana/banega") — not a vague guess from only the
+  // current dasha. Given the relevant house-lord + karaka planets for
+  // this life area, scan the WHOLE dasha timeline (birth to ~120 yrs,
+  // already computed in vim.mahadashas) and surface real year-ranges.
+  function formatYogaWindows(relevantLords, label) {
+    if (!vim?.mahadashas || relevantLords.length === 0) return '';
+    const periods = findYogaPeriods(vim.mahadashas, relevantLords);
+    if (periods.length === 0) return '';
+
+    const now = new Date();
+    const past = periods.filter(p => new Date(p.end) < now).slice(-2);   // last 2 past windows
+    const future = periods.filter(p => new Date(p.end) >= now).slice(0, 3); // next 3 windows
+
+    const fmt = p => `${p.mdLordHi}-${p.adLordHi} (${p.start.slice(0,4)}–${p.end.slice(0,4)}, ${p.strength === 'strong' ? 'मजबूत' : 'सामान्य'})`;
+
+    let out = `\n${label} — पूरी दशा-timeline स्कैन करके निकाले गए असली windows (guess नहीं, actual computed periods):`;
+    if (past.length) out += `\nपिछले सक्रिय windows: ${past.map(fmt).join('; ')}`;
+    if (future.length) out += `\nआगे के सक्रिय windows: ${future.map(fmt).join('; ')}`;
+    out += `\nINSTRUCTION: Use THESE exact computed windows for timing — don't invent a different "next 12 months" style guess. "मजबूत" (strong = both Mahadasha and Antardasha lord relevant) window is the primary answer; "सामान्य" (moderate) windows are secondary possibilities. If a past strong window already passed and the user hasn't confirmed the event happened, you can mention it as "yeh dauraan bhi strong yog tha" — but don't assert as fact whether it already happened (see NEVER GUESS ALREADY-LIVED FACTS rule).`;
+    return out;
+  }
+
   // Next notable sub-period from allPratyantar
   const allP = kundliContext.allMahadashas
     ? kundliContext.vimshottari?.allPratyantar
@@ -329,6 +364,7 @@ function buildFocusedContext(area, kundliContext) {
     const amk = jaimini?.amatyakaraka;
     const careerYogas = yogas.filter(y => ['rajyoga','panch_mahapurusha'].includes(y.category));
     const d10 = kundliContext.factSheet?.d10Chart;
+    const lord10 = kundliContext.factSheet?.houseLords?.[10] || kundliContext.factSheet?.houseLords?.['10'];
     block = `\n[CAREER CONTEXT for ${firstName} — use ALL of this, address them by name]:
 Career Score: ${c?.score || 'N/A'}/100 (Confidence: ${c?.confidence || 'N/A'}%)
 Supporting factors: ${c?.supporting?.join(', ') || 'none listed'}
@@ -338,7 +374,8 @@ Career-related Yogas: ${careerYogas.length > 0 ? careerYogas.map(y => y.name + '
 Current dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD (${vim?.antarDasha?.daysLeft} days left, ends ${vim?.antarDasha?.end})
 Varshaphal career: ${varsh?.areas?.find(a => a.area.includes('करियर'))?.note || 'not available'}
 D10 (career chart): ${d10 ? JSON.stringify(d10).slice(0,200) : 'not available'}
-INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Give ONE specific date window when career will peak. Connect career score to exact planets. If user asked about a specific company/job, say whether current dasha+transit supports it.`;
+${formatYogaWindows([lord10, 'Saturn', 'Sun'].filter(Boolean), 'CAREER YOG WINDOWS')}
+INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Give ONE specific date window when career will peak, taken from the CAREER YOG WINDOWS data above. Connect career score to exact planets. If user asked about a specific company/job, say whether current dasha+transit supports it.`;
   }
 
   else if (area === 'marriage') {
@@ -358,7 +395,7 @@ INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Give ONE specif
       const birth = new Date(kundliContext.dob);
       const ageNow = Math.floor((Date.now() - birth.getTime()) / (365.25*24*60*60*1000));
       if (ageNow >= 30) {
-        ageNote = `\nAGE AWARENESS: User is currently ${ageNow} years old. Don't just predict a vague future window — check if a strong marriage yog already existed in the PAST (commonly age 24-30, or whenever Venus/Jupiter dasha or transit was active) and mention that window explicitly using their dasha history. If they are already married, focus on relationship quality instead of "will marriage happen". If genuinely still unmarried at this age, be honest about why (which planet/yoga caused delay) and give a realistic near-term window rather than an arbitrarily optimistic one.`;
+        ageNote = `\nAGE AWARENESS: User is currently ${ageNow} years old. Don't just predict a vague future window — check if a strong marriage yog already existed in the PAST (commonly age 24-30, or whenever Venus/Jupiter dasha or transit was active) and mention that window explicitly using their dasha history. IMPORTANT: the chart has NO way to know whether this person is actually already married — that's a real-world fact only they know, never stored anywhere in this system. Never assume or guess it either way. If it's relevant to frame the answer differently for a married vs unmarried person, ASK them briefly ("aap already married hain ya abhi dhoond rahe hain?") rather than declaring one or the other from the chart.`;
       }
     }
 
@@ -373,7 +410,22 @@ D9 (Navamsa) Venus: ${d9?.Venus || 'N/A'}
 Marriage yogas: ${marYogas.length > 0 ? marYogas.map(y => y.name).join('; ') : 'none specific'}
 Dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD
 Varshaphal relationships: ${varsh?.areas?.find(a => a.area.includes('संबंध'))?.note || 'N/A'}${ageNote}
-INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Be specific about WHETHER and WHEN vivah looks/looked likely — past or future as relevant to their age. Give exact year/window, not vague phrases. Connect to their specific 7th lord and Venus position.`;
+${formatYogaWindows([lord7, 'Venus', 'Jupiter'].filter(Boolean), 'VIVAH YOG WINDOWS')}
+INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Be specific about WHETHER and WHEN vivah looks/looked likely — past or future as relevant to their age. Give exact year/window from the VIVAH YOG WINDOWS data above, not a vague invented phrase. Connect to their specific 7th lord and Venus position.`;
+  }
+
+  else if (area === 'children') {
+    const lord5 = kundliContext.factSheet?.houseLords?.[5] || kundliContext.factSheet?.houseLords?.['5'];
+    const planets = kundliContext.factSheet?.planets || [];
+    const jupiter = planets.find(p => p.name === 'Jupiter');
+    const d9 = kundliContext.factSheet?.d9Chart;
+
+    block = `\n[SANTAN/CHILDREN CONTEXT for ${firstName} — use ALL of this]:
+5th lord: ${lord5 ? toPlanetHi(lord5) : 'check houseLords'}
+Jupiter (santan karaka) position: ${jupiter ? jupiter.signHi + ' (' + jupiter.house + 'th house, ' + jupiter.dignity + ')' : 'N/A'}
+Dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD
+${formatYogaWindows([lord5, 'Jupiter'].filter(Boolean), 'SANTAN YOG WINDOWS')}
+INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Give exact year/window from the SANTAN YOG WINDOWS data above for when santan-yog is/was strongest — don't invent a vague "kuch saal mein" phrase. Never assert whether they already have children or not (see NEVER GUESS ALREADY-LIVED FACTS rule) — if relevant, ask them directly.`;
   }
 
   else if (area === 'daily') {
@@ -395,6 +447,87 @@ Varshesh: ${varsh?.varshesh?.planetHi}
 Area breakdown: ${varsh?.areas?.map(a => a.area.split(' (')[0] + ':' + a.strength).join(' | ')}
 Dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD (${vim?.antarDasha?.daysLeft} days left)
 INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Lead with Varshaphal verdict, explain Muntha house significance, give best and worst specific months of the year. No bullet points.`;
+  }
+
+  else if (area === 'health') {
+    const lord6 = kundliContext.factSheet?.houseLords?.[6] || kundliContext.factSheet?.houseLords?.['6'];
+    const lord8 = kundliContext.factSheet?.houseLords?.[8] || kundliContext.factSheet?.houseLords?.['8'];
+    const planets = kundliContext.factSheet?.planets || [];
+    const saturn = planets.find(p => p.name === 'Saturn');
+    const mars = planets.find(p => p.name === 'Mars');
+    const transit = kundliContext.factSheet?.transitSnapshot;
+
+    block = `\n[HEALTH CONTEXT for ${firstName} — use ALL of this]:
+6th lord (rog/illness house): ${lord6 ? toPlanetHi(lord6) : 'check houseLords'}
+8th lord (chronic/serious issues house): ${lord8 ? toPlanetHi(lord8) : 'check houseLords'}
+Saturn position: ${saturn ? saturn.signHi + ' (' + saturn.house + 'th house, ' + saturn.dignity + ')' : 'N/A'}
+Mars position: ${mars ? mars.signHi + ' (' + mars.house + 'th house, ' + mars.dignity + ')' : 'N/A'}
+Sade Sati: ${transit?.sadeSati?.active ? 'ACTIVE - ' + transit.sadeSati.phase : transit?.sadeSati?.isDhaiyya ? 'Dhaiyya active' : 'Not active'}
+Dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD
+${formatYogaWindows([lord6, lord8, 'Saturn', 'Mars'].filter(Boolean), 'HEALTH-SENSITIVE WINDOWS')}
+INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Frame this CONSTRUCTIVELY — as precaution/self-care windows (checkups, rest, avoiding overexertion), never as a diagnosis or scary prediction. Never name a specific disease. Never give medical advice, dosage, or treatment suggestions — if they describe symptoms, gently suggest seeing a doctor and keep the astrology part focused on general vitality/energy timing only.`;
+  }
+
+  else if (area === 'foreign_travel') {
+    const lord12 = kundliContext.factSheet?.houseLords?.[12] || kundliContext.factSheet?.houseLords?.['12'];
+    const planets = kundliContext.factSheet?.planets || [];
+    const rahu = planets.find(p => p.name === 'Rahu');
+
+    block = `\n[VIDESH YATRA / FOREIGN TRAVEL CONTEXT for ${firstName} — use ALL of this]:
+12th lord (videsh/foreign house): ${lord12 ? toPlanetHi(lord12) : 'check houseLords'}
+Rahu (videsh karaka) position: ${rahu ? rahu.signHi + ' (' + rahu.house + 'th house)' : 'N/A'}
+Dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD
+${formatYogaWindows([lord12, 'Rahu'].filter(Boolean), 'VIDESH YATRA YOG WINDOWS')}
+INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Give exact year/window from the VIDESH YATRA YOG WINDOWS data above for when foreign travel/settlement yog is strongest. Distinguish short trip vs long-term settlement if the yoga strength/context suggests it, but don't overclaim precision you don't have (e.g. don't name a specific country).`;
+  }
+
+  else if (area === 'finance') {
+    // Scope note: this is GENERAL wealth/dhana-yoga timing (2nd house =
+    // saved wealth, 11th house = gains/income) — classical and legitimate.
+    // This is NOT the same as the INVESTMENT block below, which covers
+    // market/stock/crypto/trading questions and stays hard-refused
+    // regardless of what this block says. If detectLifeArea ever
+    // misclassifies a market question as 'finance' instead of
+    // 'investment', the general anti-hallucination + no-market-prediction
+    // rules elsewhere in the system prompt still apply.
+    const lord2 = kundliContext.factSheet?.houseLords?.[2] || kundliContext.factSheet?.houseLords?.['2'];
+    const lord11 = kundliContext.factSheet?.houseLords?.[11] || kundliContext.factSheet?.houseLords?.['11'];
+    const planets = kundliContext.factSheet?.planets || [];
+    const jupiter = planets.find(p => p.name === 'Jupiter');
+    const venus = planets.find(p => p.name === 'Venus');
+
+    block = `\n[FINANCIAL GAIN/LOSS CONTEXT for ${firstName} — GENERAL wealth timing only, not market predictions]:
+2nd lord (saved wealth house): ${lord2 ? toPlanetHi(lord2) : 'check houseLords'}
+11th lord (gains/income house): ${lord11 ? toPlanetHi(lord11) : 'check houseLords'}
+Jupiter position: ${jupiter ? jupiter.signHi + ' (' + jupiter.house + 'th house, ' + jupiter.dignity + ')' : 'N/A'}
+Venus position: ${venus ? venus.signHi + ' (' + venus.house + 'th house, ' + venus.dignity + ')' : 'N/A'}
+Dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD
+${formatYogaWindows([lord2, lord11, 'Jupiter', 'Venus'].filter(Boolean), 'DHANA YOG WINDOWS (gain)')}
+${formatYogaWindows([kundliContext.factSheet?.houseLords?.[12], kundliContext.factSheet?.houseLords?.['12'], 'Saturn'].filter(Boolean), 'EXPENSE-HEAVY WINDOWS (caution)')}
+INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Give general financial fortune timing (windows for gains vs windows to be more careful with spending) from the data above — savings, income growth, major purchases. NEVER mention any specific stock/commodity/crypto/market instrument, NEVER give a "buy/sell/invest now" signal — if the user is really asking about market trading, that's the separate INVESTMENT refusal rule, not this one.`;
+  }
+
+  else if (area === 'death_query') {
+    // Deliberate hard boundary, same category of seriousness as the
+    // INVESTMENT refusal below — arguably more important. Two separate
+    // reasons this is refused, both explained in the response pattern:
+    // (1) METHODOLOGICAL: predicting a THIRD PERSON's death/serious
+    //     illness (parent, spouse, friend) from the USER's own birth
+    //     chart alone isn't even valid classical technique — that
+    //     requires the other person's own chart (or at minimum proper
+    //     relationship-house/Ashtakavarga cross-analysis this system
+    //     doesn't do), so any specific claim here would be fabricated,
+    //     not derived. (2) ETHICAL: even where classical marka-dasha
+    //     techniques exist for longevity analysis, giving a direct death
+    //     timing to a consumer app user is genuinely harmful — it can
+    //     cause severe, lasting psychological distress whether or not
+    //     it's ever "right", and reputable astrologers reserve this kind
+    //     of analysis for rare, careful, in-person contexts — not a chat
+    //     app. This instruction applies REGARDLESS of who is asking
+    //     about — the user's own death, or a loved one's.
+    block = `\n[DEATH / LIFESPAN / SERIOUS-ILLNESS-OF-OTHERS QUESTION — MANDATORY REFUSAL, no exceptions]:
+${firstName} ne apni ya kisi apne (parivar/dost) ki maut, lifespan, ya serious bimari ke baare mein poocha hai. Iska koi bhi direct jawab MAT DO — na apne liye, na kisi aur ke liye. Kisi doosre vyakti (parivar/dost) ki kundli hamare paas hai hi nahi, isliye unke baare mein koi bhi astrological claim genuinely fabricated hogi, real calculation nahi.
+MANDATORY response pattern: Warmly and gently explain ki "yeh ek aisa sawal hai jiska jawab main jaan-boojh kar nahi deta — na apni, na kisi aur ki maut ya lifespan ke baare mein koi bhi astrology app ya astrologer ko itni specifically predict nahi karni chahiye, kyunki galat hone par bhi aur sahi hone par bhi yeh bahut nuksaandayak ho sakta hai." Agar sawal kisi apne ki bimari ke baare mein tension se aaya lagta hai, unki emotional state ko acknowledge karo aur unhe apne priya vyakti ke saath doctor se milne, aur khud ka dhyan rakhne ke liye encourage karo. Kabhi bhi koi specific date, saal, ya "bach jayenge/nahi bachenge" jaisa jawab mat do. Agar sawal genuinely khud ki general health/longevity ke baare mein hai (na ki kisi specific death-date ke baare mein), tab general vitality/dirgh-ayu (long-life) yoga ke baare mein baat kar sakte ho bina koi specific number diye.`;
   }
 
   else if (area === 'investment') {

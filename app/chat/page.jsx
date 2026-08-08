@@ -177,6 +177,14 @@ export default function ChatPage() {
   const [activeQuickForm,  setActiveQuickForm]  = useState(null); // which quick-action form is open
   const [quickFormAnswers, setQuickFormAnswers] = useState({});
 
+  // ── In-chat kundli onboarding (no redirect to /profile) ─────────
+  const [addKundliOpen, setAddKundliOpen]   = useState(false);
+  const [newK,          setNewK]            = useState({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri' });
+  const [geocoding,     setGeocoding]       = useState(false);
+  const [geoResults,    setGeoResults]      = useState([]);
+  const [geoError,      setGeoError]        = useState('');
+  const [savingKundli,  setSavingKundli]    = useState(false);
+
   // ── Voice input/output state ─────────────────────────────────
   const [voiceInputSupported,  setVoiceInputSupported]  = useState(false);
   const [voiceOutputSupported, setVoiceOutputSupported]  = useState(false);
@@ -352,6 +360,57 @@ export default function ChatPage() {
       setMessages([{ role:'assistant', content:`नमस्ते! ${k.full_name} की कुंडली लोड हो गई। कोई भी प्रश्न पूछें।` }]);
     }
     setTimeout(() => inputRef.current?.focus(), 300);
+  }
+
+  // ── In-chat kundli onboarding — same /api/geocode + /api/kundli
+  // endpoints the /profile page uses, just surfaced inline in chat so a
+  // brand-new user never has to leave the conversation to get started.
+  async function geocodePlace() {
+    if (!newK.birth_place.trim()) { setGeoError('कृपया पहले जन्म स्थान भरें'); return; }
+    setGeocoding(true); setGeoError(''); setGeoResults([]);
+    try {
+      const res = await fetch(`/api/geocode?q=${encodeURIComponent(newK.birth_place)}`);
+      const data = await res.json();
+      if (data.found && data.results?.length > 0) {
+        if (data.results.length === 1) selectGeoResult(data.results[0]);
+        else setGeoResults(data.results);
+      } else {
+        setGeoError('स्थान नहीं मिला — Latitude/Longitude खुद डालें');
+      }
+    } catch {
+      setGeoError('स्थान खोजने में समस्या — Latitude/Longitude खुद डालें');
+    }
+    setGeocoding(false);
+  }
+
+  function selectGeoResult(r) {
+    setNewK(k => ({ ...k, birth_place: r.display_name, latitude: r.latitude.toFixed(4), longitude: r.longitude.toFixed(4) }));
+    setGeoResults([]); setGeoError('');
+  }
+
+  async function saveNewKundli(e) {
+    e.preventDefault();
+    if (!newK.full_name || !newK.dob || !newK.birth_time) { setGeoError('नाम, जन्म तिथि और समय ज़रूरी हैं'); return; }
+    if (!newK.latitude || !newK.longitude) { setGeoError('कृपया जन्म स्थान खोजें, या Latitude/Longitude खुद भरें'); return; }
+    setSavingKundli(true); setGeoError('');
+    try {
+      const res = await fetch('/api/kundli', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newK),
+      });
+      const data = await res.json();
+      if (data.kundli) {
+        setKundlis(prev => [data.kundli, ...prev]);
+        setAddKundliOpen(false);
+        setNewK({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri' });
+        await selectKundli(data.kundli); // auto-select and jump straight into chat
+      } else {
+        setGeoError(data.error || 'कुंडली save नहीं हो पाई, दोबारा कोशिश करें');
+      }
+    } catch {
+      setGeoError('कुछ गड़बड़ हुई — दोबारा कोशिश करें');
+    }
+    setSavingKundli(false);
   }
 
   async function loadSession(s) {
@@ -562,7 +621,7 @@ export default function ChatPage() {
                 <p style={{ margin:0, fontSize:'10px', color:'var(--color-text-tertiary)' }}>{k.dob} · {k.birth_place?.split(',')[0]}</p>
               </div>
             ))}
-            <button onClick={() => router.push('/profile')} style={{ width:'100%', marginTop:'6px', padding:'7px', fontSize:'12px', background:'none', border:'1px dashed var(--color-border-tertiary)', borderRadius:'8px', cursor:'pointer', color:'var(--color-text-tertiary)' }}>
+            <button onClick={() => { setAddKundliOpen(true); setMessages([]); setKundli(null); setSidebarOpen(false); }} style={{ width:'100%', marginTop:'6px', padding:'7px', fontSize:'12px', background:'none', border:'1px dashed var(--color-border-tertiary)', borderRadius:'8px', cursor:'pointer', color:'var(--color-text-tertiary)' }}>
               + नई कुंडली
             </button>
           </div>
@@ -668,24 +727,73 @@ export default function ChatPage() {
 
         {/* Welcome state */}
         {messages.length === 0 && (
-          <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'2rem', textAlign:'center' }}>
+          <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'2rem', textAlign:'center', overflowY:'auto' }}>
             <img src={LOGO_URL} alt="LF" style={{ width:'64px', height:'64px', borderRadius:'20%', objectFit:'cover', marginBottom:'16px', opacity:0.8 }} />
-            <h2 style={{ fontSize:'18px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 8px' }}>
-              {kundlis.length === 0 ? 'पहले कुंडली जोड़ें' : 'कुंडली चुनें और शुरू करें'}
-            </h2>
-            <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)', margin:'0 0 20px', maxWidth:'260px', lineHeight:'1.6' }}>
-              {kundlis.length === 0 ? t('noKundliYet', uiLang) : t('selectKundliPrompt', uiLang)}
-            </p>
-            {kundlis.length === 0 ? (
-              <button onClick={() => router.push('/profile')} style={{ padding:'10px 20px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>कुंडली जोड़ें →</button>
+
+            {addKundliOpen ? (
+              <form onSubmit={saveNewKundli} style={{ width:'100%', maxWidth:'380px', textAlign:'left', display:'flex', flexDirection:'column', gap:'10px' }}>
+                <h2 style={{ fontSize:'16px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 4px', textAlign:'center' }}>अपना जन्म विवरण दें</h2>
+                <div>
+                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>पूरा नाम *</label>
+                  <input value={newK.full_name} onChange={e => setNewK(k => ({...k, full_name:e.target.value}))} placeholder="नाम" style={{ width:'100%', fontSize:'14px' }} required/>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
+                  <div>
+                    <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म तिथि *</label>
+                    <input type="date" value={newK.dob} onChange={e => setNewK(k => ({...k, dob:e.target.value}))} style={{ width:'100%', fontSize:'14px' }} required/>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म समय *</label>
+                    <input type="time" value={newK.birth_time} onChange={e => setNewK(k => ({...k, birth_time:e.target.value}))} style={{ width:'100%', fontSize:'14px' }} required/>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म स्थान *</label>
+                  <div style={{ display:'flex', gap:'8px' }}>
+                    <input value={newK.birth_place} onChange={e => { setNewK(k => ({...k, birth_place:e.target.value, latitude:'', longitude:''})); setGeoResults([]); }} placeholder="जैसे: Delhi, India" style={{ flex:1, fontSize:'14px' }} required/>
+                    <button type="button" onClick={geocodePlace} disabled={geocoding} style={{ padding:'8px 14px', fontSize:'13px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'8px', cursor:'pointer', whiteSpace:'nowrap' }}>
+                      {geocoding ? '...' : 'खोजें'}
+                    </button>
+                  </div>
+                  {geoResults.length > 0 && (
+                    <div style={{ marginTop:'6px', border:'0.5px solid var(--color-border-secondary)', borderRadius:'8px', overflow:'hidden' }}>
+                      {geoResults.map((r, i) => (
+                        <div key={i} onClick={() => selectGeoResult(r)} style={{ padding:'8px 10px', fontSize:'13px', cursor:'pointer', borderBottom: i < geoResults.length-1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
+                          {r.display_name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {newK.latitude && newK.longitude && (
+                    <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'6px 0 0' }}>✓ स्थान मिल गया</p>
+                  )}
+                </div>
+                {geoError && <p style={{ fontSize:'12px', color:'var(--color-text-danger)', margin:0 }}>{geoError}</p>}
+                <button type="submit" disabled={savingKundli} style={{ padding:'11px', background:'var(--color-brand)', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'14px', fontWeight:'500', marginTop:'4px' }}>
+                  {savingKundli ? 'कुंडली बन रही है...' : 'शुरू करें →'}
+                </button>
+                <button type="button" onClick={() => setAddKundliOpen(false)} style={{ background:'none', border:'none', color:'var(--color-text-tertiary)', fontSize:'12px', cursor:'pointer', padding:0 }}>← रद्द करें</button>
+              </form>
             ) : (
-              <div style={{ display:'flex', flexWrap:'wrap', gap:'8px', justifyContent:'center', maxWidth:'340px' }}>
-                {kundlis.map(k => (
-                  <button key={k.id} onClick={() => selectKundli(k)} style={{ padding:'8px 16px', fontSize:'13px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'20px', cursor:'pointer', color:'var(--color-text-primary)', transition:'all 0.15s' }}>
-                    {k.label || k.full_name}
-                  </button>
-                ))}
-              </div>
+              <>
+                <h2 style={{ fontSize:'18px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 8px' }}>
+                  {kundlis.length === 0 ? 'पहले कुंडली जोड़ें' : 'कुंडली चुनें और शुरू करें'}
+                </h2>
+                <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)', margin:'0 0 20px', maxWidth:'260px', lineHeight:'1.6' }}>
+                  {kundlis.length === 0 ? 'अपना जन्म विवरण दें — यहीं चैट में, बस 30 सेकंड लगेंगे।' : t('selectKundliPrompt', uiLang)}
+                </p>
+                {kundlis.length === 0 ? (
+                  <button onClick={() => setAddKundliOpen(true)} style={{ padding:'10px 20px', background:'var(--color-brand)', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>कुंडली जोड़ें →</button>
+                ) : (
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:'8px', justifyContent:'center', maxWidth:'340px' }}>
+                    {kundlis.map(k => (
+                      <button key={k.id} onClick={() => selectKundli(k)} style={{ padding:'8px 16px', fontSize:'13px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'20px', cursor:'pointer', color:'var(--color-text-primary)', transition:'all 0.15s' }}>
+                        {k.label || k.full_name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
