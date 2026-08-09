@@ -95,6 +95,8 @@ CRITICAL RULES:
 - If vargottamaPlanets is non-empty, mention it as a strength point.
 - For lal_kitab_analysis.timing, use the remedialWindow.window value from the weakest planet's data in the fact sheet — weave it naturally into Hindi text.
 - All narrative content must be in Hindi (Devanagari), warm elder-brother tone, specific and actionable — not generic.
+- PLAIN LANGUAGE MANDATE: write for someone who has never studied astrology, not for another astrologer. Every time you use a Sanskrit/technical term (वर्गोत्तम, उच्च राशि, नीच राशि, अष्टकवर्ग, दिग्बल, षड्बल, वक्री, अस्त, प्रत्यंतर दशा, इत्यादि), immediately explain it in 3-6 simple words in the SAME sentence — don't assume the reader already knows it, and don't just stack technical terms one after another expecting the reader to follow. Example of what NOT to do: "आपका बृहस्पति वर्गोत्तम और दिग्बली है" (two unexplained technical claims stacked). Example of the right way: "आपका बृहस्पति वर्गोत्तम है (यानी जन्म-कुंडली और नवमांश दोनों में एक ही राशि में — यह ग्रह को बहुत मजबूत और स्थिर बना देता है)". If a sentence has more than one technical term, slow down and explain each one in plain words before moving to the next idea — a reader should never hit a word they don't understand without an immediate, natural explanation right there.
+- LIFE_DOMAINS SECTION MANDATE: the "life_domains" fields (character, fortune_satisfaction, lifestyle, employment, business, health, interests, love, financial, education) must each be genuinely GROUNDED in this specific person's chart data (specific planets, houses, dignities cited) — never generic, could-apply-to-anyone filler text. A reader should be able to tell these 10 paragraphs are about THEIR unique chart, not a template. But the WRITING STYLE should read like warm, accessible personality/life description prose (similar to how a well-written personality profile reads) — weave the specific astrological grounding in naturally rather than making every sentence sound like a technical report.
 
 REMEDY DETAIL MANDATE — every single remedy field must include ALL of the following (no vague remedies):
 1. कौन सा उपाय — exact action (e.g. "तांबे के लोटे में सूर्य को जल चढ़ाएं")
@@ -172,6 +174,19 @@ Return this exact JSON structure:
   "dominant_planet": "<Hindi name from factSheet.strongestPlanet.name>",
   "key_yoga": "<name the most significant finding: a planetaryWar, a Vargottama planet, or exaltation/debilitation>",
   "analytical_insight": "<2-3 sentence overall summary in Hindi covering the chart's central theme, referencing factSheet.strongestPlanet and factSheet.weakestPlanet>",
+
+  "life_domains": {
+    "character": "<4-6 sentences in Hindi, accessible flowing prose (NOT astrology jargon) describing this person's core personality/nature. Ground it in their Lagna sign (${factSheet.lagna?.signHi}), Lagna lord's placement/dignity, and Moon sign — but write it like a personality description a friend would recognize them from, not a technical chart reading. Cover: their fundamental temperament, how they approach challenges, their biggest strength, and one honest growth-area (framed kindly, not as a flaw).>",
+    "fortune_satisfaction": "<4-5 sentences on their sense of luck/fortune and what brings them deep satisfaction in life. Ground in the 9th house (bhagya) planets/lord and Jupiter's placement. Explain in plain words, not jargon.>",
+    "lifestyle": "<4-5 sentences on their natural lifestyle preferences — pace of life, home environment preferences, daily habits tendency. Ground in Moon sign and 4th house.>",
+    "employment": "<4-5 sentences specifically for someone working as an employee — what work environment suits them, how they relate to authority/colleagues, career growth pattern. Ground in 10th house, 6th house (service), and current dasha.>",
+    "business": "<4-5 sentences on their entrepreneurial/business potential — whether independent business suits them, what type, partnership compatibility. Ground in 7th house (partnerships), 10th house, Mercury/Mars placement.>",
+    "health": "<4-5 sentences on general constitution and health tendencies — framed constructively as awareness/self-care guidance, NEVER as diagnosis or scary prediction, never naming a specific disease. Ground in 6th/8th lord and Lagna lord strength.>",
+    "interests": "<3-4 sentences on natural hobbies/interests/creative inclinations. Ground in 5th house and Venus/Moon placement.>",
+    "love": "<4-5 sentences on their approach to love and romantic relationships — emotional style, what they seek in a partner, compatibility tendencies. Ground in Venus placement and 5th/7th house. Do NOT predict marriage timing here (that's handled separately in chat) — focus on relationship NATURE/style.>",
+    "financial": "<4-5 sentences on money management style and financial tendencies — saving vs spending nature, income growth pattern. Ground in 2nd/11th house lords and Jupiter/Venus.>",
+    "education": "<3-4 sentences on natural learning style and educational strengths. Ground in 4th/5th house and Mercury/Jupiter placement.>"
+  },
 
   "vedic_analysis": {
     "lagna_summary": "<1-2 sentences in Hindi about chart strength, MUST mention factSheet.lagna sign and nakshatra if available>",

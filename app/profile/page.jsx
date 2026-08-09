@@ -437,6 +437,8 @@ export default function ProfilePage() {
               {a.analytical_insight && <p style={{ fontSize:'13px', color:'var(--color-text-primary)', margin:0, lineHeight:'1.6' }}>{a.analytical_insight}</p>}
               {a.key_yoga && <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>प्रमुख योग: <strong style={{ color:'var(--color-text-primary)' }}>{a.key_yoga}</strong></p>}
 
+              {a.life_domains && <LifeDomainAccordion domains={a.life_domains} />}
+
               {a.vedic_analysis && (
                 <AnalysisSection title="वैदिक विश्लेषण" color="var(--color-text-info)">
                   <p style={{ margin:'0 0 4px' }}>{a.vedic_analysis.lagna_summary}</p>
@@ -677,6 +679,41 @@ export default function ProfilePage() {
       <button onClick={signOut} style={{ width:'100%', marginTop:'8px', padding:'10px', fontSize:'14px', color:'var(--color-text-secondary)', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer' }}>
         Logout
       </button>
+    </div>
+  );
+}
+
+const LIFE_DOMAIN_LABELS = [
+  ['character', 'चरित्र'],
+  ['fortune_satisfaction', 'सौभाग्य व संतुष्टि'],
+  ['lifestyle', 'जीवन शैली'],
+  ['employment', 'रोजगार'],
+  ['business', 'व्यवसाय'],
+  ['health', 'स्वास्थ्य'],
+  ['interests', 'रुचि'],
+  ['love', 'प्रेम आदि'],
+  ['financial', 'आर्थिक'],
+  ['education', 'शिक्षा'],
+];
+
+function LifeDomainAccordion({ domains }) {
+  const [openKey, setOpenKey] = useState('character');
+  if (!domains) return null;
+  return (
+    <div style={{ border:'0.5px solid var(--color-border-tertiary)', borderRadius:'10px', overflow:'hidden' }}>
+      {LIFE_DOMAIN_LABELS.map(([key, label]) => {
+        if (!domains[key]) return null;
+        const isOpen = openKey === key;
+        return (
+          <div key={key} style={{ borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
+            <button onClick={() => setOpenKey(isOpen ? null : key)} style={{ width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'11px 14px', background: isOpen ? 'var(--color-background-secondary)' : 'transparent', border:'none', cursor:'pointer', textAlign:'left' }}>
+              <span style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>{label}</span>
+              <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)', transform: isOpen ? 'rotate(180deg)' : 'none', transition:'transform 0.15s' }}>▼</span>
+            </button>
+            {isOpen && <p style={{ margin:0, padding:'0 14px 14px', fontSize:'12px', lineHeight:'1.75', color:'var(--color-text-secondary)' }}>{domains[key]}</p>}
+          </div>
+        );
+      })}
     </div>
   );
 }

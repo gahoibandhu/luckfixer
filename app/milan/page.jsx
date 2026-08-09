@@ -149,6 +149,21 @@ export default function MilanPage() {
               </div>
             )}
 
+            {/* Manglik status — shown explicitly even when there's no
+                concern, since this is the single most commonly asked-about
+                compatibility factor, separate from the 36-guna score. */}
+            {m.manglik && (
+              <div style={{
+                background: m.manglik.compatibility.status === 'one_sided' ? 'var(--color-background-warning)' : 'var(--color-background-info)',
+                border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'12px 14px',
+              }}>
+                <p style={{ fontSize:'12px', fontWeight:'600', margin:'0 0 4px', textTransform:'uppercase', letterSpacing:'1px', color: m.manglik.compatibility.status === 'one_sided' ? 'var(--color-text-warning)' : 'var(--color-text-info)' }}>
+                  मंगल दोष — {m.manglik.compatibility.statusHi}
+                </p>
+                <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)', lineHeight:'1.6' }}>{m.manglik.compatibility.note}</p>
+              </div>
+            )}
+
             {/* Koota breakdown */}
             <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden' }}>
               <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:0, padding:'10px 14px', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>अष्टकूट विवरण</p>

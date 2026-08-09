@@ -13,6 +13,59 @@
 // .lf-detail-overlay) handles the breakpoint — this component just
 // renders the content once.
 
+import { useState } from 'react';
+
+// Life-domain accordion — matches the familiar "tap to expand" pattern
+// (▼) from popular astrology apps, but grounded in this specific
+// chart's real data rather than generic template text (see the
+// life_domains prompt instructions in app/api/kundli/route.js).
+const LIFE_DOMAIN_LABELS = [
+  ['character', 'चरित्र'],
+  ['fortune_satisfaction', 'सौभाग्य व संतुष्टि'],
+  ['lifestyle', 'जीवन शैली'],
+  ['employment', 'रोजगार'],
+  ['business', 'व्यवसाय'],
+  ['health', 'स्वास्थ्य'],
+  ['interests', 'रुचि'],
+  ['love', 'प्रेम आदि'],
+  ['financial', 'आर्थिक'],
+  ['education', 'शिक्षा'],
+];
+
+function LifeDomainAccordion({ domains }) {
+  const [openKey, setOpenKey] = useState('character');
+  if (!domains) return null;
+
+  return (
+    <div style={{ marginBottom: '16px', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '10px', overflow: 'hidden' }}>
+      {LIFE_DOMAIN_LABELS.map(([key, label]) => {
+        if (!domains[key]) return null;
+        const isOpen = openKey === key;
+        return (
+          <div key={key} style={{ borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
+            <button
+              onClick={() => setOpenKey(isOpen ? null : key)}
+              style={{
+                width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '11px 14px', background: isOpen ? 'var(--color-background-secondary)' : 'transparent',
+                border: 'none', cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              <span style={{ fontSize: '14px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{label}</span>
+              <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>▼</span>
+            </button>
+            {isOpen && (
+              <p style={{ margin: 0, padding: '0 14px 14px', fontSize: '13px', lineHeight: '1.75', color: 'var(--color-text-secondary)' }}>
+                {domains[key]}
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function AnalysisSection({ title, color, children }) {
   return (
     <div style={{ marginBottom: '14px' }}>
@@ -53,6 +106,8 @@ export default function KundliDetailPanel({ kundli, open, onClose }) {
           {a?.analytical_insight && (
             <p style={{ fontSize: '13px', color: 'var(--color-text-primary)', lineHeight: '1.6', marginBottom: '16px' }}>{a.analytical_insight}</p>
           )}
+
+          <LifeDomainAccordion domains={a?.life_domains} />
 
           {yogas.length > 0 && (
             <div style={{ marginBottom: '16px', background: 'var(--color-background-secondary)', borderRadius: '10px', padding: '12px' }}>
