@@ -4,12 +4,12 @@ import PwaRegister from '@/components/PwaRegister';
 
 const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
 const SITE_URL = 'https://luckfixer.jaigahoi.in';
-const DESCRIPTION = 'Parashari, Lal Kitab और Jaimini — तीन शास्त्रीय प्रणालियों पर आधारित AI ज्योतिष इंजन। कुंडली विश्लेषण, दशा भविष्य, कुंडली मिलान और सटीक उपाय — सभी के लिए।';
+const DESCRIPTION = 'AI ज्योतिषी से सीधे चैट करें — शादी, करियर, स्वास्थ्य, पैसा, हर सवाल का जवाब पाएं। Parashari, Lal Kitab और Jaimini — तीन शास्त्रीय प्रणालियों पर आधारित सटीक कुंडली विश्लेषण, दशा भविष्य, कुंडली मिलान और उपाय — सभी के लिए, बिल्कुल मुफ्त।';
 
 export const metadata = {
-  title: { default: 'Luckfixer 2.0 — वैदिक ज्योतिष AI', template: '%s | Luckfixer 2.0' },
+  title: { default: 'Luckfixer 2.0 — AI ज्योतिष Chat | कुंडली विश्लेषण', template: '%s | Luckfixer 2.0' },
   description: DESCRIPTION,
-  keywords: ['कुंडली', 'जन्म कुंडली', 'वैदिक ज्योतिष', 'लाल किताब', 'जैमिनी ज्योतिष', 'कुंडली मिलान', 'अष्टकूट', 'दशा भविष्य', 'AI Astrology', 'Vedic Astrology India', 'Kundli Online', 'Kundli Milan'],
+  keywords: ['AI ज्योतिष चैट', 'ज्योतिष चैटबॉट', 'कुंडली', 'जन्म कुंडली', 'वैदिक ज्योतिष', 'लाल किताब', 'जैमिनी ज्योतिष', 'कुंडली मिलान', 'अष्टकूट', 'दशा भविष्य', 'AI Astrology Chat', 'Astrology Chatbot', 'Vedic Astrology India', 'Kundli Online', 'Kundli Milan', 'Ask Astrologer Online'],
   metadataBase: new URL(SITE_URL),
   alternates: { canonical: SITE_URL },
   manifest: '/manifest.json',
@@ -19,17 +19,17 @@ export const metadata = {
     title: 'Luckfixer',
   },
   openGraph: {
-    title: 'Luckfixer 2.0 — वैदिक ज्योतिष AI',
+    title: 'Luckfixer 2.0 — AI ज्योतिषी से चैट करें',
     description: DESCRIPTION,
     url: SITE_URL,
     siteName: 'Luckfixer 2.0',
-    images: [{ url: LOGO_URL, width: 512, height: 512, alt: 'Luckfixer 2.0' }],
+    images: [{ url: LOGO_URL, width: 512, height: 512, alt: 'Luckfixer 2.0 — AI ज्योतिष Chat' }],
     type: 'website',
     locale: 'hi_IN',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Luckfixer 2.0',
+    title: 'Luckfixer 2.0 — AI ज्योतिषी से चैट करें',
     description: DESCRIPTION,
     images: [LOGO_URL],
   },

@@ -130,14 +130,7 @@ export default function LoginPage() {
           transition: 'transform 0.8s cubic-bezier(0.34,1.56,0.64,1) 0.45s, opacity 0.5s ease 0.45s',
           position: 'relative',
         }}>
-          {/* Spinning gold ring */}
-          <div style={{
-            position: 'absolute', inset: '-5px', borderRadius: '30%',
-            background: 'linear-gradient(135deg, #c8831a 0%, #f0c060 40%, #c8831a 70%, #e8a030 100%)',
-            animation: 'lf-ring-spin 8s linear infinite', zIndex: 0,
-          }} />
-          <div style={{ position:'absolute', inset:'-1px', borderRadius:'27%', background:'#0d0d0f', zIndex:1 }} />
-          {/* The logo itself */}
+          {/* The logo itself — static, no looping animation */}
           <img
             src={LOGO_URL}
             alt="Luckfixer"
@@ -149,8 +142,7 @@ export default function LoginPage() {
               display: 'block',
               position: 'relative',
               zIndex: 2,
-              animation: 'lf-logo-breathe-slow 4s ease-in-out infinite',
-              boxShadow: '0 8px 60px rgba(0,200,80,0.2), 0 4px 20px rgba(200,131,26,0.3)',
+              boxShadow: '0 8px 50px var(--color-brand-glow)',
             }}
           />
         </div>
@@ -300,14 +292,6 @@ export default function LoginPage() {
 
       {/* CSS animations injected as style tag */}
       <style>{`
-        @keyframes lf-ring-spin {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
-        @keyframes lf-logo-breathe-slow {
-          0%, 100% { transform: scale(1); box-shadow: 0 8px 60px rgba(0,200,80,0.2), 0 4px 20px rgba(200,131,26,0.3); }
-          50%       { transform: scale(1.04); box-shadow: 0 12px 80px rgba(0,200,80,0.3), 0 6px 32px rgba(200,131,26,0.45); }
-        }
       `}</style>
     </div>
   );

@@ -66,6 +66,50 @@ function LifeDomainAccordion({ domains }) {
   );
 }
 
+const TONE_BG = { current: 'var(--color-brand-light)', future: 'var(--color-background-secondary)' };
+
+function GocharPhalTimeline({ timeline }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!timeline || timeline.length === 0) return null;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const current = timeline.filter(p => p.start <= today && p.end >= today);
+  const upcoming = timeline.filter(p => p.start > today);
+  const past = timeline.filter(p => p.end < today).slice(-3);
+  const visible = expanded ? [...past, ...current, ...upcoming] : [...current, ...upcoming.slice(0, 4)];
+
+  return (
+    <div style={{ marginBottom: '16px' }}>
+      <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 8px' }}>गोचर फल (Transit Timeline)</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {visible.map((p, i) => {
+          const isCurrent = p.start <= today && p.end >= today;
+          const isPast = p.end < today;
+          return (
+            <div key={i} style={{
+              padding: '10px 12px', borderRadius: '8px',
+              background: isCurrent ? TONE_BG.current : TONE_BG.future,
+              opacity: isPast ? 0.6 : 1,
+              border: isCurrent ? '1px solid var(--color-brand)' : 'none',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                  {p.planetHi} — {p.house}वें भाव में {isCurrent && '(अभी)'}
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{p.start} – {p.end}</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.6', color: 'var(--color-text-secondary)' }}>{p.text}</p>
+            </div>
+          );
+        })}
+      </div>
+      <button onClick={() => setExpanded(e => !e)} style={{ background: 'none', border: 'none', color: 'var(--color-text-info)', fontSize: '12px', cursor: 'pointer', marginTop: '8px', padding: 0 }}>
+        {expanded ? 'कम दिखाएं' : `पूरी timeline देखें (${timeline.length} periods) →`}
+      </button>
+    </div>
+  );
+}
+
 function AnalysisSection({ title, color, children }) {
   return (
     <div style={{ marginBottom: '14px' }}>
@@ -82,6 +126,7 @@ export default function KundliDetailPanel({ kundli, open, onClose }) {
 
   const a = kundli.planet_data?.analysis;
   const yogas = kundli.planet_data?.yogas || [];
+  const gocharPhal = kundli.planet_data?.gocharPhal || [];
 
   return (
     <>
@@ -108,6 +153,8 @@ export default function KundliDetailPanel({ kundli, open, onClose }) {
           )}
 
           <LifeDomainAccordion domains={a?.life_domains} />
+
+          <GocharPhalTimeline timeline={gocharPhal} />
 
           {yogas.length > 0 && (
             <div style={{ marginBottom: '16px', background: 'var(--color-background-secondary)', borderRadius: '10px', padding: '12px' }}>
