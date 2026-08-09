@@ -193,17 +193,8 @@ export default function ChatPage() {
   const [speakingIndex,        setSpeakingIndex]         = useState(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const alreadyShown = sessionStorage.getItem('lf_intro_shown');
-    if (!alreadyShown) {
-      setShowIntro(true);
-      sessionStorage.setItem('lf_intro_shown', '1');
-      const fadeTimer = setTimeout(() => setIntroFading(true), 1300);
-      const removeTimer = setTimeout(() => setShowIntro(false), 1700);
-      return () => { clearTimeout(fadeTimer); clearTimeout(removeTimer); };
-    }
-  }, []);
-
+  init();
+}, []);
   useEffect(() => { init(); }, []);
 
   // ── Voice feature detection (client-side only, browser APIs) ────
