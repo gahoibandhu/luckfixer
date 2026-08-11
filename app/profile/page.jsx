@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
+import DateOfBirthInput from '@/components/DateOfBirthInput';
 
 export const dynamic = 'force-dynamic';
 
@@ -279,7 +280,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <label className="lf-label">जन्म तिथि *</label>
-                  <input type="date" value={newK.dob} onChange={e => setNewK(k => ({...k, dob:e.target.value}))} style={{ width:'100%', fontSize:'15px' }}/>
+                  <DateOfBirthInput value={newK.dob} onChange={dob => setNewK(k => ({...k, dob}))} style={{ fontSize:'15px' }}/>
                 </div>
                 <div>
                   <label className="lf-label">लिंग (वैकल्पिक — बेहतर संबोधन के लिए)</label>
@@ -466,15 +467,6 @@ export default function ProfilePage() {
 
               {a.life_domains && <LifeDomainAccordion domains={a.life_domains} />}
 
-              {a.vedic_analysis && (
-                <AnalysisSection title="वैदिक विश्लेषण" color="var(--color-text-info)">
-                  <p style={{ margin:'0 0 4px' }}>{a.vedic_analysis.lagna_summary}</p>
-                  <p style={{ margin:'0 0 4px' }}><strong>मजबूत:</strong> {a.vedic_analysis.strongest_planet}</p>
-                  <p style={{ margin:'0 0 4px' }}><strong>कमजोर:</strong> {a.vedic_analysis.weakest_planet}</p>
-                  <p style={{ margin:0 }}>{a.vedic_analysis.dasha_hint}</p>
-                </AnalysisSection>
-              )}
-
               {/* Event-specific scores: Career / Marriage / Health */}
               {a.event_scores && (
                 <AnalysisSection title="क्षेत्र अनुसार आकलन" color="var(--color-text-success)">
@@ -627,40 +619,12 @@ export default function ProfilePage() {
                 </AnalysisSection>
               )}
 
-              {a.lal_kitab_analysis && (
-                <AnalysisSection title="लाल किताब" color="var(--color-text-danger)">
-                  <p style={{ margin:'0 0 4px' }}>{a.lal_kitab_analysis.key_observation}</p>
-                  <p style={{ margin:'0 0 4px' }}><strong>उपाय:</strong> {a.lal_kitab_analysis.remedy}</p>
-                  <p style={{ margin:'0 0 4px' }}><strong>समय:</strong> {a.lal_kitab_analysis.timing}</p>
-                  <p style={{ margin:0, fontSize:'11px', color:'var(--color-text-tertiary)' }}>{a.lal_kitab_analysis.chapter_reference}</p>
-                </AnalysisSection>
-              )}
-
-              {(a.karmic_analysis || a.nadi_analysis) && (
-                <AnalysisSection title="कर्म एवं प्रवृत्ति" color="var(--color-text-success)">
-                  <p style={{ margin:'0 0 4px' }}>{(a.karmic_analysis || a.nadi_analysis).karmic_theme}</p>
-                  <p style={{ margin:'0 0 4px' }}><strong>क्षेत्र:</strong> {(a.karmic_analysis || a.nadi_analysis).life_area_focus}</p>
-                  <p style={{ margin:0 }}><strong>उपाय:</strong> {a.karmic_analysis?.karmic_remedy || a.nadi_analysis?.nadi_remedy}</p>
-                </AnalysisSection>
-              )}
-
               {a.hora_analysis && (
                 <AnalysisSection title="होरा" color="var(--color-text-tertiary)">
                   <p style={{ margin:'0 0 4px' }}><strong>आज:</strong> {a.hora_analysis.ruling_planet_today}</p>
                   <p style={{ margin:'0 0 4px' }}>{a.hora_analysis.best_activity_now}</p>
                   <p style={{ margin:0, color:'var(--color-text-tertiary)' }}>{a.hora_analysis.avoid_now}</p>
                 </AnalysisSection>
-              )}
-
-              {a.remedies && (
-                <div style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'12px', display:'flex', flexDirection:'column', gap:'8px' }}>
-                  <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'1px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:0 }}>उपाय — सभी प्रणालियाँ</p>
-                  {a.remedies.vedic?.mantra && <div><p style={{ fontSize:'11px', fontWeight:'600', color:'var(--color-text-info)', margin:'0 0 2px', textTransform:'uppercase' }}>वैदिक</p><p style={{ fontSize:'13px', margin:0 }}><strong>मंत्र:</strong> {a.remedies.vedic.mantra}{a.remedies.vedic.gem && <><br/><strong>रत्न:</strong> {a.remedies.vedic.gem}</>}</p></div>}
-                  {a.remedies.lal_kitab?.action && <div><p style={{ fontSize:'11px', fontWeight:'600', color:'var(--color-text-danger)', margin:'0 0 2px', textTransform:'uppercase' }}>लाल किताब</p><p style={{ fontSize:'13px', margin:0 }}>{a.remedies.lal_kitab.action}</p></div>}
-                  {(a.remedies.karmic_seva || a.remedies.nadi_karma)?.seva && <div><p style={{ fontSize:'11px', fontWeight:'600', color:'var(--color-text-success)', margin:'0 0 2px', textTransform:'uppercase' }}>कर्म/सेवा</p><p style={{ fontSize:'13px', margin:0 }}>{(a.remedies.karmic_seva || a.remedies.nadi_karma).seva} {(a.remedies.karmic_seva || a.remedies.nadi_karma).duration && <span style={{ color:'var(--color-text-tertiary)' }}>{`(${(a.remedies.karmic_seva || a.remedies.nadi_karma).duration})`}</span>}</p></div>}
-                  {a.remedies.numerology?.action && <div><p style={{ fontSize:'11px', fontWeight:'600', color:'var(--color-text-warning)', margin:'0 0 2px', textTransform:'uppercase' }}>अंक ज्योतिष</p><p style={{ fontSize:'13px', margin:0 }}>{a.remedies.numerology.action}</p></div>}
-                  {a.remedies.color_day_direction?.color && <div><p style={{ fontSize:'11px', fontWeight:'600', color:'var(--color-text-secondary)', margin:'0 0 2px', textTransform:'uppercase' }}>रंग / दिन / दिशा</p><p style={{ fontSize:'13px', margin:0 }}>{a.remedies.color_day_direction.color} · {a.remedies.color_day_direction.day} · {a.remedies.color_day_direction.direction}</p></div>}
-                </div>
               )}
 
               {a.actionable_seva_remedy && (

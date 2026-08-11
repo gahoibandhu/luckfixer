@@ -1,24 +1,22 @@
 'use client';
 // components/KundliDetailPanel.jsx
 //
-// Shows full kundli analysis (yogas, vedic/lal-kitab/nadi/hora sections)
-// without leaving the chat. Same content that used to live only on the
-// /profile page's expand-in-place card — now reusable so chat can show
-// it too.
+// Full kundli detail view — General analysis, Varshik (yearly), Masik
+// (monthly), Saptahik (weekly) predictions, all in one tabbed panel.
+// Right-docked side panel on desktop, bottom sheet on mobile (CSS in
+// globals.css handles the breakpoint — this component renders once).
 //
-// Responsive by design, not by separate components: renders as a
-// right-docked side panel on desktop (matches the Claude-style "canvas"
-// pattern) and a bottom sheet on mobile (where a side panel wouldn't
-// fit next to the chat). The CSS in globals.css (.lf-detail-panel /
-// .lf-detail-overlay) handles the breakpoint — this component just
-// renders the content once.
+// REDESIGN NOTE: the old system-organized sections (vedic_analysis,
+// lal_kitab_analysis, nadi_analysis) have been removed — they're now
+// superseded by the life_domains accordion, which covers the same
+// ground in more accessible language without the redundancy of
+// showing the same facts three different ways. hora_analysis and
+// actionable_seva_remedy are kept (genuinely distinct, actionable
+// content) but restyled to feel like a natural continuation rather
+// than a separate boxed section.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-// Life-domain accordion — matches the familiar "tap to expand" pattern
-// (▼) from popular astrology apps, but grounded in this specific
-// chart's real data rather than generic template text (see the
-// life_domains prompt instructions in app/api/kundli/route.js).
 const LIFE_DOMAIN_LABELS = [
   ['character', 'चरित्र'],
   ['fortune_satisfaction', 'सौभाग्य व संतुष्टि'],
@@ -70,7 +68,7 @@ const TONE_BG = { current: 'var(--color-brand-light)', future: 'var(--color-back
 
 function GocharPhalTimeline({ timeline }) {
   const [expanded, setExpanded] = useState(false);
-  if (!timeline || timeline.length === 0) return null;
+  if (!timeline || timeline.length === 0) return <EmptyNote text="इस कुंडली के लिए गोचर फल उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं (प्रोफाइल पेज पर)।" />;
 
   const today = new Date().toISOString().slice(0, 10);
   const current = timeline.filter(p => p.start <= today && p.end >= today);
@@ -79,8 +77,7 @@ function GocharPhalTimeline({ timeline }) {
   const visible = expanded ? [...past, ...current, ...upcoming] : [...current, ...upcoming.slice(0, 4)];
 
   return (
-    <div style={{ marginBottom: '16px' }}>
-      <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 8px' }}>गोचर फल (Transit Timeline)</p>
+    <div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {visible.map((p, i) => {
           const isCurrent = p.start <= today && p.end >= today;
@@ -110,23 +107,116 @@ function GocharPhalTimeline({ timeline }) {
   );
 }
 
-function AnalysisSection({ title, color, children }) {
+function EmptyNote({ text }) {
+  return <p style={{ fontSize: '13px', color: 'var(--color-text-tertiary)', textAlign: 'center', padding: '2rem 1rem' }}>{text}</p>;
+}
+
+// ── वार्षिक (Yearly) tab — Varshaphal ────────────────────────────
+function VarshikTab({ varshaphal }) {
+  if (!varshaphal) return <EmptyNote text="वार्षिक फलादेश उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं।" />;
   return (
-    <div style={{ marginBottom: '14px' }}>
-      <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color, margin: '0 0 6px' }}>{title}</p>
-      <div style={{ fontSize: '13px', color: 'var(--color-text-primary)', lineHeight: '1.6' }}>
-        {children}
+    <div>
+      <div style={{ textAlign: 'center', marginBottom: '16px', padding: '14px', background: 'var(--color-background-secondary)', borderRadius: '10px' }}>
+        <p style={{ margin: '0 0 4px', fontSize: '12px', color: 'var(--color-text-tertiary)' }}>वर्षेश (साल के स्वामी)</p>
+        <p style={{ margin: 0, fontSize: '18px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{varshaphal.varshesh?.planetHi}</p>
       </div>
+      {varshaphal.yearPrediction && (
+        <p style={{ fontSize: '13px', lineHeight: '1.75', color: 'var(--color-text-primary)', marginBottom: '16px' }}>{varshaphal.yearPrediction}</p>
+      )}
+      {varshaphal.areas?.map((a, i) => (
+        <div key={i} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: i < varshaphal.areas.length - 1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
+          <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{a.area}</p>
+          <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-secondary)' }}>{a.note}</p>
+        </div>
+      ))}
     </div>
   );
 }
 
-export default function KundliDetailPanel({ kundli, open, onClose }) {
+// ── मासिक (Monthly) tab — Mudda Dasha ────────────────────────────
+function MasikTab({ varshaphal }) {
+  const mudda = varshaphal?.muddaDasha;
+  if (!mudda || mudda.length === 0) return <EmptyNote text="मासिक फलादेश उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं।" />;
+  const today = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div>
+      <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '14px', lineHeight: '1.6' }}>
+        इस वर्ष के भीतर महीने-दर-महीने ग्रह-स्वामी (मुद्दा दशा) — असली classical timing, अनुमान नहीं।
+      </p>
+      {mudda.map((m, i) => {
+        const isCurrent = m.start <= today && m.end >= today;
+        return (
+          <div key={i} style={{
+            padding: '10px 12px', borderRadius: '8px', marginBottom: '8px',
+            background: isCurrent ? 'var(--color-brand-light)' : 'var(--color-background-secondary)',
+            border: isCurrent ? '1px solid var(--color-brand)' : 'none',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{m.planetHi} {isCurrent && '(अभी)'}</span>
+              <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{m.start} – {m.end}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── साप्ताहिक (Weekly) tab ────────────────────────────────────────
+function SaptahikTab({ saptahikPhal }) {
+  if (!saptahikPhal?.days) return <EmptyNote text="साप्ताहिक फलादेश उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं।" />;
+  const today = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div>
+      <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '14px', lineHeight: '1.6' }}>
+        चंद्रमा के वास्तविक नक्षत्र-गोचर और दिन-स्वामी पर आधारित — यह वार्षिक फल जितना गहरा नहीं, पर वास्तविक गणना है।
+      </p>
+      {saptahikPhal.days.map((d, i) => {
+        const isToday = d.date === today;
+        return (
+          <div key={i} style={{
+            padding: '10px 12px', borderRadius: '8px', marginBottom: '8px',
+            background: isToday ? 'var(--color-brand-light)' : 'var(--color-background-secondary)',
+            border: isToday ? '1px solid var(--color-brand)' : 'none',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{d.dayName} {isToday && '(आज)'}</span>
+              <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{d.date}</span>
+            </div>
+            <p style={{ margin: '0 0 2px', fontSize: '12px', color: 'var(--color-text-secondary)' }}>🌙 चंद्र {d.nakshatra} में — {d.nakshatraNote}</p>
+            <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-secondary)' }}>☀️ दिन-स्वामी {d.dayLord} — {d.dayNote}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const TABS = [
+  ['general', 'सामान्य'],
+  ['varshik', 'वार्षिक'],
+  ['masik', 'मासिक'],
+  ['saptahik', 'साप्ताहिक'],
+];
+
+export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 'general' }) {
+  const [tab, setTab] = useState(initialTab);
+
+  // Keep in sync if the panel is already open and a sidebar button
+  // requests a different tab (e.g. वार्षिक → साप्ताहिक) without the
+  // panel closing/reopening in between — useState's initial value
+  // alone wouldn't catch this since the component doesn't remount.
+  useEffect(() => { setTab(initialTab); }, [initialTab]);
+
   if (!open || !kundli) return null;
 
   const a = kundli.planet_data?.analysis;
   const yogas = kundli.planet_data?.yogas || [];
   const gocharPhal = kundli.planet_data?.gocharPhal || [];
+  const varshaphal = kundli.planet_data?.varshaphal;
+  const saptahikPhal = kundli.planet_data?.saptahikPhal;
 
   return (
     <>
@@ -140,89 +230,95 @@ export default function KundliDetailPanel({ kundli, open, onClose }) {
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: 'var(--color-text-tertiary)', padding: '4px 8px', lineHeight: 1 }}>✕</button>
         </div>
 
+        {/* Tabs */}
+        <div style={{ display: 'flex', borderBottom: '0.5px solid var(--color-border-tertiary)', flexShrink: 0 }}>
+          {TABS.map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              style={{
+                flex: 1, padding: '10px 4px', fontSize: '12px', fontWeight: tab === key ? '600' : '400',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: tab === key ? 'var(--color-brand)' : 'var(--color-text-tertiary)',
+                borderBottom: tab === key ? '2px solid var(--color-brand)' : '2px solid transparent',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-          {kundli.luck_score != null && (
-            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-              <p style={{ fontSize: '32px', fontWeight: '500', margin: 0, color: kundli.luck_score >= 60 ? 'var(--color-text-success)' : kundli.luck_score >= 40 ? 'var(--color-text-warning)' : 'var(--color-text-danger)' }}>{kundli.luck_score}</p>
-              <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', margin: 0 }}>Luck Score</p>
-            </div>
-          )}
-
-          {a?.analytical_insight && (
-            <p style={{ fontSize: '13px', color: 'var(--color-text-primary)', lineHeight: '1.6', marginBottom: '16px' }}>{a.analytical_insight}</p>
-          )}
-
-          <LifeDomainAccordion domains={a?.life_domains} />
-
-          <GocharPhalTimeline timeline={gocharPhal} />
-
-          {yogas.length > 0 && (
-            <div style={{ marginBottom: '16px', background: 'var(--color-background-secondary)', borderRadius: '10px', padding: '12px' }}>
-              <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 8px' }}>पहचाने गए शास्त्रीय योग</p>
-              {yogas.filter(y => !y.isChallenging).map((y, i) => (
-                <div key={i} style={{ marginBottom: '8px', fontSize: '13px' }}>
-                  <p style={{ margin: '0 0 2px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{y.name}</p>
-                  <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>{y.description}</p>
+          {tab === 'general' && (
+            <>
+              {kundli.luck_score != null && (
+                <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                  <p style={{ fontSize: '32px', fontWeight: '500', margin: 0, color: kundli.luck_score >= 60 ? 'var(--color-text-success)' : kundli.luck_score >= 40 ? 'var(--color-text-warning)' : 'var(--color-text-danger)' }}>{kundli.luck_score}</p>
+                  <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', margin: 0 }}>Luck Score</p>
                 </div>
-              ))}
-            </div>
+              )}
+
+              {a?.analytical_insight && (
+                <p style={{ fontSize: '13px', color: 'var(--color-text-primary)', lineHeight: '1.6', marginBottom: '16px' }}>{a.analytical_insight}</p>
+              )}
+
+              <LifeDomainAccordion domains={a?.life_domains} />
+
+              {yogas.length > 0 && (
+                <div style={{ marginBottom: '16px', background: 'var(--color-background-secondary)', borderRadius: '10px', padding: '12px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 8px' }}>पहचाने गए शास्त्रीय योग</p>
+                  {yogas.filter(y => !y.isChallenging).map((y, i) => (
+                    <div key={i} style={{ marginBottom: '8px', fontSize: '13px' }}>
+                      <p style={{ margin: '0 0 2px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{y.name}</p>
+                      <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>{y.description}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Practical/actionable content — kept distinct from
+                  life_domains since it's genuinely different (today's
+                  timing + a concrete remedy, not a descriptive read) */}
+              {(a?.hora_analysis || a?.actionable_seva_remedy) && (
+                <div style={{ marginBottom: '16px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 8px' }}>आज का व्यावहारिक मार्गदर्शन</p>
+                  {a?.hora_analysis && (
+                    <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: '1.6', margin: '0 0 8px' }}>
+                      <strong style={{ color: 'var(--color-text-primary)' }}>आज के स्वामी {a.hora_analysis.ruling_planet_today}:</strong> {a.hora_analysis.best_activity_now}
+                    </p>
+                  )}
+                  {a?.actionable_seva_remedy && (
+                    <div style={{ background: 'var(--color-background-secondary)', borderRadius: '10px', padding: '12px' }}>
+                      <p style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{a.actionable_seva_remedy.target_action}</p>
+                      <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-secondary)' }}>{a.actionable_seva_remedy.target_location_type}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 8px' }}>गोचर फल (Transit Timeline)</p>
+              <GocharPhalTimeline timeline={gocharPhal} />
+
+              {!a && yogas.length === 0 && (
+                <EmptyNote text="विस्तृत विश्लेषण उपलब्ध नहीं — पुरानी कुंडली। प्रोफाइल पेज पर 'पुनः विश्लेषण करें' दबाएं।" />
+              )}
+
+              {kundli.planet_data?.closingVerse && (
+                <div style={{ marginTop: '20px', padding: '14px', borderTop: '0.5px dashed var(--color-border-tertiary)', textAlign: 'center' }}>
+                  <p style={{ fontSize: '15px', lineHeight: '1.8', color: 'var(--color-text-primary)', fontStyle: 'italic', margin: '0 0 6px' }}>
+                    {kundli.planet_data.closingVerse.verse}
+                  </p>
+                  <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', margin: 0 }}>
+                    — {kundli.planet_data.closingVerse.source}
+                  </p>
+                </div>
+              )}
+            </>
           )}
 
-          {a?.vedic_analysis && (
-            <AnalysisSection title="वैदिक विश्लेषण" color="var(--color-text-info)">
-              <p style={{ margin: '0 0 4px' }}>{a.vedic_analysis.lagna_summary}</p>
-              <p style={{ margin: '0 0 4px' }}><strong>सबसे मजबूत:</strong> {a.vedic_analysis.strongest_planet}</p>
-              <p style={{ margin: '0 0 4px' }}><strong>सबसे कमजोर:</strong> {a.vedic_analysis.weakest_planet}</p>
-              <p style={{ margin: 0 }}>{a.vedic_analysis.dasha_hint}</p>
-            </AnalysisSection>
-          )}
-
-          {a?.lal_kitab_analysis && (
-            <AnalysisSection title="लाल किताब" color="var(--color-text-warning)">
-              <p style={{ margin: '0 0 4px' }}>{a.lal_kitab_analysis.key_observation}</p>
-              <p style={{ margin: '0 0 4px' }}><strong>उपाय:</strong> {a.lal_kitab_analysis.remedy}</p>
-              <p style={{ margin: '0 0 4px' }}><strong>समय:</strong> {a.lal_kitab_analysis.timing}</p>
-            </AnalysisSection>
-          )}
-
-          {a?.nadi_analysis && (
-            <AnalysisSection title="नाड़ी ज्योतिष" color="var(--color-text-success)">
-              <p style={{ margin: '0 0 4px' }}>{a.nadi_analysis.karmic_theme}</p>
-              <p style={{ margin: '0 0 4px' }}><strong>क्षेत्र:</strong> {a.nadi_analysis.life_area_focus}</p>
-              <p style={{ margin: 0 }}><strong>उपाय:</strong> {a.nadi_analysis.nadi_remedy}</p>
-            </AnalysisSection>
-          )}
-
-          {a?.hora_analysis && (
-            <AnalysisSection title="होरा" color="var(--color-text-danger)">
-              <p style={{ margin: '0 0 4px' }}><strong>आज के स्वामी:</strong> {a.hora_analysis.ruling_planet_today}</p>
-              <p style={{ margin: '0 0 4px' }}>{a.hora_analysis.best_activity_now}</p>
-              <p style={{ margin: 0, color: 'var(--color-text-tertiary)' }}>{a.hora_analysis.avoid_now}</p>
-            </AnalysisSection>
-          )}
-
-          {a?.actionable_seva_remedy && (
-            <div style={{ background: 'var(--color-background-secondary)', borderRadius: '10px', padding: '12px' }}>
-              <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 4px' }}>सुझाई गई सेवा</p>
-              <p style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{a.actionable_seva_remedy.target_action}</p>
-              <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-secondary)' }}>{a.actionable_seva_remedy.target_location_type}</p>
-            </div>
-          )}
-
-          {!a && yogas.length === 0 && (
-            <p style={{ fontSize: '13px', color: 'var(--color-text-tertiary)', textAlign: 'center', marginTop: '2rem' }}>विस्तृत विश्लेषण उपलब्ध नहीं — पुरानी कुंडली।</p>
-          )}
-
-          {kundli.planet_data?.closingVerse && (
-            <div style={{ marginTop: '20px', padding: '14px', borderTop: '0.5px dashed var(--color-border-tertiary)', textAlign: 'center' }}>
-              <p style={{ fontSize: '15px', lineHeight: '1.8', color: 'var(--color-text-primary)', fontStyle: 'italic', margin: '0 0 6px' }}>
-                {kundli.planet_data.closingVerse.verse}
-              </p>
-              <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', margin: 0 }}>
-                — {kundli.planet_data.closingVerse.source}
-              </p>
-            </div>
-          )}
+          {tab === 'varshik' && <VarshikTab varshaphal={varshaphal} />}
+          {tab === 'masik' && <MasikTab varshaphal={varshaphal} />}
+          {tab === 'saptahik' && <SaptahikTab saptahikPhal={saptahikPhal} />}
         </div>
       </div>
     </>

@@ -45,6 +45,10 @@ export default function AdminPage() {
   const [demoEmail, setDemoEmail] = useState('');
   const [demoMsg, setDemoMsg] = useState('');
   const [migrationStatus, setMigrationStatus] = useState(null);
+  const [lifeDomainsStatus, setLifeDomainsStatus] = useState(null);
+  const [lifeDomainsMigrating, setLifeDomainsMigrating] = useState(false);
+  const [lifeDomainsAutoRunning, setLifeDomainsAutoRunning] = useState(false);
+  const [lifeDomainsLastBatch, setLifeDomainsLastBatch] = useState(null);
   const [migrating, setMigrating] = useState(false);
 
   useEffect(() => { checkAuth(); }, []);
@@ -59,6 +63,7 @@ export default function AdminPage() {
     setAuthorized(true);
     loadStats();
     checkMigrationStatus();
+    checkLifeDomainsStatus();
   }
 
   async function loadStats() {
@@ -135,6 +140,40 @@ export default function AdminPage() {
     setMigrationStatus(prev => ({ ...prev, lastRun: data }));
     setMigrating(false);
     checkMigrationStatus();
+  }
+
+  // ── life_domains backfill (calls the AI, so processed in small
+  // batches — click "अगला बैच" repeatedly, or use runAllLifeDomainBatches
+  // to auto-loop until done). ─────────────────────────────────────
+  async function checkLifeDomainsStatus() {
+    const res = await fetch('/api/admin/migrate-life-domains');
+    const data = await res.json();
+    setLifeDomainsStatus(data);
+  }
+
+  async function runLifeDomainsBatch() {
+    setLifeDomainsMigrating(true);
+    const res = await fetch('/api/admin/migrate-life-domains', { method: 'POST' });
+    const data = await res.json();
+    setLifeDomainsLastBatch(data);
+    setLifeDomainsMigrating(false);
+    checkLifeDomainsStatus();
+    return data;
+  }
+
+  async function runAllLifeDomainBatches() {
+    setLifeDomainsAutoRunning(true);
+    let remaining = 1;
+    while (remaining > 0) {
+      const data = await runLifeDomainsBatch();
+      if (!data || data.processed === 0) break;
+      const statusRes = await fetch('/api/admin/migrate-life-domains');
+      const status = await statusRes.json();
+      remaining = status.remaining;
+      setLifeDomainsStatus(status);
+      await new Promise(r => setTimeout(r, 1500)); // brief pause between batches
+    }
+    setLifeDomainsAutoRunning(false);
   }
 
   async function loadDemoUsers() {
@@ -378,6 +417,40 @@ export default function AdminPage() {
           )}
           {migrationStatus && migrationStatus.needsMigration === 0 && (
             <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'0 0 1.5rem' }}>✓ सभी कुंडलियां up-to-date हैं (lagna/houses/event-scores सहित)</p>
+          )}
+
+          {/* life_domains backfill — DOES call the AI (unlike the
+              migration above), so it's batch-processed with a small
+              per-request limit. "पूरा Migrate करें" auto-loops through
+              all batches with a short pause between each. */}
+          {lifeDomainsStatus && lifeDomainsStatus.remaining > 0 && (
+            <div style={{ background:'var(--color-background-info)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1rem 1.25rem', marginBottom:'1.5rem' }}>
+              <p style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-info)', margin:'0 0 6px' }}>
+                📖 {lifeDomainsStatus.remaining} कुंडलियां नए Vishleshan format (life_domains) के बिना हैं
+              </p>
+              <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 10px' }}>
+                यह AI दोबारा call करता है (हर कुंडली के लिए) — इसलिए {5}-{5} के batch में चलता है। "पूरा Migrate करें" अपने आप सभी batches चला देगा।
+              </p>
+              <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
+                <button onClick={runLifeDomainsBatch} disabled={lifeDomainsMigrating || lifeDomainsAutoRunning} style={{ padding:'8px 16px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>
+                  {lifeDomainsMigrating && !lifeDomainsAutoRunning ? 'चल रहा है...' : 'अगला बैच (5)'}
+                </button>
+                <button onClick={runAllLifeDomainBatches} disabled={lifeDomainsMigrating || lifeDomainsAutoRunning} style={{ padding:'8px 16px', background:'var(--color-text-info)', color:'#fff', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500' }}>
+                  {lifeDomainsAutoRunning ? `चल रहा है... (${lifeDomainsStatus.remaining} बाकी)` : 'पूरा Migrate करें (सभी batches)'}
+                </button>
+              </div>
+              {lifeDomainsLastBatch && (
+                <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'8px 0 0' }}>
+                  ✓ पिछला batch: {lifeDomainsLastBatch.processed} processed
+                  {lifeDomainsLastBatch.results?.some(r => r.status === 'error') && (
+                    <span style={{ color:'var(--color-text-danger)' }}> · {lifeDomainsLastBatch.results.filter(r => r.status === 'error').length} failed</span>
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+          {lifeDomainsStatus && lifeDomainsStatus.remaining === 0 && (
+            <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'0 0 1.5rem' }}>✓ सभी कुंडलियां नए Vishleshan format (life_domains) के साथ up-to-date हैं</p>
           )}
 
           <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>हाल के Users</p>

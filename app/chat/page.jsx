@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import KundliDetailPanel from '@/components/KundliDetailPanel';
+import DateOfBirthInput from '@/components/DateOfBirthInput';
 import { t, UI_LANGUAGES } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
@@ -160,6 +161,7 @@ export default function ChatPage() {
   const [kundlis,          setKundlis]          = useState([]);
   const [kundli,           setKundli]           = useState(null);
   const [dailyCard,        setDailyCard]        = useState(null); // today's proactive gochar insight, dismissible
+  const [notableFinding,   setNotableFinding]   = useState(null); // one-time "we found something" teaser
   const [sessions,         setSessions]         = useState([]);
   const [sessionId,        setSessionId]        = useState(null);
   const [pendingKundliId,  setPendingKundliId]  = useState(null);
@@ -175,6 +177,7 @@ export default function ChatPage() {
   const [sidebarOpen,      setSidebarOpen]      = useState(false);
   const [panel,            setPanel]            = useState('sessions'); // 'sessions'|'kundlis'
   const [detailPanelOpen,  setDetailPanelOpen]   = useState(false);
+  const [detailPanelTab,   setDetailPanelTab]     = useState('general');
   const [activeQuickForm,  setActiveQuickForm]  = useState(null); // which quick-action form is open
   const [quickFormAnswers, setQuickFormAnswers] = useState({});
 
@@ -192,9 +195,6 @@ export default function ChatPage() {
   const [listening,            setListening]            = useState(false);
   const [speakingIndex,        setSpeakingIndex]         = useState(null);
 
-  useEffect(() => {
-  init();
-}, []);
   useEffect(() => { init(); }, []);
 
   // ── Voice feature detection (client-side only, browser APIs) ────
@@ -364,10 +364,56 @@ export default function ChatPage() {
     setDailyCard(null);
   }
 
+  // ── Notable-finding teaser — shown ONCE per kundli (not daily) ───
+  // Real, grounded, honesty-first version of the "Deep Dive Hook"
+  // pattern competitor apps use: instead of inventing a hook, this
+  // picks the single most notable REAL finding already computed
+  // (strongest classical yoga, or if none, the most extreme Varshaphal
+  // area) and teases it — clicking sends an actual chat question about
+  // that specific finding, so the AI answers using real injected data,
+  // not a canned line.
+  function checkNotableFinding(k) {
+    if (typeof window === 'undefined') return;
+    const storageKey = `lf_notable_seen_${k.id}`;
+    if (window.localStorage.getItem(storageKey)) { setNotableFinding(null); return; }
+
+    const yogas = k.planet_data?.yogas || [];
+    const strongYoga = yogas.find(y => !y.isChallenging && y.strength === 'high') || yogas.find(y => !y.isChallenging);
+    if (strongYoga) {
+      setNotableFinding({ type: 'yoga', label: strongYoga.name, prompt: `मेरी कुंडली में ${strongYoga.name} है — इसके बारे में विस्तार से बताएं, यह मेरी ज़िंदगी में कैसे असर डालता है?` });
+      return;
+    }
+
+    const areas = k.planet_data?.varshaphal?.areas || [];
+    const notable = [...areas].sort((a, b) => (b.strength === 'शुभ' ? 1 : 0) - (a.strength === 'शुभ' ? 1 : 0))[0];
+    if (notable) {
+      setNotableFinding({ type: 'varshaphal', label: notable.area, prompt: `मेरे इस साल के ${notable.area} के बारे में विस्तार से बताएं।` });
+      return;
+    }
+    setNotableFinding(null);
+  }
+
+  function openNotableFinding() {
+    if (kundli && typeof window !== 'undefined') {
+      window.localStorage.setItem(`lf_notable_seen_${kundli.id}`, '1');
+    }
+    const prompt = notableFinding?.prompt;
+    setNotableFinding(null);
+    if (prompt) sendMessage(null, prompt);
+  }
+
+  function dismissNotableFinding() {
+    if (kundli && typeof window !== 'undefined') {
+      window.localStorage.setItem(`lf_notable_seen_${kundli.id}`, '1');
+    }
+    setNotableFinding(null);
+  }
+
   async function selectKundli(k) {
     setKundli(k); setPendingKundliId(k.id);
     setSidebarOpen(false); setSessionId(null); setLimitErr(''); setDetailPanelOpen(false);
     checkDailyInsight(k);
+    checkNotableFinding(k);
     setMessages([{ role:'assistant', content:'...' }]);
     try {
       const res = await fetch('/api/chat', {
@@ -558,6 +604,26 @@ export default function ChatPage() {
           </button>
         </div>
 
+        {/* Faladesh quick-access — for whichever kundli is currently
+            active in this chat, so predictions are one click away
+            without leaving the conversation. */}
+        {kundli && (
+          <div style={{ padding: '10px 12px', borderBottom: '0.5px solid var(--color-border-tertiary)', flexShrink: 0 }}>
+            <p style={{ fontSize: '10px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 6px' }}>फलादेश</p>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {[['varshik', '📅 वार्षिक'], ['masik', '🌙 मासिक'], ['saptahik', '⭐ साप्ताहिक']].map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => { setDetailPanelTab(key); setDetailPanelOpen(true); setSidebarOpen(false); }}
+                  style={{ flex: 1, padding: '6px 4px', fontSize: '10px', background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '7px', cursor: 'pointer', color: 'var(--color-text-secondary)' }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Tabs */}
         <div style={{ display:'flex', borderBottom:'0.5px solid var(--color-border-tertiary)', flexShrink:0 }}>
           {[['sessions','💬 Chats'],['kundlis','🪐 कुंडली']].map(([id,label]) => (
@@ -727,6 +793,18 @@ export default function ChatPage() {
           </div>
         )}
 
+        {/* Notable-finding teaser — once per kundli, real grounded data */}
+        {notableFinding && (
+          <div onClick={openNotableFinding} style={{ margin:'10px 14px 0', padding:'12px 14px', borderRadius:'12px', background:'var(--color-background-info)', border:'1px solid var(--color-text-info)', display:'flex', gap:'10px', alignItems:'center', flexShrink:0, cursor:'pointer' }}>
+            <span style={{ fontSize:'18px', flexShrink:0 }}>👀</span>
+            <div style={{ flex:1, minWidth:0 }}>
+              <p style={{ margin:'0 0 2px', fontSize:'12px', fontWeight:'600', color:'var(--color-text-primary)' }}>आपकी कुंडली में एक खास बात है</p>
+              <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)' }}>{notableFinding.label} — टैप करके जानें</p>
+            </div>
+            <button onClick={(e) => { e.stopPropagation(); dismissNotableFinding(); }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-tertiary)', fontSize:'16px', padding:'0 2px', flexShrink:0, lineHeight:1 }}>✕</button>
+          </div>
+        )}
+
         {/* Welcome state */}
         {messages.length === 0 && (
           <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'2rem', textAlign:'center', overflowY:'auto' }}>
@@ -739,15 +817,13 @@ export default function ChatPage() {
                   <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>पूरा नाम *</label>
                   <input value={newK.full_name} onChange={e => setNewK(k => ({...k, full_name:e.target.value}))} placeholder="नाम" style={{ width:'100%', fontSize:'14px' }} required/>
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
-                  <div>
-                    <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म तिथि *</label>
-                    <input type="date" value={newK.dob} onChange={e => setNewK(k => ({...k, dob:e.target.value}))} style={{ width:'100%', fontSize:'14px' }} required/>
-                  </div>
-                  <div>
-                    <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म समय *</label>
-                    <input type="time" value={newK.birth_time} onChange={e => setNewK(k => ({...k, birth_time:e.target.value}))} style={{ width:'100%', fontSize:'14px' }} required/>
-                  </div>
+                <div>
+                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म तिथि *</label>
+                  <DateOfBirthInput value={newK.dob} onChange={dob => setNewK(k => ({...k, dob}))} required style={{ fontSize:'14px' }}/>
+                </div>
+                <div>
+                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म समय *</label>
+                  <input type="time" value={newK.birth_time} onChange={e => setNewK(k => ({...k, birth_time:e.target.value}))} style={{ width:'100%', fontSize:'14px' }} required/>
                 </div>
                 <div>
                   <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म स्थान *</label>
@@ -1008,7 +1084,7 @@ export default function ChatPage() {
         }
       `}</style>
 
-      <KundliDetailPanel kundli={kundli} open={detailPanelOpen} onClose={() => setDetailPanelOpen(false)} />
+      <KundliDetailPanel kundli={kundli} open={detailPanelOpen} onClose={() => setDetailPanelOpen(false)} initialTab={detailPanelTab} />
     </div>
   );
 }
