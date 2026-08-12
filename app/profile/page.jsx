@@ -18,7 +18,6 @@ export default function ProfilePage() {
   const [saving,   setSaving]   = useState(false);
   const [addOpen,  setAddOpen]  = useState(false);
   const [expandedKundli, setExpandedKundli] = useState(null);
-  const [reanalyzing, setReanalyzing] = useState(null); // kundli id currently re-analyzing
   const [feedbackSent, setFeedbackSent] = useState({});
   const [newK,     setNewK]     = useState({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'' });
   const [analyzing,setAnalyzing]= useState(false);
@@ -131,24 +130,6 @@ export default function ProfilePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ kundli_id: kundliId, rating, section: 'overall' }),
     });
-  }
-
-  async function reanalyzeKundli(kundliId) {
-    setReanalyzing(kundliId);
-    try {
-      const res = await fetch('/api/kundli', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kundli_id: kundliId }),
-      });
-      const data = await res.json();
-      if (data.kundli) {
-        setKundlis(prev => prev.map(k => k.id === kundliId ? data.kundli : k));
-      }
-    } catch (e) {
-      console.error('[Reanalyze] failed:', e.message);
-    }
-    setReanalyzing(null);
   }
 
   function shareVarshaphalOnWhatsApp(k) {
@@ -418,14 +399,6 @@ export default function ProfilePage() {
               )}
             </div>
             <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)', flexShrink:0 }}>{k.birth_time}</span>
-            <button
-              onClick={() => reanalyzeKundli(k.id)}
-              disabled={reanalyzing === k.id}
-              title="नए schema से विश्लेषण फिर से बनाएं"
-              style={{ padding:'7px 10px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor: reanalyzing === k.id ? 'default' : 'pointer', fontSize:'12px', color:'var(--color-text-secondary)', flexShrink:0, opacity: reanalyzing === k.id ? 0.6 : 1 }}
-            >
-              {reanalyzing === k.id ? '⏳' : '🔄'}
-            </button>
             <button onClick={() => router.push(`/chat?kundliId=${k.id}`)} style={{ padding:'7px 14px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500', flexShrink:0 }}>
               Chat
             </button>

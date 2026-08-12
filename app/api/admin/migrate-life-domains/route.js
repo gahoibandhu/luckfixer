@@ -21,6 +21,7 @@ import { buildAshtakavarga } from '@/lib/ashtakavarga';
 import { buildNakshatraSheet } from '@/lib/nakshatra';
 import { buildVarshaphal } from '@/lib/varshaphal';
 import { buildGocharPhalTimeline } from '@/lib/gochar-phal';
+import { buildSaptahikPhal } from '@/lib/saptahik-phal';
 import { getLuckfixerResponse } from '@/lib/ai-engine';
 import { RAM_SHALAKA_ANSWERS } from '@/lib/ram-shalaka';
 import { buildAnalysisSystemPrompt, buildAnalysisUserPrompt } from '@/lib/kundli-analysis-prompt';
@@ -42,8 +43,15 @@ export async function GET() {
   if (!admin) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
   const adminDb = getSupabaseAdmin();
-  const { data: kundlis } = await adminDb.from('saved_kundlis').select('id, planet_data');
-  const remaining = (kundlis || []).filter(k => !k.planet_data?.analysis?.life_domains);
+  // Narrow JSON-path projection — Postgres extracts just this nested
+  // field server-side, so we're not pulling the (often large) full
+  // planet_data blob over the wire just to check one boolean-ish flag.
+  // This alone was a meaningful chunk of "admin panel slow" — this
+  // endpoint runs on every admin page load.
+  const { data: kundlis } = await adminDb
+    .from('saved_kundlis')
+    .select('id, life_domains:planet_data->analysis->life_domains');
+  const remaining = (kundlis || []).filter(k => !k.life_domains);
 
   return Response.json({ total: kundlis?.length || 0, remaining: remaining.length, migrated: (kundlis?.length || 0) - remaining.length });
 }
@@ -55,8 +63,22 @@ export async function POST() {
   if (!admin) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
   const adminDb = getSupabaseAdmin();
-  const { data: kundlis } = await adminDb.from('saved_kundlis').select('*');
-  const toMigrate = (kundlis || []).filter(k => !k.planet_data?.analysis?.life_domains).slice(0, BATCH_SIZE);
+
+  // Two-step: first a narrow query to find WHICH kundlis need migrating
+  // (cheap), then fetch full rows only for the small batch we'll
+  // actually process — instead of pulling every kundli's full
+  // planet_data blob just to filter most of it away in JS.
+  const { data: idCheck } = await adminDb
+    .from('saved_kundlis')
+    .select('id, life_domains:planet_data->analysis->life_domains');
+  const idsToMigrate = (idCheck || []).filter(k => !k.life_domains).slice(0, BATCH_SIZE).map(k => k.id);
+
+  if (idsToMigrate.length === 0) {
+    return Response.json({ processed: 0, results: [] });
+  }
+
+  const { data: kundlis } = await adminDb.from('saved_kundlis').select('*').in('id', idsToMigrate);
+  const toMigrate = kundlis || [];
 
   const results = [];
   for (const existing of toMigrate) {
@@ -76,7 +98,7 @@ export async function POST() {
       const nakshatra   = buildNakshatraSheet(factSheet.planets, factSheet.lagna?.sign);
       const varshaphal  = buildVarshaphal(factSheet, dob);
       const gocharPhal  = buildGocharPhalTimeline(moon?.sign, ayanamsa);
-  const saptahikPhal = buildSaptahikPhal(ayanamsa);
+      const saptahikPhal = buildSaptahikPhal(ayanamsa);
 
       const systemPrompt = buildAnalysisSystemPrompt();
       const userPrompt = buildAnalysisUserPrompt({ full_name, dob, birth_time, birth_place, ayanamsa, factSheet, numerology, vimshottari, specialist, jaimini, crossVal, yogas, ashtakavarga, nakshatra, varshaphal, gocharPhal, transit, gender });

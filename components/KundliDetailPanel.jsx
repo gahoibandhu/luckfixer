@@ -112,7 +112,10 @@ function EmptyNote({ text }) {
 }
 
 // ── वार्षिक (Yearly) tab — Varshaphal ────────────────────────────
-function VarshikTab({ varshaphal }) {
+const PLANET_NATURE = { Jupiter: { label: 'शुभ महीना', color: 'var(--color-text-success)' }, Venus: { label: 'शुभ महीना', color: 'var(--color-text-success)' }, Mercury: { label: 'सामान्य महीना', color: 'var(--color-text-tertiary)' }, Moon: { label: 'सामान्य महीना', color: 'var(--color-text-tertiary)' }, Sun: { label: 'सामान्य महीना', color: 'var(--color-text-tertiary)' }, Mars: { label: 'सतर्कता का महीना', color: 'var(--color-text-warning)' }, Saturn: { label: 'सतर्कता का महीना', color: 'var(--color-text-warning)' }, Rahu: { label: 'सतर्कता का महीना', color: 'var(--color-text-warning)' }, Ketu: { label: 'सतर्कता का महीना', color: 'var(--color-text-warning)' } };
+
+// ── वार्षिक (Yearly) tab — the one place with real narrative depth ──
+function VarshikTab({ varshaphal, yearlyForecast }) {
   if (!varshaphal) return <EmptyNote text="वार्षिक फलादेश उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं।" />;
   return (
     <div>
@@ -120,9 +123,13 @@ function VarshikTab({ varshaphal }) {
         <p style={{ margin: '0 0 4px', fontSize: '12px', color: 'var(--color-text-tertiary)' }}>वर्षेश (साल के स्वामी)</p>
         <p style={{ margin: 0, fontSize: '18px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{varshaphal.varshesh?.planetHi}</p>
       </div>
-      {varshaphal.yearPrediction && (
+      {yearlyForecast && (
+        <p style={{ fontSize: '13px', lineHeight: '1.85', color: 'var(--color-text-primary)', marginBottom: '18px' }}>{yearlyForecast}</p>
+      )}
+      {!yearlyForecast && varshaphal.yearPrediction && (
         <p style={{ fontSize: '13px', lineHeight: '1.75', color: 'var(--color-text-primary)', marginBottom: '16px' }}>{varshaphal.yearPrediction}</p>
       )}
+      <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 8px' }}>क्षेत्र अनुसार</p>
       {varshaphal.areas?.map((a, i) => (
         <div key={i} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: i < varshaphal.areas.length - 1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
           <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{a.area}</p>
@@ -133,7 +140,8 @@ function VarshikTab({ varshaphal }) {
   );
 }
 
-// ── मासिक (Monthly) tab — Mudda Dasha ────────────────────────────
+// ── मासिक (Monthly) tab — Mudda Dasha — deliberately BRIEF, one line
+// per month (a short nature-tag), unlike the yearly tab's depth.
 function MasikTab({ varshaphal }) {
   const mudda = varshaphal?.muddaDasha;
   if (!mudda || mudda.length === 0) return <EmptyNote text="मासिक फलादेश उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं।" />;
@@ -141,21 +149,22 @@ function MasikTab({ varshaphal }) {
 
   return (
     <div>
-      <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '14px', lineHeight: '1.6' }}>
-        इस वर्ष के भीतर महीने-दर-महीने ग्रह-स्वामी (मुद्दा दशा) — असली classical timing, अनुमान नहीं।
+      <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginBottom: '12px' }}>
+        इस वर्ष के महीने-दर-महीने ग्रह-स्वामी (मुद्दा दशा) — संक्षेप में।
       </p>
       {mudda.map((m, i) => {
         const isCurrent = m.start <= today && m.end >= today;
+        const nature = PLANET_NATURE[m.planet] || { label: 'सामान्य महीना', color: 'var(--color-text-tertiary)' };
         return (
           <div key={i} style={{
-            padding: '10px 12px', borderRadius: '8px', marginBottom: '8px',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '8px 12px', borderRadius: '8px', marginBottom: '6px',
             background: isCurrent ? 'var(--color-brand-light)' : 'var(--color-background-secondary)',
             border: isCurrent ? '1px solid var(--color-brand)' : 'none',
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{m.planetHi} {isCurrent && '(अभी)'}</span>
-              <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{m.start} – {m.end}</span>
-            </div>
+            <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{m.planetHi} {isCurrent && '(अभी)'}</span>
+            <span style={{ fontSize: '11px', color: nature.color }}>{nature.label}</span>
+            <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>{m.start} – {m.end}</span>
           </div>
         );
       })}
@@ -163,30 +172,27 @@ function MasikTab({ varshaphal }) {
   );
 }
 
-// ── साप्ताहिक (Weekly) tab ────────────────────────────────────────
+// ── साप्ताहिक (Weekly) tab — deliberately BRIEF, one line per day ──
 function SaptahikTab({ saptahikPhal }) {
   if (!saptahikPhal?.days) return <EmptyNote text="साप्ताहिक फलादेश उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं।" />;
   const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div>
-      <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '14px', lineHeight: '1.6' }}>
-        चंद्रमा के वास्तविक नक्षत्र-गोचर और दिन-स्वामी पर आधारित — यह वार्षिक फल जितना गहरा नहीं, पर वास्तविक गणना है।
+      <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginBottom: '12px' }}>
+        चंद्रमा के वास्तविक नक्षत्र-गोचर पर आधारित — संक्षेप में, दिन-दर-दिन।
       </p>
       {saptahikPhal.days.map((d, i) => {
         const isToday = d.date === today;
         return (
           <div key={i} style={{
-            padding: '10px 12px', borderRadius: '8px', marginBottom: '8px',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '8px 12px', borderRadius: '8px', marginBottom: '6px',
             background: isToday ? 'var(--color-brand-light)' : 'var(--color-background-secondary)',
             border: isToday ? '1px solid var(--color-brand)' : 'none',
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{d.dayName} {isToday && '(आज)'}</span>
-              <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{d.date}</span>
-            </div>
-            <p style={{ margin: '0 0 2px', fontSize: '12px', color: 'var(--color-text-secondary)' }}>🌙 चंद्र {d.nakshatra} में — {d.nakshatraNote}</p>
-            <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-secondary)' }}>☀️ दिन-स्वामी {d.dayLord} — {d.dayNote}</p>
+            <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)', flexShrink: 0, width: '70px' }}>{d.dayName} {isToday && '(आज)'}</span>
+            <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', flex: 1, textAlign: 'center' }}>🌙 {d.nakshatra} · ☀️ {d.dayLord}</span>
           </div>
         );
       })}
@@ -316,7 +322,7 @@ export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 
             </>
           )}
 
-          {tab === 'varshik' && <VarshikTab varshaphal={varshaphal} />}
+          {tab === 'varshik' && <VarshikTab varshaphal={varshaphal} yearlyForecast={a?.yearly_forecast} />}
           {tab === 'masik' && <MasikTab varshaphal={varshaphal} />}
           {tab === 'saptahik' && <SaptahikTab saptahikPhal={saptahikPhal} />}
         </div>
