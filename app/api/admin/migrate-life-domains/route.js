@@ -1,13 +1,16 @@
 // app/api/admin/migrate-life-domains/route.js
 //
-// Admin-triggered batch backfill: re-runs the AI analysis (new
-// life_domains schema) + Gochar Phal computation for existing kundlis
-// that predate those features — so users never have to click anything
-// themselves. Unlike migrate-kundlis/route.js (deterministic-only,
-// free), this DOES call the AI, so it's rate-limited to a small batch
-// per request (avoids hammering the AI provider and avoids Vercel
-// function timeouts) — the admin panel calls this repeatedly ("अगला
-// बैच") until GET reports zero remaining.
+// Admin-triggered batch backfill: re-runs the AI analysis for existing
+// kundlis that predate either the life_domains schema OR the newer
+// annual_timeline (birthday-bound transit periods) schema — so users
+// never have to click anything themselves. A kundli is "remaining"
+// if it's missing life_domains, annual_timeline, or both; one re-run
+// of the AI call produces both fields together. Unlike
+// migrate-kundlis/route.js (deterministic-only, free), this DOES call
+// the AI, so it's rate-limited to a small batch per request (avoids
+// hammering the AI provider and avoids Vercel function timeouts) — the
+// admin panel calls this repeatedly ("अगला बैच") until GET reports zero
+// remaining.
 import { createClient } from '@/lib/supabase-server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
@@ -43,15 +46,13 @@ export async function GET() {
   if (!admin) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
   const adminDb = getSupabaseAdmin();
-  // Narrow JSON-path projection — Postgres extracts just this nested
-  // field server-side, so we're not pulling the (often large) full
-  // planet_data blob over the wire just to check one boolean-ish flag.
-  // This alone was a meaningful chunk of "admin panel slow" — this
-  // endpoint runs on every admin page load.
+  // Narrow JSON-path projection — Postgres extracts just these nested
+  // fields server-side, so we're not pulling the (often large) full
+  // planet_data blob over the wire just to check two boolean-ish flags.
   const { data: kundlis } = await adminDb
     .from('saved_kundlis')
-    .select('id, life_domains:planet_data->analysis->life_domains');
-  const remaining = (kundlis || []).filter(k => !k.life_domains);
+    .select('id, life_domains:planet_data->analysis->life_domains, annual_timeline:planet_data->analysis->annual_timeline');
+  const remaining = (kundlis || []).filter(k => !k.life_domains || !k.annual_timeline);
 
   return Response.json({ total: kundlis?.length || 0, remaining: remaining.length, migrated: (kundlis?.length || 0) - remaining.length });
 }
@@ -70,8 +71,8 @@ export async function POST() {
   // planet_data blob just to filter most of it away in JS.
   const { data: idCheck } = await adminDb
     .from('saved_kundlis')
-    .select('id, life_domains:planet_data->analysis->life_domains');
-  const idsToMigrate = (idCheck || []).filter(k => !k.life_domains).slice(0, BATCH_SIZE).map(k => k.id);
+    .select('id, life_domains:planet_data->analysis->life_domains, annual_timeline:planet_data->analysis->annual_timeline');
+  const idsToMigrate = (idCheck || []).filter(k => !k.life_domains || !k.annual_timeline).slice(0, BATCH_SIZE).map(k => k.id);
 
   if (idsToMigrate.length === 0) {
     return Response.json({ processed: 0, results: [] });

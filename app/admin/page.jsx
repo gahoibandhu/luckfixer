@@ -419,14 +419,17 @@ export default function AdminPage() {
             <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'0 0 1.5rem' }}>✓ सभी कुंडलियां up-to-date हैं (lagna/houses/event-scores सहित)</p>
           )}
 
-          {/* life_domains backfill — DOES call the AI (unlike the
-              migration above), so it's batch-processed with a small
-              per-request limit. "पूरा Migrate करें" auto-loops through
-              all batches with a short pause between each. */}
+          {/* Backfill for BOTH life_domains AND annual_timeline (new
+              birthday-bound transit periods) — one AI call fills both
+              at once for a kundli missing either. DOES call the AI
+              (unlike the migration above), so it's batch-processed
+              with a small per-request limit. "पूरा Migrate करें"
+              auto-loops through all batches with a short pause between
+              each. */}
           {lifeDomainsStatus && lifeDomainsStatus.remaining > 0 && (
             <div style={{ background:'var(--color-background-info)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1rem 1.25rem', marginBottom:'1.5rem' }}>
               <p style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-info)', margin:'0 0 6px' }}>
-                📖 {lifeDomainsStatus.remaining} कुंडलियां नए Vishleshan format (life_domains) के बिना हैं
+                📖 {lifeDomainsStatus.remaining} कुंडलियां नए Vishleshan format (life_domains / वार्षिक Faladesh) के बिना हैं
               </p>
               <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 10px' }}>
                 यह AI दोबारा call करता है (हर कुंडली के लिए) — इसलिए {5}-{5} के batch में चलता है। "पूरा Migrate करें" अपने आप सभी batches चला देगा।
@@ -450,7 +453,7 @@ export default function AdminPage() {
             </div>
           )}
           {lifeDomainsStatus && lifeDomainsStatus.remaining === 0 && (
-            <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'0 0 1.5rem' }}>✓ सभी कुंडलियां नए Vishleshan format (life_domains) के साथ up-to-date हैं</p>
+            <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'0 0 1.5rem' }}>✓ सभी कुंडलियां नए Vishleshan format (life_domains / वार्षिक Faladesh) के साथ up-to-date हैं</p>
           )}
 
           <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>हाल के Users</p>

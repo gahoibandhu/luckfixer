@@ -218,18 +218,38 @@ function VarshikTab({ varshaphal, annualTimeline, annualTransitPeriods }) {
 
 // ── मासिक (Monthly) tab — Mudda Dasha — deliberately BRIEF, one line
 // per month (a short nature-tag), unlike the yearly tab's depth.
+const HINDI_MONTHS = ['जनवरी','फरवरी','मार्च','अप्रैल','मई','जून','जुलाई','अगस्त','सितंबर','अक्टूबर','नवंबर','दिसंबर'];
+
+// ── मासिक (Monthly) tab — CURRENT CALENDAR MONTH ONLY. `muddaDasha`
+// holds the full birthday-to-birthday year's dasha-lord periods
+// (variable length, not calendar-month aligned) — this filters that
+// list down to whichever period(s) overlap the current calendar month,
+// since a dasha change can fall mid-month and split it into two.
 function MasikTab({ varshaphal }) {
   const mudda = varshaphal?.muddaDasha;
   if (!mudda || mudda.length === 0) return <EmptyNote text="मासिक फलादेश उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं।" />;
-  const today = new Date().toISOString().slice(0, 10);
+
+  const today = new Date();
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const todayStr = today.toISOString().slice(0, 10);
+
+  const thisMonth = mudda.filter(m => m.start <= monthEnd && m.end >= monthStart);
+
+  if (thisMonth.length === 0) {
+    return <EmptyNote text="इस महीने का डेटा उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं।" />;
+  }
 
   return (
     <div>
-      <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginBottom: '12px' }}>
-        इस वर्ष के महीने-दर-महीने ग्रह-स्वामी (मुद्दा दशा) — संक्षेप में।
+      <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--color-text-primary)', marginBottom: '4px' }}>
+        {HINDI_MONTHS[today.getMonth()]} {today.getFullYear()}
       </p>
-      {mudda.map((m, i) => {
-        const isCurrent = m.start <= today && m.end >= today;
+      <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginBottom: '12px' }}>
+        इस महीने का ग्रह-स्वामी (मुद्दा दशा) — संक्षेप में।
+      </p>
+      {thisMonth.map((m, i) => {
+        const isCurrent = m.start <= todayStr && m.end >= todayStr;
         const nature = PLANET_NATURE[m.planet] || { label: 'सामान्य महीना', color: 'var(--color-text-tertiary)' };
         return (
           <div key={i} style={{
@@ -244,11 +264,17 @@ function MasikTab({ varshaphal }) {
           </div>
         );
       })}
+      {thisMonth.length > 1 && (
+        <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginTop: '8px' }}>
+          इस महीने ग्रह-स्वामी बदलता है, इसलिए दो अवधियाँ दिख रही हैं।
+        </p>
+      )}
     </div>
   );
 }
 
-// ── साप्ताहिक (Weekly) tab — deliberately BRIEF, one line per day ──
+// ── साप्ताहिक (Weekly) tab — brief, but with the actual prediction
+// text for each day (nakshatraNote / dayNote), not just labels.
 function SaptahikTab({ saptahikPhal }) {
   if (!saptahikPhal?.days) return <EmptyNote text="साप्ताहिक फलादेश उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं।" />;
   const today = new Date().toISOString().slice(0, 10);
@@ -256,22 +282,28 @@ function SaptahikTab({ saptahikPhal }) {
   return (
     <div>
       <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginBottom: '12px' }}>
-        चंद्रमा के वास्तविक नक्षत्र-गोचर पर आधारित — संक्षेप में, दिन-दर-दिन।
+        चंद्रमा के वास्तविक नक्षत्र-गोचर पर आधारित — दिन-दर-दिन।
       </p>
-      {saptahikPhal.days.map((d, i) => {
-        const isToday = d.date === today;
-        return (
-          <div key={i} style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '8px 12px', borderRadius: '8px', marginBottom: '6px',
-            background: isToday ? 'var(--color-brand-light)' : 'var(--color-background-secondary)',
-            border: isToday ? '1px solid var(--color-brand)' : 'none',
-          }}>
-            <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)', flexShrink: 0, width: '70px' }}>{d.dayName} {isToday && '(आज)'}</span>
-            <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', flex: 1, textAlign: 'center' }}>🌙 {d.nakshatra} · ☀️ {d.dayLord}</span>
-          </div>
-        );
-      })}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {saptahikPhal.days.map((d, i) => {
+          const isToday = d.date === today;
+          return (
+            <div key={i} style={{
+              padding: '10px 12px', borderRadius: '10px',
+              background: isToday ? 'var(--color-brand-light)' : 'var(--color-background-secondary)',
+              border: isToday ? '1px solid var(--color-brand)' : 'none',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{d.dayName} {isToday && '(आज)'}</span>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>🌙 {d.nakshatra} · ☀️ {d.dayLord}</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.6', color: 'var(--color-text-secondary)' }}>
+                {d.nakshatraNote}{d.dayNote ? ` — ${d.dayNote}` : ''}
+              </p>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
