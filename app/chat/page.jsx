@@ -848,7 +848,9 @@ export default function ChatPage() {
                 </div>
                 {geoError && <p style={{ fontSize:'12px', color:'var(--color-text-danger)', margin:0 }}>{geoError}</p>}
                 <button type="submit" disabled={savingKundli} style={{ padding:'11px', background:'var(--color-brand)', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'14px', fontWeight:'500', marginTop:'4px' }}>
-                  {savingKundli ? 'कुंडली बन रही है...' : 'शुरू करें →'}
+                  {savingKundli
+                    ? <>कुंडली बन रही है<span className="lf-loading-dots"><span/><span/><span/></span></>
+                    : 'शुरू करें →'}
                 </button>
                 <button type="button" onClick={() => setAddKundliOpen(false)} style={{ background:'none', border:'none', color:'var(--color-text-tertiary)', fontSize:'12px', cursor:'pointer', padding:0 }}>← रद्द करें</button>
               </form>

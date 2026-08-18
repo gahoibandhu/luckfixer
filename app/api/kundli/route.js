@@ -12,7 +12,7 @@ import { detectYogas, formatYogasForPrompt } from '@/lib/yogas';
 import { buildAshtakavarga, formatAVForPrompt } from '@/lib/ashtakavarga';
 import { buildNakshatraSheet, formatNakshatraForPrompt } from '@/lib/nakshatra';
 import { buildVarshaphal, formatVarshaphalForPrompt } from '@/lib/varshaphal';
-import { buildGocharPhalTimeline, formatGocharPhalForPrompt } from '@/lib/gochar-phal';
+import { buildGocharPhalTimeline, formatGocharPhalForPrompt, buildAnnualTransitPeriods, formatAnnualTransitPeriodsForPrompt } from '@/lib/gochar-phal';
 import { buildSaptahikPhal } from '@/lib/saptahik-phal';
 import { RAM_SHALAKA_ANSWERS } from '@/lib/ram-shalaka';
 import { buildAnalysisSystemPrompt, buildAnalysisUserPrompt } from '@/lib/kundli-analysis-prompt';
@@ -89,11 +89,12 @@ export async function POST(req) {
   const nakshatra   = buildNakshatraSheet(factSheet.planets, factSheet.lagna?.sign);
   const varshaphal  = buildVarshaphal(factSheet, dob);
   const gocharPhal  = buildGocharPhalTimeline(moon?.sign, ayanamsa);
+  const annualTransitPeriods = buildAnnualTransitPeriods(moon?.sign, ayanamsa, varshaphal?.solarReturnDate);
   const saptahikPhal = buildSaptahikPhal(ayanamsa);
 
   // ── AI layer: interpret the fact-sheet, do NOT recompute positions ────
   const systemPrompt = buildAnalysisSystemPrompt();
-  const userPrompt = buildAnalysisUserPrompt({ full_name, dob, birth_time, birth_place, ayanamsa, factSheet, numerology, vimshottari, specialist, jaimini, crossVal, yogas, ashtakavarga, nakshatra, varshaphal, gocharPhal, transit, gender });
+  const userPrompt = buildAnalysisUserPrompt({ full_name, dob, birth_time, birth_place, ayanamsa, factSheet, numerology, vimshottari, specialist, jaimini, crossVal, yogas, ashtakavarga, nakshatra, varshaphal, gocharPhal, annualTransitPeriods, transit, gender });
 
   const aiResult = await getLuckfixerResponse(systemPrompt, userPrompt, true);
 
@@ -140,6 +141,7 @@ export async function POST(req) {
       varshaphal,
       transitSnapshot: transit,
       gocharPhal,
+      annualTransitPeriods,
       saptahikPhal,
       analysis: aiResult.content,
       closingVerse,
@@ -213,10 +215,11 @@ export async function PATCH(req) {
   const nakshatra   = buildNakshatraSheet(factSheet.planets, factSheet.lagna?.sign);
   const varshaphal  = buildVarshaphal(factSheet, dob);
   const gocharPhal  = buildGocharPhalTimeline(moon?.sign, ayanamsa);
+  const annualTransitPeriods = buildAnnualTransitPeriods(moon?.sign, ayanamsa, varshaphal?.solarReturnDate);
   const saptahikPhal = buildSaptahikPhal(ayanamsa);
 
   const systemPrompt = buildAnalysisSystemPrompt();
-  const userPrompt = buildAnalysisUserPrompt({ full_name, dob, birth_time, birth_place: existing.birth_place, ayanamsa, factSheet, numerology, vimshottari, specialist, jaimini, crossVal, yogas, ashtakavarga, nakshatra, varshaphal, gocharPhal, transit, gender });
+  const userPrompt = buildAnalysisUserPrompt({ full_name, dob, birth_time, birth_place: existing.birth_place, ayanamsa, factSheet, numerology, vimshottari, specialist, jaimini, crossVal, yogas, ashtakavarga, nakshatra, varshaphal, gocharPhal, annualTransitPeriods, transit, gender });
 
   const aiResult = await getLuckfixerResponse(systemPrompt, userPrompt, true);
 
@@ -236,6 +239,7 @@ export async function PATCH(req) {
       crossValidation: crossVal, yogas, ashtakavarga, nakshatra, varshaphal,
       transitSnapshot: transit,
       gocharPhal,
+      annualTransitPeriods,
       saptahikPhal,
       analysis: aiResult.content,
       closingVerse,

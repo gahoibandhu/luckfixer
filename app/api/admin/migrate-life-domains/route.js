@@ -20,7 +20,7 @@ import { detectYogas } from '@/lib/yogas';
 import { buildAshtakavarga } from '@/lib/ashtakavarga';
 import { buildNakshatraSheet } from '@/lib/nakshatra';
 import { buildVarshaphal } from '@/lib/varshaphal';
-import { buildGocharPhalTimeline } from '@/lib/gochar-phal';
+import { buildGocharPhalTimeline, buildAnnualTransitPeriods } from '@/lib/gochar-phal';
 import { buildSaptahikPhal } from '@/lib/saptahik-phal';
 import { getLuckfixerResponse } from '@/lib/ai-engine';
 import { RAM_SHALAKA_ANSWERS } from '@/lib/ram-shalaka';
@@ -98,10 +98,11 @@ export async function POST() {
       const nakshatra   = buildNakshatraSheet(factSheet.planets, factSheet.lagna?.sign);
       const varshaphal  = buildVarshaphal(factSheet, dob);
       const gocharPhal  = buildGocharPhalTimeline(moon?.sign, ayanamsa);
+      const annualTransitPeriods = buildAnnualTransitPeriods(moon?.sign, ayanamsa, varshaphal?.solarReturnDate);
       const saptahikPhal = buildSaptahikPhal(ayanamsa);
 
       const systemPrompt = buildAnalysisSystemPrompt();
-      const userPrompt = buildAnalysisUserPrompt({ full_name, dob, birth_time, birth_place, ayanamsa, factSheet, numerology, vimshottari, specialist, jaimini, crossVal, yogas, ashtakavarga, nakshatra, varshaphal, gocharPhal, transit, gender });
+      const userPrompt = buildAnalysisUserPrompt({ full_name, dob, birth_time, birth_place, ayanamsa, factSheet, numerology, vimshottari, specialist, jaimini, crossVal, yogas, ashtakavarga, nakshatra, varshaphal, gocharPhal, annualTransitPeriods, transit, gender });
 
       const aiResult = await getLuckfixerResponse(systemPrompt, userPrompt, true);
 
@@ -117,7 +118,7 @@ export async function POST() {
       await adminDb.from('saved_kundlis').update({
         planet_data: {
           planets: factSheet.planets, factSheet, numerology, vimshottari, specialist, jaimini,
-          crossValidation: crossVal, yogas, ashtakavarga, nakshatra, varshaphal, gocharPhal, saptahikPhal,
+          crossValidation: crossVal, yogas, ashtakavarga, nakshatra, varshaphal, gocharPhal, annualTransitPeriods, saptahikPhal,
           transitSnapshot: transit, analysis: aiResult.content, closingVerse,
         },
         luck_score: aiResult.content.metric_score || 50,

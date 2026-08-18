@@ -361,7 +361,9 @@ export default function ProfilePage() {
                   </button>
                   <button type="submit" disabled={analyzing || !newK.latitude || !newK.longitude}
                     style={{ flex:1, padding:'12px', background: (analyzing || !newK.latitude) ? 'var(--color-border-tertiary)' : 'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'10px', cursor: (analyzing || !newK.latitude) ? 'default' : 'pointer', fontSize:'14px', fontWeight:'500' }}>
-                    {analyzing ? '✨ कुंडली बन रही है...' : 'कुंडली बनाएं →'}
+                    {analyzing
+                      ? <>✨ कुंडली बन रही है<span className="lf-loading-dots"><span/><span/><span/></span></>
+                      : 'कुंडली बनाएं →'}
                   </button>
                 </div>
               </div>

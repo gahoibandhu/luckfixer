@@ -223,6 +223,26 @@ button:active { transform: scale(0.98); }
 .lf-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
 .lf-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
 
+/* ── Inline loading dots (buttons/labels mid-action) ─────────
+   Uses currentColor so it matches whatever text color the button
+   already has, unlike .lf-thinking-dot which is hardcoded to the
+   brand color for chat bubbles. */
+.lf-loading-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.lf-loading-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: lf-dot 1.4s ease-in-out infinite;
+}
+.lf-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.lf-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
 /* ── Skeleton loading ─────────────────────────────────────── */
 .lf-skeleton {
   background: linear-gradient(90deg,

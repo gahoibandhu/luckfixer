@@ -49,12 +49,16 @@ export default function DateOfBirthInput({ value, onChange, required, style }) {
 
   function handleTextChange(raw) {
     // Auto-insert slashes as the person types digits: "15031984" -> "15/03/1984"
-    let cleaned = raw.replace(/[^\d/]/g, '');
-    const digitsOnly = cleaned.replace(/\//g, '');
-    if (!raw.includes('/') && digitsOnly.length > 2) {
-      cleaned = digitsOnly.length <= 4
-        ? `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2)}`
-        : `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2, 4)}/${digitsOnly.slice(4, 8)}`;
+    // Rebuilt from the raw digit count every keystroke (rather than only
+    // when no "/" exists yet) — otherwise, once the day/month slash was
+    // auto-inserted, `raw` already contained a "/" and the month/year
+    // slash would never get inserted automatically.
+    const digitsOnly = raw.replace(/\D/g, '').slice(0, 8);
+    let cleaned = digitsOnly;
+    if (digitsOnly.length > 4) {
+      cleaned = `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2, 4)}/${digitsOnly.slice(4, 8)}`;
+    } else if (digitsOnly.length > 2) {
+      cleaned = `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2, 4)}`;
     }
     setText(cleaned);
 

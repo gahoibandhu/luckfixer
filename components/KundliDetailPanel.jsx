@@ -115,27 +115,103 @@ function EmptyNote({ text }) {
 const PLANET_NATURE = { Jupiter: { label: 'शुभ महीना', color: 'var(--color-text-success)' }, Venus: { label: 'शुभ महीना', color: 'var(--color-text-success)' }, Mercury: { label: 'सामान्य महीना', color: 'var(--color-text-tertiary)' }, Moon: { label: 'सामान्य महीना', color: 'var(--color-text-tertiary)' }, Sun: { label: 'सामान्य महीना', color: 'var(--color-text-tertiary)' }, Mars: { label: 'सतर्कता का महीना', color: 'var(--color-text-warning)' }, Saturn: { label: 'सतर्कता का महीना', color: 'var(--color-text-warning)' }, Rahu: { label: 'सतर्कता का महीना', color: 'var(--color-text-warning)' }, Ketu: { label: 'सतर्कता का महीना', color: 'var(--color-text-warning)' } };
 
 // ── वार्षिक (Yearly) tab — the one place with real narrative depth ──
-function VarshikTab({ varshaphal, yearlyForecast }) {
+//
+// New structure: birthday-to-birthday "annual_timeline" (core theme +
+// opening context + one descriptive card per REAL transit-bounded
+// period from annualTransitPeriods + category-wise golden/caution
+// highlights) — replaces the old single-paragraph yearly_forecast.
+// Old kundlis (pre-migration) only have the old string field, so this
+// falls back to that plus the deterministic varshaphal.yearPrediction
+// when annual_timeline isn't present yet.
+const CATEGORY_META = [
+  ['career', 'करियर'],
+  ['financial', 'धन'],
+  ['relationships', 'रिश्ते'],
+  ['health', 'स्वास्थ्य'],
+];
+
+function VarshikTab({ varshaphal, annualTimeline, annualTransitPeriods }) {
   if (!varshaphal) return <EmptyNote text="वार्षिक फलादेश उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं।" />;
+
+  const today = new Date().toISOString().slice(0, 10);
+  // Positional pairing: annualTimeline.periods[i].narrative goes with
+  // annualTransitPeriods[i]'s dates/houses (see prompt contract).
+  const periods = (annualTransitPeriods || []).map((p, i) => ({
+    ...p,
+    narrative: annualTimeline?.periods?.[i]?.narrative,
+  }));
+
   return (
     <div>
       <div style={{ textAlign: 'center', marginBottom: '16px', padding: '14px', background: 'var(--color-background-secondary)', borderRadius: '10px' }}>
-        <p style={{ margin: '0 0 4px', fontSize: '12px', color: 'var(--color-text-tertiary)' }}>वर्षेश (साल के स्वामी)</p>
+        <p style={{ margin: '0 0 4px', fontSize: '12px', color: 'var(--color-text-tertiary)' }}>{varshaphal.period || 'वर्षेश (साल के स्वामी)'}</p>
         <p style={{ margin: 0, fontSize: '18px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{varshaphal.varshesh?.planetHi}</p>
+        {annualTimeline?.core_theme && (
+          <p style={{ margin: '8px 0 0', fontSize: '13px', color: 'var(--color-text-primary)', fontStyle: 'italic' }}>{annualTimeline.core_theme}</p>
+        )}
       </div>
-      {yearlyForecast && (
-        <p style={{ fontSize: '13px', lineHeight: '1.85', color: 'var(--color-text-primary)', marginBottom: '18px' }}>{yearlyForecast}</p>
+
+      {annualTimeline?.opening_context && (
+        <p style={{ fontSize: '13px', lineHeight: '1.85', color: 'var(--color-text-primary)', marginBottom: '18px' }}>{annualTimeline.opening_context}</p>
       )}
-      {!yearlyForecast && varshaphal.yearPrediction && (
+
+      {/* Fallback for kundlis analyzed before this format existed */}
+      {!annualTimeline && varshaphal.yearPrediction && (
         <p style={{ fontSize: '13px', lineHeight: '1.75', color: 'var(--color-text-primary)', marginBottom: '16px' }}>{varshaphal.yearPrediction}</p>
       )}
-      <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 8px' }}>क्षेत्र अनुसार</p>
-      {varshaphal.areas?.map((a, i) => (
-        <div key={i} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: i < varshaphal.areas.length - 1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
-          <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{a.area}</p>
-          <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-secondary)' }}>{a.note}</p>
-        </div>
-      ))}
+
+      {periods.length > 0 && (
+        <>
+          <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 10px' }}>इस साल की चरण-दर-चरण कहानी</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+            {periods.map((p, i) => {
+              const isCurrent = p.start <= today && p.end >= today;
+              return (
+                <div key={i} style={{
+                  padding: '12px 14px', borderRadius: '10px',
+                  background: isCurrent ? 'var(--color-brand-light)' : 'var(--color-background-secondary)',
+                  border: isCurrent ? '1px solid var(--color-brand)' : 'none',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px', flexWrap: 'wrap', gap: '4px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                      {p.planets?.map(pl => `${pl.planetHi} ${pl.house}वें भाव में`).join(' · ')} {isCurrent && '(अभी)'}
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{p.start} – {p.end}</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.75', color: 'var(--color-text-secondary)' }}>
+                    {p.narrative || 'इस अवधि का विस्तृत विवरण उपलब्ध नहीं — पुनः विश्लेषण करें।'}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {annualTimeline?.category_highlights && (
+        <>
+          <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 8px' }}>क्षेत्र अनुसार — पूरे साल में</p>
+          {CATEGORY_META.map(([key, label]) => annualTimeline.category_highlights[key] && (
+            <div key={key} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
+              <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{label}</p>
+              <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.6', color: 'var(--color-text-secondary)' }}>{annualTimeline.category_highlights[key]}</p>
+            </div>
+          ))}
+        </>
+      )}
+
+      {/* Fallback for kundlis analyzed before this format existed */}
+      {!annualTimeline && (
+        <>
+          <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 8px' }}>क्षेत्र अनुसार</p>
+          {varshaphal.areas?.map((a, i) => (
+            <div key={i} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: i < varshaphal.areas.length - 1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
+              <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{a.area}</p>
+              <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-secondary)' }}>{a.note}</p>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -223,6 +299,8 @@ export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 
   const gocharPhal = kundli.planet_data?.gocharPhal || [];
   const varshaphal = kundli.planet_data?.varshaphal;
   const saptahikPhal = kundli.planet_data?.saptahikPhal;
+  const annualTransitPeriods = kundli.planet_data?.annualTransitPeriods || [];
+  const annualTimeline = a?.annual_timeline;
 
   return (
     <>
@@ -322,7 +400,7 @@ export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 
             </>
           )}
 
-          {tab === 'varshik' && <VarshikTab varshaphal={varshaphal} yearlyForecast={a?.yearly_forecast} />}
+          {tab === 'varshik' && <VarshikTab varshaphal={varshaphal} annualTimeline={annualTimeline} annualTransitPeriods={annualTransitPeriods} />}
           {tab === 'masik' && <MasikTab varshaphal={varshaphal} />}
           {tab === 'saptahik' && <SaptahikTab saptahikPhal={saptahikPhal} />}
         </div>
