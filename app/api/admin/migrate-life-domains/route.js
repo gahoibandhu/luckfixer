@@ -100,7 +100,7 @@ export async function POST() {
       const varshaphal  = buildVarshaphal(factSheet, dob);
       const gocharPhal  = buildGocharPhalTimeline(moon?.sign, ayanamsa);
       const annualTransitPeriods = buildAnnualTransitPeriods(moon?.sign, ayanamsa, varshaphal?.solarReturnDate);
-      const saptahikPhal = buildSaptahikPhal(ayanamsa);
+      const saptahikPhal = buildSaptahikPhal(ayanamsa, factSheet?.weakestPlanet?.planet);
 
       const systemPrompt = buildAnalysisSystemPrompt();
       const userPrompt = buildAnalysisUserPrompt({ full_name, dob, birth_time, birth_place, ayanamsa, factSheet, numerology, vimshottari, specialist, jaimini, crossVal, yogas, ashtakavarga, nakshatra, varshaphal, gocharPhal, annualTransitPeriods, transit, gender });

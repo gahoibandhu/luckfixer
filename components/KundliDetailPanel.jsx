@@ -16,6 +16,7 @@
 // than a separate boxed section.
 
 import { useState, useEffect } from 'react';
+import { formatDateDDMMYYYY as fmtDate } from '@/lib/date-format';
 
 const LIFE_DOMAIN_LABELS = [
   ['character', 'चरित्र'],
@@ -93,7 +94,7 @@ function GocharPhalTimeline({ timeline }) {
                 <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
                   {p.planetHi} — {p.house}वें भाव में {isCurrent && '(अभी)'}
                 </span>
-                <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{p.start} – {p.end}</span>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{fmtDate(p.start)} – {fmtDate(p.end)}</span>
               </div>
               <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.6', color: 'var(--color-text-secondary)' }}>{p.text}</p>
             </div>
@@ -176,7 +177,7 @@ function VarshikTab({ varshaphal, annualTimeline, annualTransitPeriods }) {
                     <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
                       {p.planets?.map(pl => `${pl.planetHi} ${pl.house}वें भाव में`).join(' · ')} {isCurrent && '(अभी)'}
                     </span>
-                    <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{p.start} – {p.end}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{fmtDate(p.start)} – {fmtDate(p.end)}</span>
                   </div>
                   <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.75', color: 'var(--color-text-secondary)' }}>
                     {p.narrative || 'इस अवधि का विस्तृत विवरण उपलब्ध नहीं — पुनः विश्लेषण करें।'}
@@ -253,14 +254,23 @@ function MasikTab({ varshaphal }) {
         const nature = PLANET_NATURE[m.planet] || { label: 'सामान्य महीना', color: 'var(--color-text-tertiary)' };
         return (
           <div key={i} style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '8px 12px', borderRadius: '8px', marginBottom: '6px',
+            padding: '10px 12px', borderRadius: '10px', marginBottom: '8px',
             background: isCurrent ? 'var(--color-brand-light)' : 'var(--color-background-secondary)',
             border: isCurrent ? '1px solid var(--color-brand)' : 'none',
           }}>
-            <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{m.planetHi} {isCurrent && '(अभी)'}</span>
-            <span style={{ fontSize: '11px', color: nature.color }}>{nature.label}</span>
-            <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>{m.start} – {m.end}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{m.planetHi} {isCurrent && '(अभी)'}</span>
+              <span style={{ fontSize: '11px', color: nature.color }}>{nature.label}</span>
+            </div>
+            <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>{fmtDate(m.start)} – {fmtDate(m.end)}</span>
+            {m.text && (
+              <p style={{ margin: '6px 0 0', fontSize: '12px', lineHeight: '1.65', color: 'var(--color-text-secondary)' }}>{m.text}</p>
+            )}
+            {m.remedy && (
+              <p style={{ margin: '8px 0 0', fontSize: '12px', lineHeight: '1.6', color: 'var(--color-text-primary)', background: 'var(--color-background-primary)', borderRadius: '8px', padding: '8px 10px' }}>
+                <strong>उपाय:</strong> {m.remedy}
+              </p>
+            )}
           </div>
         );
       })}
@@ -282,7 +292,7 @@ function SaptahikTab({ saptahikPhal }) {
   return (
     <div>
       <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginBottom: '12px' }}>
-        चंद्रमा के वास्तविक नक्षत्र-गोचर पर आधारित — दिन-दर-दिन।
+        चंद्रमा के वास्तविक नक्षत्र-गोचर पर आधारित — दिन-दर-दिन ({fmtDate(saptahikPhal.weekStart)} – {fmtDate(saptahikPhal.weekEnd)})।
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {saptahikPhal.days.map((d, i) => {
@@ -294,16 +304,23 @@ function SaptahikTab({ saptahikPhal }) {
               border: isToday ? '1px solid var(--color-brand)' : 'none',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{d.dayName} {isToday && '(आज)'}</span>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{d.dayName} {isToday && '(आज)'} · {fmtDate(d.date)}</span>
                 <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>🌙 {d.nakshatra} · ☀️ {d.dayLord}</span>
               </div>
-              <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.6', color: 'var(--color-text-secondary)' }}>
-                {d.nakshatraNote}{d.dayNote ? ` — ${d.dayNote}` : ''}
+              <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.65', color: 'var(--color-text-secondary)' }}>
+                {d.combinedNote || `${d.nakshatraNote}${d.dayNote ? ` — ${d.dayNote}` : ''}`}
               </p>
             </div>
           );
         })}
       </div>
+
+      {saptahikPhal.remedy && (
+        <div style={{ marginTop: '14px', padding: '12px 14px', borderRadius: '10px', background: 'var(--color-background-secondary)' }}>
+          <p style={{ margin: '0 0 4px', fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-info)' }}>इस हफ्ते का उपाय</p>
+          <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.65', color: 'var(--color-text-primary)' }}>{saptahikPhal.remedy}</p>
+        </div>
+      )}
     </div>
   );
 }
