@@ -1,7 +1,7 @@
 // app/api/kundli/route.js
 import { createClient } from '@/lib/supabase-server';
 import { getLuckfixerResponse } from '@/lib/ai-engine';
-import { buildFactSheet } from '@/lib/astro-facts';
+import { buildFactSheet, EphemerisUnavailableError } from '@/lib/astro-facts';
 import { buildNumerologySheet } from '@/lib/numerology';
 import { calcVimshottari } from '@/lib/vimshottari';
 import { buildSpecialistInsights } from '@/lib/specialist-rules';
@@ -73,10 +73,26 @@ export async function POST(req) {
   if (!full_name || !dob || !birth_time || !latitude || !longitude) {
     return Response.json({ error: 'Missing required fields' }, { status: 400 });
   }
+  if (!gender || !['male', 'female', 'other'].includes(gender)) {
+    return Response.json({ error: 'लिंग चुनना ज़रूरी है (male/female/other)' }, { status: 400 });
+  }
 
   // ── Deterministic core: compute the fact-sheet (exaltation, own-sign, ──
   // Vargottama, planetary war, dasha hint, remedial windows, etc.)
-  const factSheet = await buildFactSheet(dob, birth_time, parseFloat(latitude), parseFloat(longitude), ayanamsa);
+  // PREDICTION INTEGRITY: buildFactSheet throws EphemerisUnavailableError
+  // instead of silently falling back to fabricated planetary positions —
+  // caught here so we return an honest "try again" instead of saving (and
+  // later narrating) a kundli built on fake data. See astro-facts.js.
+  let factSheet;
+  try {
+    factSheet = await buildFactSheet(dob, birth_time, parseFloat(latitude), parseFloat(longitude), ayanamsa);
+  } catch (e) {
+    if (e instanceof EphemerisUnavailableError) {
+      console.error('[Kundli] Ephemeris unavailable, refusing to save degraded kundli:', e.attempts);
+      return Response.json({ error: e.message, retryable: true }, { status: 503 });
+    }
+    throw e;
+  }
   const numerology = buildNumerologySheet(full_name, dob);
   const moon = factSheet.planets.find(p => p.name === 'Moon');
   const vimshottari = moon ? calcVimshottari(moon.degree, dob) : null;
@@ -202,7 +218,16 @@ export async function PATCH(req) {
 
   const { full_name, dob, birth_time, latitude, longitude, ayanamsa, gender } = existing;
 
-  const factSheet = await buildFactSheet(dob, birth_time, latitude, longitude, ayanamsa);
+  let factSheet;
+  try {
+    factSheet = await buildFactSheet(dob, birth_time, latitude, longitude, ayanamsa);
+  } catch (e) {
+    if (e instanceof EphemerisUnavailableError) {
+      console.error('[Kundli PATCH] Ephemeris unavailable, keeping existing analysis untouched:', e.attempts);
+      return Response.json({ error: e.message, retryable: true }, { status: 503 });
+    }
+    throw e;
+  }
   const numerology = buildNumerologySheet(full_name, dob);
   const moon = factSheet.planets.find(p => p.name === 'Moon');
   const vimshottari = moon ? calcVimshottari(moon.degree, dob) : null;

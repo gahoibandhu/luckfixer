@@ -143,6 +143,11 @@ export default function ProfilePage() {
 
   async function addKundli(e) {
     e.preventDefault();
+    if (!newK.gender) {
+      setGeoError('कृपया लिंग चुनें — बेहतर विश्लेषण और संबोधन के लिए ज़रूरी है');
+      setWizardStep(1);
+      return;
+    }
     if (!newK.latitude || !newK.longitude) {
       setGeoError('कृपया जन्म स्थान डालकर बाहर क्लिक करें, या Latitude/Longitude खुद भरें');
       return;
@@ -264,11 +269,11 @@ export default function ProfilePage() {
                   <DateOfBirthInput value={newK.dob} onChange={dob => setNewK(k => ({...k, dob}))} style={{ fontSize:'15px' }}/>
                 </div>
                 <div>
-                  <label className="lf-label">लिंग (वैकल्पिक — बेहतर संबोधन के लिए)</label>
+                  <label className="lf-label">लिंग *</label>
                   <div style={{ display:'flex', gap:'8px' }}>
                     {[['male','पुरुष'],['female','महिला'],['other','अन्य']].map(([val, label]) => (
                       <button key={val} type="button"
-                        onClick={() => setNewK(k => ({...k, gender: k.gender === val ? '' : val}))}
+                        onClick={() => setNewK(k => ({...k, gender: val}))}
                         style={{
                           flex:1, padding:'9px', fontSize:'13px', borderRadius:'8px', cursor:'pointer',
                           border: `1px solid ${newK.gender === val ? 'var(--color-brand)' : 'var(--color-border-tertiary)'}`,
@@ -279,11 +284,12 @@ export default function ProfilePage() {
                       </button>
                     ))}
                   </div>
+                  <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'4px 0 0' }}>संबोधन (bhai/ji) और कुछ विश्लेषण के लिए ज़रूरी है।</p>
                 </div>
                 <button type="button"
-                  disabled={!newK.full_name.trim() || !newK.dob}
+                  disabled={!newK.full_name.trim() || !newK.dob || !newK.gender}
                   onClick={() => setWizardStep(2)}
-                  style={{ padding:'12px', background: (!newK.full_name.trim() || !newK.dob) ? 'var(--color-border-tertiary)' : 'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'10px', cursor: (!newK.full_name.trim() || !newK.dob) ? 'default' : 'pointer', fontSize:'14px', fontWeight:'500', marginTop:'6px' }}>
+                  style={{ padding:'12px', background: (!newK.full_name.trim() || !newK.dob || !newK.gender) ? 'var(--color-border-tertiary)' : 'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'10px', cursor: (!newK.full_name.trim() || !newK.dob || !newK.gender) ? 'default' : 'pointer', fontSize:'14px', fontWeight:'500', marginTop:'6px' }}>
                   आगे बढ़ें →
                 </button>
               </div>
@@ -391,6 +397,9 @@ export default function ProfilePage() {
             <div style={{ flex:1, minWidth:0 }}>
               <p style={{ fontWeight:'500', fontSize:'15px', margin:'0 0 2px', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.label || k.full_name}</p>
               <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>{k.dob} · {k.birth_place}</p>
+              {!k.gender && (
+                <GenderBackfillPrompt kundliId={k.id} onSet={gender => setKundlis(list => list.map(x => x.id === k.id ? { ...x, gender } : x))} />
+              )}
               {k.planet_data?.yogas?.filter(y => !y.isChallenging)?.length > 0 && (
                 <span
                   onClick={() => setExpandedKundli(expanded ? null : k.id)}
@@ -691,6 +700,47 @@ function AnalysisSection({ title, color, children }) {
       <div style={{ fontSize:'13px', color:'var(--color-text-primary)', lineHeight:'1.6' }}>
         {children}
       </div>
+    </div>
+  );
+}
+
+// ── Retroactive gender backfill — for kundlis saved before gender was
+// mandatory. Cheap PATCH (see /api/kundli/set-gender), no re-analysis. ──
+function GenderBackfillPrompt({ kundliId, onSet }) {
+  const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  async function set(gender) {
+    setSaving(true);
+    const res = await fetch('/api/kundli/set-gender', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kundli_id: kundliId, gender }),
+    });
+    const data = await res.json();
+    if (data.success) onSet(gender);
+    setSaving(false);
+    setOpen(false);
+  }
+
+  if (!open) {
+    return (
+      <span
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        style={{ display:'inline-block', marginTop:'4px', fontSize:'10px', fontWeight:'500', padding:'2px 8px', borderRadius:'10px', background:'var(--color-background-warning)', color:'var(--color-text-warning)', cursor:'pointer' }}
+      >
+        ⚠ लिंग सेट करें — बेहतर संबोधन के लिए
+      </span>
+    );
+  }
+  return (
+    <div style={{ display:'flex', gap:'6px', marginTop:'4px' }} onClick={(e) => e.stopPropagation()}>
+      {[['male','पुरुष'],['female','महिला'],['other','अन्य']].map(([val, label]) => (
+        <button key={val} type="button" disabled={saving} onClick={() => set(val)}
+          style={{ padding:'3px 9px', fontSize:'11px', borderRadius:'8px', cursor: saving ? 'default' : 'pointer', border:'0.5px solid var(--color-border-secondary)', background:'var(--color-background-secondary)', color:'var(--color-text-primary)' }}>
+          {label}
+        </button>
+      ))}
     </div>
   );
 }
