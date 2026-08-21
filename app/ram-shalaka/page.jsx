@@ -5,9 +5,16 @@
 // exactly as printed in popular Ramcharitmanas editions. Pick any cell
 // (traditionally with eyes closed) — the app finds your answer using
 // the same "every 9th letter" method described in the tradition.
+//
+// Two ways to pick a cell, both landing on the exact same verified
+// data/logic (getAnswerForCell): the traditional tap-grid (original,
+// unchanged), and a spin-wheel (components/RamShalakaWheel.jsx) for
+// people who want the more playful mechanic — kept as a toggle, not a
+// replacement, so the traditional method never goes away.
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { RAM_SHALAKA_GRID, getAnswerForCell } from '@/lib/ram-shalaka';
+import RamShalakaWheel from '@/components/RamShalakaWheel';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,11 +26,13 @@ const TONE_STYLE = {
 
 export default function RamShalakaPage() {
   const router = useRouter();
+  const [mode, setMode] = useState('wheel'); // 'wheel' | 'grid'
   const [question, setQuestion] = useState('');
   const [result, setResult] = useState(null);
-  const [pickedCell, setPickedCell] = useState(null); // {row, col} — highlights the chosen letter
+  const [pickedCell, setPickedCell] = useState(null); // {row, col} — highlights the chosen letter (grid mode only)
   const [revealing, setRevealing] = useState(false);
   const [showFullChaupai, setShowFullChaupai] = useState(false);
+  const [wheelKey, setWheelKey] = useState(0); // bump to force a fresh wheel instance
 
   function pickCell(row, col) {
     if (revealing) return;
@@ -40,6 +49,7 @@ export default function RamShalakaPage() {
     setPickedCell(null);
     setQuestion('');
     setShowFullChaupai(false);
+    setWheelKey(k => k + 1); // fresh wheel spin state next time
   }
 
   return (
@@ -52,7 +62,7 @@ export default function RamShalakaPage() {
         <p style={{ fontSize: '11px', letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>श्री राम शलाका प्रश्नावली</p>
         <h1 style={{ fontSize: '22px', fontWeight: '500', color: 'var(--color-text-primary)', marginBottom: '6px' }}>रामचरितमानस से मार्गदर्शन</h1>
         <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: '1.6', maxWidth: '480px', margin: '0 auto' }}>
-          मन में अपना प्रश्न स्थिर करें, श्रीराम का स्मरण करें, और आंखें बंद करके नीचे दी सारणी में किसी भी अक्षर पर उंगली रखें।
+          मन में अपना प्रश्न स्थिर करें, श्रीराम का स्मरण करें, और {mode === 'wheel' ? 'पहिया घुमाकर रोकें' : 'आंखें बंद करके नीचे दी सारणी में किसी भी अक्षर पर उंगली रखें'}।
         </p>
       </div>
 
@@ -67,53 +77,70 @@ export default function RamShalakaPage() {
             />
           </div>
 
-          <div style={{
-            background: 'var(--color-background-primary)',
-            border: '0.5px solid var(--color-border-tertiary)',
-            borderRadius: 'var(--border-radius-lg)',
-            padding: '10px',
-            overflowX: 'auto',
-          }}>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(15, minmax(28px, 1fr))',
-              gap: '3px',
-              minWidth: '460px',
-            }}>
-              {RAM_SHALAKA_GRID.map((rowArr, r) =>
-                rowArr.map((akshar, c) => (
-                  <button
-                    key={`${r}-${c}`}
-                    onClick={() => pickCell(r, c)}
-                    disabled={revealing}
-                    style={{
-                      aspectRatio: '1',
-                      fontSize: '12px',
-                      padding: 0,
-                      borderRadius: '4px',
-                      border: pickedCell?.row === r && pickedCell?.col === c ? '1.5px solid var(--color-brand)' : '0.5px solid var(--color-border-tertiary)',
-                      background: pickedCell?.row === r && pickedCell?.col === c ? 'var(--color-brand-light)' : 'var(--color-background-secondary)',
-                      color: 'var(--color-text-primary)',
-                      cursor: revealing ? 'default' : 'pointer',
-                      transition: 'background 0.1s ease',
-                    }}
-                  >
-                    {akshar}
-                  </button>
-                ))
-              )}
-            </div>
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '1.25rem', background: 'var(--color-background-secondary)', padding: '4px', borderRadius: '10px', maxWidth: '320px', margin: '0 auto 1.25rem' }}>
+            <button onClick={() => setMode('wheel')} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '7px', fontSize: '12px', fontWeight: 500, cursor: 'pointer', background: mode === 'wheel' ? '#7a2020' : 'transparent', color: mode === 'wheel' ? '#fff' : 'var(--color-text-secondary)' }}>
+              🎡 स्पिन व्हील
+            </button>
+            <button onClick={() => setMode('grid')} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '7px', fontSize: '12px', fontWeight: 500, cursor: 'pointer', background: mode === 'grid' ? '#7a2020' : 'transparent', color: mode === 'grid' ? '#fff' : 'var(--color-text-secondary)' }}>
+              📜 परंपरागत ग्रिड
+            </button>
           </div>
 
-          {revealing && (
-            <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--color-text-tertiary)', marginTop: '1rem' }}>
-              ग्रंथ खुल रहा है...
-            </p>
+          {mode === 'wheel' && (
+            <RamShalakaWheel key={wheelKey} onResult={setResult} />
           )}
 
-          <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', textAlign: 'center', marginTop: '10px' }}>
-            15×15 = 225 अक्षरों की पारंपरिक सारणी — जैसी रामचरितमानस के प्रचलित संस्करणों में छपती है।
-          </p>
+          {mode === 'grid' && (
+            <>
+              <div style={{
+                background: 'var(--color-background-primary)',
+                border: '0.5px solid var(--color-border-tertiary)',
+                borderRadius: 'var(--border-radius-lg)',
+                padding: '10px',
+                overflowX: 'auto',
+              }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(15, minmax(28px, 1fr))',
+                  gap: '3px',
+                  minWidth: '460px',
+                }}>
+                  {RAM_SHALAKA_GRID.map((rowArr, r) =>
+                    rowArr.map((akshar, c) => (
+                      <button
+                        key={`${r}-${c}`}
+                        onClick={() => pickCell(r, c)}
+                        disabled={revealing}
+                        style={{
+                          aspectRatio: '1',
+                          fontSize: '12px',
+                          padding: 0,
+                          borderRadius: '4px',
+                          border: pickedCell?.row === r && pickedCell?.col === c ? '1.5px solid var(--color-brand)' : '0.5px solid var(--color-border-tertiary)',
+                          background: pickedCell?.row === r && pickedCell?.col === c ? 'var(--color-brand-light)' : 'var(--color-background-secondary)',
+                          color: 'var(--color-text-primary)',
+                          cursor: revealing ? 'default' : 'pointer',
+                          transition: 'background 0.1s ease',
+                        }}
+                      >
+                        {akshar}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {revealing && (
+                <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--color-text-tertiary)', marginTop: '1rem' }}>
+                  ग्रंथ खुल रहा है...
+                </p>
+              )}
+
+              <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', textAlign: 'center', marginTop: '10px' }}>
+                15×15 = 225 अक्षरों की पारंपरिक सारणी — जैसी रामचरितमानस के प्रचलित संस्करणों में छपती है।
+              </p>
+            </>
+          )}
         </>
       )}
 
