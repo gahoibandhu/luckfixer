@@ -183,7 +183,7 @@ export default function ChatPage() {
 
   // ── In-chat kundli onboarding (no redirect to /profile) ─────────
   const [addKundliOpen, setAddKundliOpen]   = useState(false);
-  const [newK,          setNewK]            = useState({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri' });
+  const [newK,          setNewK]            = useState({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'' });
   const [geocoding,     setGeocoding]       = useState(false);
   const [geoResults,    setGeoResults]      = useState([]);
   const [geoError,      setGeoError]        = useState('');
@@ -458,6 +458,7 @@ export default function ChatPage() {
   async function saveNewKundli(e) {
     e.preventDefault();
     if (!newK.full_name || !newK.dob || !newK.birth_time) { setGeoError('नाम, जन्म तिथि और समय ज़रूरी हैं'); return; }
+    if (!newK.gender) { setGeoError('लिंग चुनना ज़रूरी है'); return; }
     if (!newK.latitude || !newK.longitude) { setGeoError('कृपया जन्म स्थान खोजें, या Latitude/Longitude खुद भरें'); return; }
     setSavingKundli(true); setGeoError('');
     try {
@@ -469,7 +470,7 @@ export default function ChatPage() {
       if (data.kundli) {
         setKundlis(prev => [data.kundli, ...prev]);
         setAddKundliOpen(false);
-        setNewK({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri' });
+        setNewK({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'' });
         await selectKundli(data.kundli); // auto-select and jump straight into chat
       } else {
         setGeoError(data.error || 'कुंडली save नहीं हो पाई, दोबारा कोशिश करें');
@@ -826,6 +827,23 @@ export default function ChatPage() {
                   <input type="time" value={newK.birth_time} onChange={e => setNewK(k => ({...k, birth_time:e.target.value}))} style={{ width:'100%', fontSize:'14px' }} required/>
                 </div>
                 <div>
+                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>लिंग *</label>
+                  <div style={{ display:'flex', gap:'8px' }}>
+                    {[['male','पुरुष'],['female','महिला'],['other','अन्य']].map(([val, label]) => (
+                      <button key={val} type="button"
+                        onClick={() => setNewK(k => ({...k, gender: val}))}
+                        style={{
+                          flex:1, padding:'9px', fontSize:'13px', borderRadius:'8px', cursor:'pointer',
+                          border: `1px solid ${newK.gender === val ? 'var(--color-brand)' : 'var(--color-border-tertiary)'}`,
+                          background: newK.gender === val ? 'var(--color-brand-light)' : 'var(--color-background-primary)',
+                          color: newK.gender === val ? 'var(--color-brand)' : 'var(--color-text-secondary)',
+                        }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
                   <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म स्थान *</label>
                   <div style={{ display:'flex', gap:'8px' }}>
                     <input value={newK.birth_place} onChange={e => { setNewK(k => ({...k, birth_place:e.target.value, latitude:'', longitude:''})); setGeoResults([]); }} placeholder="जैसे: Delhi, India" style={{ flex:1, fontSize:'14px' }} required/>
@@ -847,7 +865,7 @@ export default function ChatPage() {
                   )}
                 </div>
                 {geoError && <p style={{ fontSize:'12px', color:'var(--color-text-danger)', margin:0 }}>{geoError}</p>}
-                <button type="submit" disabled={savingKundli} style={{ padding:'11px', background:'var(--color-brand)', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'14px', fontWeight:'500', marginTop:'4px' }}>
+                <button type="submit" disabled={savingKundli || !newK.gender} style={{ padding:'11px', background: !newK.gender ? 'var(--color-border-tertiary)' : 'var(--color-brand)', color:'#fff', border:'none', borderRadius:'8px', cursor: !newK.gender ? 'default' : 'pointer', fontSize:'14px', fontWeight:'500', marginTop:'4px' }}>
                   {savingKundli
                     ? <>कुंडली बन रही है<span className="lf-loading-dots"><span/><span/><span/></span></>
                     : 'शुरू करें →'}
