@@ -38,6 +38,15 @@ export default function AdminPage() {
   const [userSearch, setUserSearch] = useState('');
   const [userResults, setUserResults] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]); // [{id, email, full_name}]
+
+  // ── Migrations tab state ──────────────────────────────────
+  const [kundliList, setKundliList] = useState([]);
+  const [kundliSummary, setKundliSummary] = useState(null);
+  const [kundliListLoaded, setKundliListLoaded] = useState(false);
+  const [selectedKundliIds, setSelectedKundliIds] = useState([]);
+  const [kundliMigrating, setKundliMigrating] = useState(false);
+  const [kundliMigrateResult, setKundliMigrateResult] = useState(null);
+
   const [searchingUsers, setSearchingUsers] = useState(false);
   const [planSaving, setPlanSaving] = useState(false);
   const [planMsg, setPlanMsg] = useState('');
@@ -305,6 +314,7 @@ export default function AdminPage() {
     if (t === 'chats' && sessions.length === 0) loadSessions();
     if (t === 'demo' && demoUsers.length === 0) loadDemoUsers();
     if (t === 'broadcast' && !broadcastHistoryLoaded) loadBroadcastHistory();
+    if (t === 'migrations' && !kundliListLoaded) loadKundliList();
   }
 
   async function loadBroadcastHistory() {
@@ -313,6 +323,67 @@ export default function AdminPage() {
     setBroadcastHistory(data.history || []);
     setBroadcastHistoryLoaded(true);
   }
+
+  // ── Migrations tab ─────────────────────────────────────────
+  async function loadKundliList() {
+    const res = await fetch('/api/admin/kundlis');
+    const data = await res.json();
+    setKundliList(data.kundlis || []);
+    setKundliSummary(data);
+    setKundliListLoaded(true);
+  }
+
+  function toggleKundliSelect(id) {
+    setSelectedKundliIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  // Cheap path — offline, no AI call, only fills supportChain/remedyPlan
+  // from data already stored on each row. Does NOT fix stale
+  // varshaphal/मासिक dates (that needs the full re-analyze below).
+  async function runSupportChainMigration() {
+    setKundliMigrating(true);
+    setKundliMigrateResult(null);
+    const res = await fetch('/api/admin/migrate-support-chain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json();
+    setKundliMigrateResult({ type: 'support-chain', ...data });
+    setKundliMigrating(false);
+    loadKundliList();
+  }
+
+  // Full path — costs one AI call per kundli, fixes EVERYTHING
+  // (varshaphal date-anchoring/मासिक tab, supportChain, remedyPlan,
+  // whatever the current AI schema is) by literally re-running the
+  // whole pipeline. Batched at 25 per request (see route.js comment)
+  // so a large selection is sent in sequential chunks from here.
+  async function runFullReanalyzeBatch(ids) {
+    setKundliMigrating(true);
+    setKundliMigrateResult(null);
+    const chunks = [];
+    for (let i = 0; i < ids.length; i += 25) chunks.push(ids.slice(i, i + 25));
+
+    const combined = { succeeded: [], failed: [], retryable: [] };
+    for (const chunk of chunks) {
+      const res = await fetch('/api/admin/kundlis/reanalyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: chunk }),
+      });
+      const data = await res.json();
+      if (data.succeeded) combined.succeeded.push(...data.succeeded);
+      if (data.failed) combined.failed.push(...data.failed);
+      if (data.retryable) combined.retryable.push(...data.retryable);
+      setKundliMigrateResult({ type: 'full-reanalyze', ...combined, inProgress: true, done: combined.succeeded.length + combined.failed.length + combined.retryable.length, total: ids.length });
+    }
+    setKundliMigrateResult({ type: 'full-reanalyze', ...combined, inProgress: false });
+    setKundliMigrating(false);
+    setSelectedKundliIds([]);
+    loadKundliList();
+  }
+
 
   if (authorized === null) {
     return <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--color-text-secondary)', fontSize:'14px' }}>लोड हो रहा है...</div>;
@@ -342,6 +413,7 @@ export default function AdminPage() {
           { id:'plan',     label:'Plan Config' },
           { id:'demo',     label:'Demo Users' },
           { id:'broadcast',label:'📢 Broadcast' },
+          { id:'migrations',label:'🔄 Migrations' },
         ].map(t => (
           <button key={t.id} onClick={() => switchTab(t.id)} style={{
             padding:'8px 16px', fontSize:'14px', border:'none', background:'none', cursor:'pointer',
@@ -816,6 +888,84 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {tab === 'migrations' && (
+        <div style={{ maxWidth:'760px' }}>
+          {!kundliSummary ? (
+            <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)' }}>लोड हो रहा है...</p>
+          ) : (
+            <>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'12px', marginBottom:'1.25rem' }}>
+                <MetricCard label="कुल Kundlis" value={kundliSummary.total} />
+                <MetricCard label="Gender missing" value={kundliSummary.needsGender} />
+                <MetricCard label="Support-Chain बाकी" value={kundliSummary.needsSupportChainOnly} />
+                <MetricCard label="पूरा Rebuild चाहिए" value={kundliSummary.needsFullRebuild} />
+              </div>
+
+              <div style={{ display:'flex', gap:'10px', flexWrap:'wrap', marginBottom:'1rem' }}>
+                <button type="button" disabled={kundliMigrating || kundliSummary.needsSupportChainOnly === 0} onClick={runSupportChainMigration}
+                  style={{ padding:'9px 14px', fontSize:'13px', fontWeight:'500', borderRadius:'8px', cursor: kundliMigrating ? 'wait' : 'pointer', border:'0.5px solid var(--color-border-secondary)', background:'var(--color-background-secondary)', color:'var(--color-text-primary)', opacity: kundliSummary.needsSupportChainOnly === 0 ? 0.5 : 1 }}>
+                  ⚡ Support-Chain केवल — सभी {kundliSummary.needsSupportChainOnly} (तेज़, बिना AI cost)
+                </button>
+                <button type="button" disabled={kundliMigrating || selectedKundliIds.length === 0} onClick={() => runFullReanalyzeBatch(selectedKundliIds)}
+                  style={{ padding:'9px 14px', fontSize:'13px', fontWeight:'500', borderRadius:'8px', cursor: kundliMigrating ? 'wait' : 'pointer', border:'none', background: selectedKundliIds.length === 0 ? 'var(--color-border-tertiary)' : 'var(--color-brand)', color:'#fff' }}>
+                  {kundliMigrating ? '⏳ चल रहा है...' : `🔄 पूरा Re-analyze — चुने हुए ${selectedKundliIds.length} (मासिक/varshaphal fix सहित, AI cost लगेगी)`}
+                </button>
+              </div>
+
+              <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'0 0 1rem' }}>
+                "Support-Chain केवल" सिर्फ नए remedy/उपाय data जोड़ता है — मुफ़्त और तुरंत। "पूरा Re-analyze" हर चीज़ ताज़ा करता है (मासिक tab की तारीख़ वाली bug भी इसी से ठीक होगी) लेकिन हर कुंडली पर एक AI call लगती है, इसलिए नीचे table से चुनकर, थोड़े-थोड़े batch में चलाएं।
+              </p>
+
+              {kundliMigrateResult && (
+                <div style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'12px 14px', marginBottom:'1rem', fontSize:'12px' }}>
+                  {kundliMigrateResult.type === 'support-chain' ? (
+                    <p style={{ margin:0 }}>✓ Migrated: {kundliMigrateResult.migrated} · Skipped: {kundliMigrateResult.skipped} · Failed: {kundliMigrateResult.failed}</p>
+                  ) : (
+                    <>
+                      <p style={{ margin:'0 0 4px' }}>
+                        {kundliMigrateResult.inProgress ? `⏳ चल रहा है — ${kundliMigrateResult.done}/${kundliMigrateResult.total}` : '✓ पूरा हुआ'}
+                        {' '}· Succeeded: {kundliMigrateResult.succeeded?.length || 0} · Failed: {kundliMigrateResult.failed?.length || 0} · Retryable: {kundliMigrateResult.retryable?.length || 0}
+                      </p>
+                      {kundliMigrateResult.retryable?.length > 0 && (
+                        <p style={{ margin:'0 0 4px', color:'var(--color-text-warning)' }}>Retryable (ephemeris service अस्थायी रूप से unavailable था) — थोड़ी देर बाद इन्हीं ids को दोबारा चुनकर चलाएं: {kundliMigrateResult.retryable.map(r => r.id.slice(0,8)).join(', ')}</p>
+                      )}
+                      {kundliMigrateResult.failed?.length > 0 && (
+                        <p style={{ margin:0, color:'var(--color-text-danger)' }}>Failed: {kundliMigrateResult.failed.map(f => `${f.id.slice(0,8)} (${f.error})`).join('; ')}</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'10px', padding:'8px 14px', borderBottom:'0.5px solid var(--color-border-tertiary)', fontSize:'11px', color:'var(--color-text-tertiary)' }}>
+                  <input type="checkbox" checked={kundliList.length > 0 && selectedKundliIds.length === kundliList.length}
+                    onChange={e => setSelectedKundliIds(e.target.checked ? kundliList.map(k => k.id) : [])} />
+                  <span>सभी चुनें</span>
+                </div>
+                {kundliList.length === 0 ? (
+                  <p style={{ padding:'1rem', fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>कोई kundli नहीं</p>
+                ) : kundliList.map((k, i) => (
+                  <div key={k.id} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'8px 14px', borderBottom: i < kundliList.length-1 ? '0.5px solid var(--color-border-tertiary)' : 'none', fontSize:'12px' }}>
+                    <input type="checkbox" checked={selectedKundliIds.includes(k.id)} onChange={() => toggleKundliSelect(k.id)} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <p style={{ margin:'0 0 2px', fontWeight:'500', color:'var(--color-text-primary)' }}>{k.full_name} <span style={{ color:'var(--color-text-tertiary)', fontWeight:'400' }}>· {k.dob}</span></p>
+                      <p style={{ margin:0, color:'var(--color-text-tertiary)' }}>
+                        {k.gender ? `लिंग: ${k.gender}` : <span style={{ color:'var(--color-text-warning)' }}>लिंग missing</span>}
+                        {' · '}{k.hasLagna ? '✓ lagna' : '✗ lagna'}
+                        {' · '}{k.hasSupportChain ? '✓ support-chain' : '✗ support-chain'}
+                        {k.engineUsed && k.engineUsed !== 'pyswisseph' && <span style={{ color:'var(--color-text-warning)' }}> · engine: {k.engineUsed}</span>}
+                        {k.last_analysis && ` · last: ${new Date(k.last_analysis).toLocaleDateString('hi-IN')}`}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

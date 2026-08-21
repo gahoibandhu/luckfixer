@@ -7,6 +7,16 @@ import DateOfBirthInput from '@/components/DateOfBirthInput';
 
 export const dynamic = 'force-dynamic';
 
+// Rotating step-text while a kundli is being generated — cycles through
+// the actual pipeline stages so the wait feels informative, not stuck.
+const ANALYZING_STEPS = [
+  'कुंडली बन रही है',
+  'ग्रह स्थिति गणना हो रही है',
+  'योग और दशा पहचाने जा रहे हैं',
+  'AI विश्लेषण लिखा जा रहा है',
+  'बस थोड़ी देर और',
+];
+
 export default function ProfilePage() {
   const supabase = createClient();
   const router   = useRouter();
@@ -22,6 +32,17 @@ export default function ProfilePage() {
   const [newK,     setNewK]     = useState({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'' });
   const [analyzing,setAnalyzing]= useState(false);
   const [wizardStep, setWizardStep] = useState(1); // 1=naam+dob, 2=time, 3=place
+  const [analyzingStepIdx, setAnalyzingStepIdx] = useState(0);
+  const [reAnalyzingId, setReAnalyzingId] = useState(null);
+  const [reAnalyzeError, setReAnalyzeError] = useState({});
+
+  useEffect(() => {
+    if (!analyzing) { setAnalyzingStepIdx(0); return; }
+    const id = setInterval(() => {
+      setAnalyzingStepIdx(i => (i + 1) % ANALYZING_STEPS.length);
+    }, 1800);
+    return () => clearInterval(id);
+  }, [analyzing]);
 
   useEffect(() => {
     loadAll();
@@ -121,6 +142,34 @@ export default function ProfilePage() {
     } else {
       alert('Delete नहीं हो पाया: ' + (data.error || 'unknown error'));
     }
+  }
+
+  // ── पुनः विश्लेषण करें (re-analyze) — every empty-state message across
+  // the app (weekly/monthly/yearly tabs, old-kundli notices) instructs the
+  // user to press this, so it needs to actually exist and work. Recomputes
+  // the full deterministic pipeline (fresh varshaphal/muddaDasha dates,
+  // supportChain/remedyPlan if this is an older kundli that predates that
+  // feature, etc.) and re-runs the AI narrative — same PATCH /api/kundli
+  // route the backend already exposed, just not wired to any button.
+  async function reAnalyzeKundli(id) {
+    setReAnalyzingId(id);
+    setReAnalyzeError(prev => ({ ...prev, [id]: null }));
+    try {
+      const res = await fetch('/api/kundli', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kundli_id: id }),
+      });
+      const data = await res.json();
+      if (data.kundli) {
+        setKundlis(prev => prev.map(k => k.id === id ? data.kundli : k));
+      } else {
+        setReAnalyzeError(prev => ({ ...prev, [id]: data.error || 'पुनः विश्लेषण नहीं हो पाया' }));
+      }
+    } catch {
+      setReAnalyzeError(prev => ({ ...prev, [id]: 'नेटवर्क समस्या — कृपया पुनः प्रयास करें' }));
+    }
+    setReAnalyzingId(null);
   }
 
   async function sendFeedback(kundliId, rating) {
@@ -256,10 +305,6 @@ export default function ProfilePage() {
             {/* Step 1: Name + DOB */}
             {wizardStep === 1 && (
               <div style={{ display:'flex', flexDirection:'column', gap:'14px' }}>
-                <div style={{ textAlign:'center', marginBottom:'4px' }}>
-                  <p style={{ fontSize:'15px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 4px' }}>किसकी कुंडली बना रहे हैं?</p>
-                  <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>नाम और जन्म तिथि बताएं</p>
-                </div>
                 <div>
                   <label className="lf-label">पूरा नाम *</label>
                   <input value={newK.full_name} onChange={e => setNewK(k => ({...k, full_name:e.target.value}))} placeholder="अपना पूरा नाम लिखें" autoFocus style={{ width:'100%', fontSize:'15px' }}/>
@@ -284,7 +329,6 @@ export default function ProfilePage() {
                       </button>
                     ))}
                   </div>
-                  <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'4px 0 0' }}>संबोधन (bhai/ji) और कुछ विश्लेषण के लिए ज़रूरी है।</p>
                 </div>
                 <button type="button"
                   disabled={!newK.full_name.trim() || !newK.dob || !newK.gender}
@@ -366,9 +410,16 @@ export default function ProfilePage() {
                     ← वापस
                   </button>
                   <button type="submit" disabled={analyzing || !newK.latitude || !newK.longitude}
-                    style={{ flex:1, padding:'12px', background: (analyzing || !newK.latitude) ? 'var(--color-border-tertiary)' : 'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'10px', cursor: (analyzing || !newK.latitude) ? 'default' : 'pointer', fontSize:'14px', fontWeight:'500' }}>
+                    className={analyzing ? 'lf-btn-analyzing' : ''}
+                    style={{
+                      flex:1, padding:'12px', borderRadius:'10px', fontSize:'14px', fontWeight:'500', border:'none',
+                      display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
+                      ...(analyzing
+                        ? {} // colors/shadow/cursor come from .lf-btn-analyzing so they're never fought by inline low-contrast styles
+                        : { background: !newK.latitude ? 'var(--color-border-tertiary)' : 'var(--color-text-primary)', color:'var(--color-background-primary)', cursor: !newK.latitude ? 'default' : 'pointer' }),
+                    }}>
                     {analyzing
-                      ? <>✨ कुंडली बन रही है<span className="lf-loading-dots"><span/><span/><span/></span></>
+                      ? <><span className="lf-spinner" /><span>{ANALYZING_STEPS[analyzingStepIdx]}...</span></>
                       : 'कुंडली बनाएं →'}
                   </button>
                 </div>
@@ -416,10 +467,20 @@ export default function ProfilePage() {
             <button onClick={() => setExpandedKundli(expanded ? null : k.id)} style={{ padding:'7px 10px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'12px', color:'var(--color-text-secondary)', flexShrink:0 }}>
               {expanded ? 'बंद करें ▲' : 'विश्लेषण ▼'}
             </button>
+            <button onClick={() => reAnalyzeKundli(k.id)} disabled={reAnalyzingId === k.id} title="पुनः विश्लेषण करें — ताज़ा साप्ताहिक/मासिक/वार्षिक डेटा और नए उपाय पाने के लिए"
+              style={{ padding:'7px 10px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor: reAnalyzingId === k.id ? 'wait' : 'pointer', fontSize:'12px', color:'var(--color-text-secondary)', flexShrink:0, display:'flex', alignItems:'center', gap:'5px' }}>
+              {reAnalyzingId === k.id
+                ? <><span className="lf-spinner" style={{ borderColor:'rgba(95,94,90,0.35)', borderTopColor:'var(--color-text-secondary)', width:'11px', height:'11px' }} /> हो रहा है...</>
+                : <>↻ पुनः विश्लेषण</>}
+            </button>
             <button onClick={() => deleteKundli(k.id)} title="हटाएं" style={{ background:'none', border:'none', cursor:'pointer', padding:'6px', color:'var(--color-text-tertiary)', flexShrink:0 }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
           </div>
+
+          {reAnalyzeError[k.id] && (
+            <p style={{ margin:'0 14px 10px', fontSize:'12px', color:'var(--color-text-danger)' }}>{reAnalyzeError[k.id]}</p>
+          )}
 
           {expanded && k.planet_data?.yogas?.length > 0 && (
             <div style={{ borderTop:'0.5px solid var(--color-border-tertiary)', padding:'1rem 1.25rem', display:'flex', flexDirection:'column', gap:'10px', background:'var(--color-background-secondary)' }}>

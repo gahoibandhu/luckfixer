@@ -243,6 +243,37 @@ button:active { transform: scale(0.98); }
 .lf-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
 .lf-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
 
+/* ── Spinner (analyzing / processing states) ─────────────────── */
+.lf-spinner {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: lf-spin 0.7s linear infinite;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+@keyframes lf-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Analyzing button — distinct brand-highlighted "active" state,
+   NOT the same flat gray used for a plain disabled button, so it's
+   visually obvious something is actively happening ────────────── */
+.lf-btn-analyzing {
+  background: var(--color-brand) !important;
+  color: #fff !important;
+  cursor: wait !important;
+  box-shadow: 0 0 0 4px var(--color-brand-glow);
+  animation: lf-analyzing-pulse 1.8s ease-in-out infinite;
+}
+@keyframes lf-analyzing-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px var(--color-brand-glow); }
+  50%      { box-shadow: 0 0 0 8px var(--color-brand-glow); }
+}
+
 /* ── Skeleton loading ─────────────────────────────────────── */
 .lf-skeleton {
   background: linear-gradient(90deg,
