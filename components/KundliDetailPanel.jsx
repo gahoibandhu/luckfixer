@@ -132,16 +132,38 @@ const CATEGORY_META = [
   ['health', 'स्वास्थ्य'],
 ];
 
+function buildFallbackPeriodNarrative(p) {
+  if (!p.planets || p.planets.length === 0) return 'इस अवधि का विस्तृत विवरण उपलब्ध नहीं।';
+  const planetsStr = p.planets.map(pl => `${pl.planetHi} ${pl.house}वें भाव में`).join(', ');
+  return `इस अवधि में ${planetsStr} स्थित हैं — इनका संयुक्त प्रभाव इस समय के अनुभवों को आकार देगा। सामान्य सतर्कता के साथ आगे बढ़ें और किसी भी महत्वपूर्ण निर्णय से पहले थोड़ा समय और अनुभवी सलाह लें।`;
+}
+
 function VarshikTab({ varshaphal, annualTimeline, annualTransitPeriods }) {
   if (!varshaphal) return <EmptyNote text="वार्षिक फलादेश उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।" />;
 
   const today = new Date().toISOString().slice(0, 10);
-  // Positional pairing: annualTimeline.periods[i].narrative goes with
-  // annualTransitPeriods[i]'s dates/houses (see prompt contract).
-  const periods = (annualTransitPeriods || []).map((p, i) => ({
-    ...p,
-    narrative: annualTimeline?.periods?.[i]?.narrative,
-  }));
+  // Pairing: prefer matching by period_number (the AI is asked to echo
+  // back which numbered entry from the prompt's list each narrative
+  // belongs to — see kundli-analysis-prompt.js). This survives the AI
+  // skipping/reordering/only-partially-covering periods, unlike pure
+  // positional (index) pairing, which silently mismatches everything
+  // once the AI's array is even one item short or out of order.
+  // Falls back to positional pairing for older kundlis saved before
+  // period_number existed. If no AI narrative is found at all for a
+  // period (weak fallback-model responses sometimes omit this whole
+  // section), a deterministic narrative built from the period's own
+  // real planet/house data is used instead of an empty "no data" line.
+  const aiPeriods = annualTimeline?.periods || [];
+  const byNumber = new Map();
+  aiPeriods.forEach(ap => { if (ap.period_number) byNumber.set(ap.period_number, ap); });
+
+  const periods = (annualTransitPeriods || []).map((p, i) => {
+    const matched = byNumber.size > 0 ? byNumber.get(i + 1) : aiPeriods[i];
+    return {
+      ...p,
+      narrative: matched?.narrative || buildFallbackPeriodNarrative(p),
+    };
+  });
 
   return (
     <div>
@@ -181,7 +203,7 @@ function VarshikTab({ varshaphal, annualTimeline, annualTransitPeriods }) {
                     <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{fmtDate(p.start)} – {fmtDate(p.end)}</span>
                   </div>
                   <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.75', color: 'var(--color-text-secondary)' }}>
-                    {p.narrative || 'इस अवधि का विस्तृत विवरण उपलब्ध नहीं।'}
+                    {p.narrative}
                   </p>
                 </div>
               );
