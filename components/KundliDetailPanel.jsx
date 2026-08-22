@@ -17,6 +17,7 @@
 
 import { useState, useEffect } from 'react';
 import { formatDateDDMMYYYY as fmtDate } from '@/lib/date-format';
+import NorthIndianChart from './NorthIndianChart';
 
 const LIFE_DOMAIN_LABELS = [
   ['character', 'चरित्र'],
@@ -303,10 +304,24 @@ function SaptahikTab({ saptahikPhal }) {
               background: isToday ? 'var(--color-brand-light)' : 'var(--color-background-secondary)',
               border: isToday ? '1px solid var(--color-brand)' : 'none',
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px', flexWrap: 'wrap', gap: '4px' }}>
                 <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{d.dayName} {isToday && '(आज)'} · {fmtDate(d.date)}</span>
                 <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>🌙 {d.nakshatra} · ☀️ {d.dayLord}</span>
               </div>
+              {(d.luckyColor || d.luckyNumber != null) && (
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
+                  {d.luckyColor && (
+                    <span style={{ fontSize: '11px', color: 'var(--color-text-info)', background: 'var(--color-background-info)', borderRadius: '20px', padding: '2px 9px' }}>
+                      🎨 शुभ रंग: {d.luckyColor}
+                    </span>
+                  )}
+                  {d.luckyNumber != null && (
+                    <span style={{ fontSize: '11px', color: 'var(--color-text-info)', background: 'var(--color-background-info)', borderRadius: '20px', padding: '2px 9px' }}>
+                      🔢 शुभ अंक: {d.luckyNumber}
+                    </span>
+                  )}
+                </div>
+              )}
               <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.65', color: 'var(--color-text-secondary)' }}>
                 {d.combinedNote || `${d.nakshatraNote}${d.dayNote ? ` — ${d.dayNote}` : ''}`}
               </p>
@@ -327,6 +342,7 @@ function SaptahikTab({ saptahikPhal }) {
 
 const TABS = [
   ['general', 'सामान्य'],
+  ['chart', 'कुंडली चार्ट'],
   ['varshik', 'वार्षिक'],
   ['masik', 'मासिक'],
   ['saptahik', 'साप्ताहिक'],
@@ -350,6 +366,8 @@ export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 
   const saptahikPhal = kundli.planet_data?.saptahikPhal;
   const annualTransitPeriods = kundli.planet_data?.annualTransitPeriods || [];
   const annualTimeline = a?.annual_timeline;
+  const chartPlanets = kundli.planet_data?.planets || kundli.planet_data?.factSheet?.planets;
+  const lagnaSign = kundli.planet_data?.factSheet?.lagna?.sign;
 
   return (
     <>
@@ -397,13 +415,34 @@ export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 
 
               <LifeDomainAccordion domains={a?.life_domains} />
 
-              {yogas.length > 0 && (
+              {yogas.filter(y => !y.isChallenging).length > 0 && (
                 <div style={{ marginBottom: '16px', background: 'var(--color-background-secondary)', borderRadius: '10px', padding: '12px' }}>
                   <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 8px' }}>पहचाने गए शास्त्रीय योग</p>
                   {yogas.filter(y => !y.isChallenging).map((y, i) => (
                     <div key={i} style={{ marginBottom: '8px', fontSize: '13px' }}>
                       <p style={{ margin: '0 0 2px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{y.name}</p>
                       <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>{y.description}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Challenging yogas/doshas — previously detected but hidden
+                  from the UI (still fed to the AI). Now shown with their
+                  deterministic remedy so a "bad graha yuti" isn't just a
+                  silent AI-only fact — the user sees it and what to do. */}
+              {yogas.filter(y => y.isChallenging).length > 0 && (
+                <div style={{ marginBottom: '16px', background: 'var(--color-background-warning)', borderRadius: '10px', padding: '12px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-warning)', margin: '0 0 8px' }}>⚠️ सावधानी वाले योग/दोष</p>
+                  {yogas.filter(y => y.isChallenging).map((y, i) => (
+                    <div key={i} style={{ marginBottom: i < yogas.filter(z => z.isChallenging).length - 1 ? '12px' : 0, paddingBottom: i < yogas.filter(z => z.isChallenging).length - 1 ? '12px' : 0, borderBottom: i < yogas.filter(z => z.isChallenging).length - 1 ? '0.5px solid var(--color-border-tertiary)' : 'none', fontSize: '13px' }}>
+                      <p style={{ margin: '0 0 4px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{y.name}</p>
+                      <p style={{ margin: '0 0 6px', color: 'var(--color-text-secondary)', lineHeight: '1.6' }}>{y.description}</p>
+                      {y.remedy && (
+                        <p style={{ margin: 0, color: 'var(--color-text-primary)', lineHeight: '1.6', background: 'var(--color-background-primary)', borderRadius: '8px', padding: '8px 10px' }}>
+                          <strong>उपाय:</strong> {y.remedy}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -449,6 +488,11 @@ export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 
             </>
           )}
 
+          {tab === 'chart' && (
+            chartPlanets && lagnaSign
+              ? <NorthIndianChart planets={chartPlanets} lagnaSign={lagnaSign} />
+              : <EmptyNote text="कुंडली चार्ट उपलब्ध नहीं — पुरानी कुंडली, कृपया एडिट करके पुनः विश्लेषण करें।" />
+          )}
           {tab === 'varshik' && <VarshikTab varshaphal={varshaphal} annualTimeline={annualTimeline} annualTransitPeriods={annualTransitPeriods} />}
           {tab === 'masik' && <MasikTab varshaphal={varshaphal} />}
           {tab === 'saptahik' && <SaptahikTab saptahikPhal={saptahikPhal} />}

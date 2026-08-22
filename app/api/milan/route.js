@@ -15,14 +15,19 @@ export async function POST(req) {
     return Response.json({ error: 'दोनों कुंडली ID आवश्यक हैं' }, { status: 400 });
   }
 
-  // Fetch both kundlis — user must own at least one of them
+  // Fetch both kundlis — SECURITY: both must belong to the requesting
+  // user. The Milan UI only ever offers a user's own saved_kundlis in
+  // both dropdowns (see app/milan/page.jsx), so this matches actual
+  // usage — and closes an IDOR where any authenticated user could
+  // previously pass ANY kundliId (someone else's private birth data)
+  // and get back a full compatibility readout for it.
   const [{ data: k1 }, { data: k2 }] = await Promise.all([
-    supabase.from('saved_kundlis').select('*').eq('id', kundliId1).maybeSingle(),
-    supabase.from('saved_kundlis').select('*').eq('id', kundliId2).maybeSingle(),
+    supabase.from('saved_kundlis').select('*').eq('id', kundliId1).eq('user_id', user.id).maybeSingle(),
+    supabase.from('saved_kundlis').select('*').eq('id', kundliId2).eq('user_id', user.id).maybeSingle(),
   ]);
 
   if (!k1 || !k2) {
-    return Response.json({ error: 'एक या दोनों कुंडली नहीं मिलीं' }, { status: 404 });
+    return Response.json({ error: 'एक या दोनों कुंडली नहीं मिलीं, या आपकी नहीं हैं' }, { status: 404 });
   }
 
   const result = calcKundliMilan(k1.planet_data?.factSheet, k2.planet_data?.factSheet);

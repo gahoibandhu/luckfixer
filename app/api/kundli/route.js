@@ -131,12 +131,132 @@ export async function POST(req) {
   return Response.json({ kundli, analysis: aiResult.content, model: aiResult.model });
 }
 
-// NOTE: There is deliberately no user-facing PATCH (re-analyze) endpoint
-// here anymore. Re-analysis is admin-only now — see
-// app/api/admin/kundlis/reanalyze/route.js, which uses the same
-// lib/kundli-reanalysis.js core logic but is triggered centrally from
-// the admin "Migrations" tab rather than exposed to individual users
-// (a per-kundli "पुनः विश्लेषण" button existed briefly and was removed
-// because it confused users, not because the capability itself was
-// wrong — admin-triggered bulk re-analysis remains the right way to
-// refresh stale kundlis).
+// PATCH — edit an existing kundli the user owns.
+//
+// Two distinct paths, chosen by what actually changed:
+//   1. Label-only edit — no birth data touched, so nothing about the
+//      chart could possibly change. Instant, no recompute, free.
+//   2. full_name/dob/birth_time/birth_place/latitude/longitude/ayanamsa
+//      edit — the chart itself may now be different, so this reruns
+//      the EXACT same deterministic + AI pipeline as a brand-new
+//      kundli (runFullReAnalysis — the single source of truth also
+//      used by POST above and the admin bulk-reanalyze route).
+//      gender is intentionally NOT re-askable here — see set-gender
+//      endpoint; if gender needs to change, prefer that route so the
+//      "never guess already-lived facts" audit trail stays intact.
+//
+// NOTE: this reintroduces a user-facing "पुनः विश्लेषण"-equivalent
+// capability (previously removed as a standalone button — see git
+// history) but as an explicit, opt-in *consequence of editing birth
+// data* rather than an unexplained button, which was the actual
+// source of user confusion the earlier removal was fixing.
+export async function PATCH(req) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const body = await req.json();
+  const { id, label, full_name, dob, birth_time, birth_place, latitude, longitude, ayanamsa } = body;
+  if (!id) return Response.json({ error: 'id required' }, { status: 400 });
+
+  // Ownership check — never trust the client, always verify server-side
+  const { data: existing } = await supabase
+    .from('saved_kundlis')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (!existing || existing.user_id !== user.id) {
+    return Response.json({ error: 'Not found or not yours' }, { status: 403 });
+  }
+
+  const birthFieldsChanged = (
+    (full_name !== undefined && full_name !== existing.full_name) ||
+    (dob !== undefined && dob !== existing.dob) ||
+    (birth_time !== undefined && birth_time !== existing.birth_time) ||
+    (birth_place !== undefined && birth_place !== existing.birth_place) ||
+    (latitude !== undefined && parseFloat(latitude) !== existing.latitude) ||
+    (longitude !== undefined && parseFloat(longitude) !== existing.longitude) ||
+    (ayanamsa !== undefined && ayanamsa !== existing.ayanamsa)
+  );
+
+  // ── Path 1: label-only — instant, no recompute ─────────────────
+  if (!birthFieldsChanged) {
+    const { data: kundli, error } = await supabase
+      .from('saved_kundlis')
+      .update({ label: label ?? existing.label })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ kundli, reanalyzed: false });
+  }
+
+  // ── Path 2: birth data changed — full recompute + AI re-analysis ─
+  const merged = {
+    full_name:   full_name ?? existing.full_name,
+    dob:         dob ?? existing.dob,
+    birth_time:  birth_time ?? existing.birth_time,
+    birth_place: birth_place ?? existing.birth_place,
+    latitude:    latitude !== undefined ? parseFloat(latitude) : existing.latitude,
+    longitude:   longitude !== undefined ? parseFloat(longitude) : existing.longitude,
+    ayanamsa:    ayanamsa ?? existing.ayanamsa,
+    gender:      existing.gender, // never changed via this route
+  };
+
+  let result;
+  try {
+    result = await runFullReAnalysis(merged);
+  } catch (e) {
+    if (e instanceof EphemerisUnavailableError) {
+      console.error('[Kundli PATCH] Ephemeris unavailable, refusing to save degraded kundli:', e.attempts);
+      return Response.json({ error: e.message, retryable: true }, { status: 503 });
+    }
+    throw e;
+  }
+
+  const { data: kundli, error } = await supabase
+    .from('saved_kundlis')
+    .update({
+      label:         label ?? existing.label,
+      full_name:     merged.full_name,
+      dob:           merged.dob,
+      birth_time:    merged.birth_time,
+      birth_place:   merged.birth_place,
+      latitude:      merged.latitude,
+      longitude:     merged.longitude,
+      ayanamsa:      merged.ayanamsa,
+      planet_data:   result.planet_data,
+      luck_score:    result.luck_score,
+      last_analysis: result.last_analysis,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  // ── Same feedback-loop logging as a fresh kundli — a materially
+  // different chart deserves its own predictions_log entry ──────────
+  const factSheet = result.planet_data.factSheet;
+  const aiResult = result.aiResult;
+  const { data: predLog } = await supabase.from('predictions_log').insert({
+    user_id:     user.id,
+    kundli_id:   kundli.id,
+    source:      'kundli_edit_reanalysis',
+    fact_sheet:  factSheet,
+    ai_response: aiResult.content,
+    model_used:  aiResult.model,
+  }).select('id').single();
+
+  await scheduleOutcomeFollowUps(
+    supabase,
+    user.id,
+    kundli.id,
+    predLog?.id || null,
+    factSheet,
+    aiResult.content
+  );
+
+  return Response.json({ kundli, analysis: aiResult.content, model: aiResult.model, reanalyzed: true });
+}

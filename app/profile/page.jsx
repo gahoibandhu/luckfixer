@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import DateOfBirthInput from '@/components/DateOfBirthInput';
+import EditKundliModal from '@/components/EditKundliModal';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,8 +28,7 @@ export default function ProfilePage() {
   const [form,     setForm]     = useState({ full_name:'', mobile:'' });
   const [saving,   setSaving]   = useState(false);
   const [addOpen,  setAddOpen]  = useState(false);
-  const [expandedKundli, setExpandedKundli] = useState(null);
-  const [feedbackSent, setFeedbackSent] = useState({});
+  const [editingKundli, setEditingKundli] = useState(null); // kundli row being edited, or null
   const [newK,     setNewK]     = useState({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'' });
   const [analyzing,setAnalyzing]= useState(false);
   const [wizardStep, setWizardStep] = useState(1); // 1=naam+dob, 2=time, 3=place
@@ -136,28 +136,9 @@ export default function ProfilePage() {
     const data = await res.json();
     if (data.success) {
       setKundlis(prev => prev.filter(k => k.id !== id));
-      setExpandedKundli(null);
     } else {
       alert('Delete नहीं हो पाया: ' + (data.error || 'unknown error'));
     }
-  }
-
-  async function sendFeedback(kundliId, rating) {
-    setFeedbackSent(f => ({ ...f, [kundliId]: rating }));
-    await fetch('/api/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kundli_id: kundliId, rating, section: 'overall' }),
-    });
-  }
-
-  function shareVarshaphalOnWhatsApp(k) {
-    const v = k.planet_data?.varshaphal;
-    if (!v) return;
-    const areas = v.areas?.filter(a => a.strength !== 'सामान्य').slice(0,3)
-      .map(a => `${a.area.split(' (')[0]}: ${a.strength}`).join(' | ') || '';
-    const text = `🔮 *Luckfixer 2.0 — वार्षिक फल ${v.varshYear}*\n\n${k.label || k.full_name}\n\n*${v.verdict}*\n\nमुंथा: ${v.muntha?.signHi} · वर्षेश: ${v.varshesh?.planetHi}\n${areas}\n\n✦ अपना वार्षिक फल जानें: luckfixer.jaigahoi.in`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   }
 
   async function addKundli(e) {
@@ -399,265 +380,43 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Kundli list */}
+      {/* Kundli list — deliberately minimal: label + birth details +
+          Edit/Delete/Chat only. Full vishleshan (analysis/faladesh/
+          birth chart) lives inside the chat panel now (KundliDetailPanel)
+          so people go into chat to see it, rather than reading
+          everything here and leaving. */}
       {kundlis.length === 0 ? (
         <div style={{ textAlign:'center', padding:'2rem', color:'var(--color-text-tertiary)', fontSize:'13px', border:'0.5px dashed var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)' }}>
           अभी तक कोई कुंडली नहीं। ऊपर + बटन दबाएं।
         </div>
-      ) : kundlis.map(k => {
-        const a = k.planet_data?.analysis;
-        const expanded = expandedKundli === k.id;
-        const num = k.planet_data?.numerology;
-        const vim = k.planet_data?.vimshottari;
-        const transitSnap = k.planet_data?.transitSnapshot;
-        return (
-        <div key={k.id} style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', marginBottom:'8px', overflow:'hidden' }}>
-
-          {/* Card header — name + score + chat button always visible */}
-          <div style={{ padding:'12px 14px', display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
-            <div style={{ flex:1, minWidth:0 }}>
-              <p style={{ fontWeight:'500', fontSize:'15px', margin:'0 0 2px', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.label || k.full_name}</p>
-              <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>{k.dob} · {k.birth_place}</p>
-              {!k.gender && (
-                <GenderBackfillPrompt kundliId={k.id} onSet={gender => setKundlis(list => list.map(x => x.id === k.id ? { ...x, gender } : x))} />
-              )}
-              {k.planet_data?.yogas?.filter(y => !y.isChallenging)?.length > 0 && (
-                <span
-                  onClick={() => setExpandedKundli(expanded ? null : k.id)}
-                  style={{ display:'inline-block', marginTop:'4px', fontSize:'10px', fontWeight:'500', padding:'2px 8px', borderRadius:'10px', background:'var(--color-background-info)', color:'var(--color-text-info)', cursor:'pointer' }}
-                >
-                  🔍 {k.planet_data.yogas.filter(y => !y.isChallenging).length} शास्त्रीय योग पहचाने गए — देखें
-                </span>
-              )}
-            </div>
-            <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)', flexShrink:0 }}>{k.birth_time}</span>
-            <button onClick={() => router.push(`/chat?kundliId=${k.id}`)} style={{ padding:'7px 14px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500', flexShrink:0 }}>
-              Chat
-            </button>
-            <button onClick={() => setExpandedKundli(expanded ? null : k.id)} style={{ padding:'7px 10px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'12px', color:'var(--color-text-secondary)', flexShrink:0 }}>
-              {expanded ? 'बंद करें ▲' : 'विश्लेषण ▼'}
-            </button>
-            <button onClick={() => deleteKundli(k.id)} title="हटाएं" style={{ background:'none', border:'none', cursor:'pointer', padding:'6px', color:'var(--color-text-tertiary)', flexShrink:0 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            </button>
+      ) : kundlis.map(k => (
+        <div key={k.id} style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', marginBottom:'8px', padding:'12px 14px', display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
+          <div style={{ flex:1, minWidth:0 }}>
+            <p style={{ fontWeight:'500', fontSize:'15px', margin:'0 0 2px', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.label || k.full_name}</p>
+            <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>{k.dob} · {k.birth_time} · {k.birth_place}</p>
           </div>
-
-          {expanded && k.planet_data?.yogas?.length > 0 && (
-            <div style={{ borderTop:'0.5px solid var(--color-border-tertiary)', padding:'1rem 1.25rem', display:'flex', flexDirection:'column', gap:'10px', background:'var(--color-background-secondary)' }}>
-              <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'1.5px', textTransform:'uppercase', color:'var(--color-text-info)', margin:0 }}>पहचाने गए शास्त्रीय योग</p>
-              {k.planet_data.yogas.filter(y => !y.isChallenging).map((y, i) => (
-                <div key={i} style={{ fontSize:'13px', lineHeight:'1.5' }}>
-                  <p style={{ margin:'0 0 2px', fontWeight:'500', color:'var(--color-text-primary)' }}>{y.name}</p>
-                  <p style={{ margin:0, color:'var(--color-text-secondary)' }}>{y.description}</p>
-                </div>
-              ))}
-              {k.planet_data.yogas.some(y => y.isChallenging) && (
-                <>
-                  <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'1.5px', textTransform:'uppercase', color:'var(--color-text-warning)', margin:'6px 0 0' }}>ध्यान देने योग्य</p>
-                  {k.planet_data.yogas.filter(y => y.isChallenging).map((y, i) => (
-                    <div key={i} style={{ fontSize:'13px', lineHeight:'1.5' }}>
-                      <p style={{ margin:'0 0 2px', fontWeight:'500', color:'var(--color-text-primary)' }}>{y.name}</p>
-                      <p style={{ margin:0, color:'var(--color-text-secondary)' }}>{y.description}</p>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
-
-          {expanded && a && (
-            <div style={{ borderTop:'0.5px solid var(--color-border-tertiary)', padding:'1rem 1.25rem', display:'flex', flexDirection:'column', gap:'14px' }}>
-              {a.analytical_insight && <p style={{ fontSize:'13px', color:'var(--color-text-primary)', margin:0, lineHeight:'1.6' }}>{a.analytical_insight}</p>}
-              {a.key_yoga && <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>प्रमुख योग: <strong style={{ color:'var(--color-text-primary)' }}>{a.key_yoga}</strong></p>}
-
-              {a.life_domains && <LifeDomainAccordion domains={a.life_domains} />}
-
-              {/* Event-specific scores: Career / Marriage / Health */}
-              {a.event_scores && (
-                <AnalysisSection title="क्षेत्र अनुसार आकलन" color="var(--color-text-success)">
-                  <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-                    {[
-                      ['career', 'करियर'],
-                      ['marriage', 'विवाह'],
-                      ['health', 'स्वास्थ्य'],
-                    ].map(([key, label]) => {
-                      const ev = a.event_scores[key];
-                      if (!ev) return null;
-                      const scoreColor = ev.score >= 65 ? 'var(--color-text-success)' : ev.score >= 40 ? 'var(--color-text-warning)' : 'var(--color-text-danger)';
-                      return (
-                        <div key={key} style={{ background:'var(--color-background-tertiary)', borderRadius:'var(--border-radius-md)', padding:'8px 10px' }}>
-                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'4px' }}>
-                            <span style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>{label}</span>
-                            <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                              <span style={{ fontSize:'15px', fontWeight:'600', color: scoreColor }}>{ev.score}/100</span>
-                              <span style={{ fontSize:'10px', color:'var(--color-text-tertiary)' }}>{ev.confidence}% confidence</span>
-                            </div>
-                          </div>
-                          <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:0 }}>{ev.summary}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </AnalysisSection>
-              )}
-
-              {/* Current Transit (Gochar) — snapshot from save time */}
-              {transitSnap && (
-                <AnalysisSection title="वर्तमान गोचर" color="var(--color-text-warning)">
-                  {transitSnap.sadeSati?.active && (
-                    <div style={{ background:'var(--color-background-warning)', borderRadius:'var(--border-radius-md)', padding:'8px 10px', marginBottom:'8px' }}>
-                      <p style={{ margin:0, fontSize:'13px', fontWeight:'500', color:'var(--color-text-warning)' }}>⚠️ साढ़े साती सक्रिय — {transitSnap.sadeSati.phase}</p>
-                      <p style={{ margin:'4px 0 0', fontSize:'12px', color:'var(--color-text-secondary)' }}>{transitSnap.sadeSati.description}</p>
-                    </div>
-                  )}
-                  {transitSnap.sadeSati?.isDhaiyya && (
-                    <div style={{ background:'var(--color-background-tertiary)', borderRadius:'var(--border-radius-md)', padding:'8px 10px', marginBottom:'8px' }}>
-                      <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)' }}>{transitSnap.sadeSati.description}</p>
-                    </div>
-                  )}
-                  {a?.current_transit_summary && (
-                    <p style={{ margin:'0 0 4px', fontSize:'13px' }}>{a.current_transit_summary}</p>
-                  )}
-                  <p style={{ margin:0, fontSize:'11px', color:'var(--color-text-tertiary)' }}>
-                    {transitSnap.asOf} तक की स्थिति — चैट में हमेशा अद्यतन (live) गोचर मिलेगा
-                  </p>
-                </AnalysisSection>
-              )}
-
-              {/* Birth time confidence — only shown if it's dropped meaningfully */}
-              {typeof k.birth_time_confidence === 'number' && k.birth_time_confidence <= 55 && (
-                <div style={{ background:'var(--color-background-warning)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'10px 12px' }}>
-                  <p style={{ margin:0, fontSize:'12px', fontWeight:'500', color:'var(--color-text-warning)' }}>
-                    💡 जन्म समय जांचने का सुझाव
-                  </p>
-                  <p style={{ margin:'4px 0 0', fontSize:'12px', color:'var(--color-text-secondary)' }}>
-                    कुछ past events चार्ट से मेल नहीं खाए। अधिक सटीक भविष्यवाणी के लिए अपना सही जन्म समय (जन्म प्रमाणपत्र/अस्पताल रिकॉर्ड से) दोबारा जांचें — 10-15 मिनट का अंतर भी lagna बदल सकता है।
-                  </p>
-                </div>
-              )}
-
-              {/* Detected Yogas */}
-              {k.planet_data?.yogas?.length > 0 && (
-                <AnalysisSection title="शास्त्रीय योग" color="var(--color-brand)">
-                  {k.planet_data.yogas.filter(y => !y.isChallenging).slice(0, 4).map((yoga, i) => (
-                    <div key={i} style={{ marginBottom:'6px' }}>
-                      <p style={{ margin:'0 0 1px', fontWeight:'500', fontSize:'13px', color:'var(--color-text-primary)' }}>
-                        {yoga.name}
-                        <span style={{ marginLeft:'6px', fontSize:'10px', color: yoga.strength==='high' ? 'var(--color-text-success)' : 'var(--color-text-warning)', fontWeight:'400' }}>
-                          {yoga.strength==='high' ? '● उच्च' : '● मध्यम'}
-                        </span>
-                      </p>
-                      <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)' }}>{yoga.lifeArea}</p>
-                    </div>
-                  ))}
-                </AnalysisSection>
-              )}
-
-              {/* Varshaphal — Annual outlook */}
-              {k.planet_data?.varshaphal && (
-                <AnalysisSection title={`वार्षिक फल ${k.planet_data.varshaphal.varshYear}`} color="var(--color-text-info)">
-                  <p style={{ margin:'0 0 6px', fontWeight:'500' }}>{k.planet_data.varshaphal.verdict}</p>
-                  <p style={{ margin:'0 0 8px', fontSize:'12px', color:'var(--color-text-secondary)' }}>
-                    मुंथा: {k.planet_data.varshaphal.muntha?.signHi} ({k.planet_data.varshaphal.muntha?.house}वाँ भाव) · वर्षेश: {k.planet_data.varshaphal.varshesh?.planetHi}
-                  </p>
-                  {k.planet_data.varshaphal.areas?.filter(a => a.strength !== 'सामान्य').slice(0,3).map((area, i) => (
-                    <div key={i} style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', marginBottom:'3px' }}>
-                      <span style={{ color:'var(--color-text-secondary)' }}>{area.area.split(' (')[0]}</span>
-                      <span style={{ color: area.strength==='शुभ' ? 'var(--color-text-success)' : area.strength==='सावधानी' ? 'var(--color-text-danger)' : 'var(--color-text-warning)', fontWeight:'500' }}>{area.strength}</span>
-                    </div>
-                  ))}
-                  <button
-                    onClick={() => shareVarshaphalOnWhatsApp(k)}
-                    style={{ width:'100%', marginTop:'10px', padding:'8px', background:'#25D366', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'12px', fontWeight:'500', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px' }}
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .103 5.36.101 11.943c0 2.105.549 4.16 1.595 5.976L0 24l6.335-1.652a11.882 11.882 0 005.71 1.447h.005c6.582 0 11.94-5.36 11.943-11.943a11.87 11.87 0 00-3.473-8.403"/></svg>
-                    Share करें
-                  </button>
-                </AnalysisSection>
-              )}
-
-              {/* Vimshottari Dasha */}
-              {vim?.current && (
-                <AnalysisSection title="विंशोत्तरी दशा" color="var(--color-text-primary)">
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px' }}>
-                    <div style={{ background:'var(--color-background-tertiary)', borderRadius:'var(--border-radius-md)', padding:'8px', textAlign:'center' }}>
-                      <p style={{ fontSize:'10px', color:'var(--color-text-tertiary)', margin:'0 0 2px', textTransform:'uppercase' }}>महादशा</p>
-                      <p style={{ fontSize:'16px', fontWeight:'600', color:'var(--color-text-primary)', margin:'0 0 2px' }}>{vim.current.mahaDasha.lordHi}</p>
-                      <p style={{ fontSize:'10px', color:'var(--color-text-tertiary)', margin:0 }}>{vim.current.mahaDasha.daysLeft} दिन शेष</p>
-                    </div>
-                    <div style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'8px', textAlign:'center', border:'0.5px solid var(--color-border-secondary)' }}>
-                      <p style={{ fontSize:'10px', color:'var(--color-text-tertiary)', margin:'0 0 2px', textTransform:'uppercase' }}>अंतर्दशा</p>
-                      <p style={{ fontSize:'16px', fontWeight:'600', color:'var(--color-text-info)', margin:'0 0 2px' }}>{vim.current.antarDasha.lordHi}</p>
-                      <p style={{ fontSize:'10px', color:'var(--color-text-tertiary)', margin:0 }}>{vim.current.antarDasha.daysLeft} दिन शेष</p>
-                    </div>
-                    <div style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'8px', textAlign:'center', border:'0.5px solid var(--color-border-secondary)' }}>
-                      <p style={{ fontSize:'10px', color:'var(--color-text-tertiary)', margin:'0 0 2px', textTransform:'uppercase' }}>प्रत्यंतर</p>
-                      <p style={{ fontSize:'16px', fontWeight:'600', color:'var(--color-text-warning)', margin:'0 0 2px' }}>{vim.current.pratyantarDasha.lordHi}</p>
-                      <p style={{ fontSize:'10px', color:'var(--color-text-tertiary)', margin:0 }}>{vim.current.pratyantarDasha.daysLeft} दिन शेष</p>
-                    </div>
-                  </div>
-                  <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 4px' }}>
-                    अंतर्दशा: {vim.current.antarDasha.start} → {vim.current.antarDasha.end}
-                  </p>
-                  <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:0 }}>
-                    प्रत्यंतर: {vim.current.pratyantarDasha.startLabel} → {vim.current.pratyantarDasha.endLabel}
-                  </p>
-                  {/* All pratyantar dashas timeline */}
-                  <div style={{ marginTop:'8px' }}>
-                    <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'0 0 4px' }}>सभी प्रत्यंतर दशाएं (वर्तमान अंतर्दशा में):</p>
-                    {vim.current.allPratyantar?.map((pd, i) => (
-                      <div key={i} style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', padding:'3px 0', borderBottom:'0.5px solid var(--color-border-tertiary)', color: pd.isCurrent ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)', fontWeight: pd.isCurrent ? '600' : '400' }}>
-                        <span>{pd.isCurrent ? '▶ ' : ''}{pd.lordHi} ({pd.days} दिन)</span>
-                        <span>{pd.startLabel}</span>
-                      </div>
-                    ))}
-                  </div>
-                </AnalysisSection>
-              )}
-
-              {(num || a.numerology_analysis) && (
-                <AnalysisSection title="अंक ज्योतिष" color="var(--color-text-warning)">
-                  {num && <p style={{ margin:'0 0 4px' }}>जीवन पथ: <strong>{num.lifePathNumber}</strong> — {num.lifePathMeaning?.title} · अभिव्यक्ति: <strong>{num.expressionNumber}</strong> · आत्मा: <strong>{num.soulUrgeNumber}</strong></p>}
-                  {num?.loShu?.missing?.length > 0 && <p style={{ margin:'0 0 4px', color:'var(--color-text-danger)' }}>⚠ अनुपस्थित अंक: {num.loShu.missing.join(', ')}</p>}
-                  {a.numerology_analysis?.life_path_summary && <p style={{ margin:'0 0 4px' }}>{a.numerology_analysis.life_path_summary}</p>}
-                  {a.numerology_analysis?.numerology_remedy && <p style={{ margin:0, fontWeight:'500' }}>उपाय: {a.numerology_analysis.numerology_remedy}</p>}
-                </AnalysisSection>
-              )}
-
-              {a.hora_analysis && (
-                <AnalysisSection title="होरा" color="var(--color-text-tertiary)">
-                  <p style={{ margin:'0 0 4px' }}><strong>आज:</strong> {a.hora_analysis.ruling_planet_today}</p>
-                  <p style={{ margin:'0 0 4px' }}>{a.hora_analysis.best_activity_now}</p>
-                  <p style={{ margin:0, color:'var(--color-text-tertiary)' }}>{a.hora_analysis.avoid_now}</p>
-                </AnalysisSection>
-              )}
-
-              {a.actionable_seva_remedy && (
-                <div style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'10px 12px' }}>
-                  <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'1px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 4px' }}>सुझाई गई सेवा</p>
-                  <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>{a.actionable_seva_remedy.target_action}</p>
-                  <p style={{ margin:'0 0 4px', fontSize:'12px', color:'var(--color-text-secondary)' }}>{a.actionable_seva_remedy.target_location_type}</p>
-                  <p style={{ margin:0, fontSize:'11px', color:'var(--color-text-tertiary)' }}>{a.actionable_seva_remedy.shastric_reference}</p>
-                </div>
-              )}
-
-              <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-                <span style={{ fontSize:'12px', color:'var(--color-text-tertiary)' }}>विश्लेषण कैसा था?</span>
-                <button onClick={() => sendFeedback(k.id, 'up')} disabled={!!feedbackSent[k.id]} style={{ background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'5px 10px', cursor: feedbackSent[k.id] ? 'default' : 'pointer', fontSize:'14px', opacity: feedbackSent[k.id] && feedbackSent[k.id] !== 'up' ? 0.4 : 1 }}>👍</button>
-                <button onClick={() => sendFeedback(k.id, 'down')} disabled={!!feedbackSent[k.id]} style={{ background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'5px 10px', cursor: feedbackSent[k.id] ? 'default' : 'pointer', fontSize:'14px', opacity: feedbackSent[k.id] && feedbackSent[k.id] !== 'down' ? 0.4 : 1 }}>👎</button>
-                {feedbackSent[k.id] && <span style={{ fontSize:'12px', color:'var(--color-text-success)' }}>✓ धन्यवाद</span>}
-              </div>
-            </div>
-          )}
-
-          {expanded && !a && (
-            <div style={{ borderTop:'0.5px solid var(--color-border-tertiary)', padding:'1rem 1.25rem' }}>
-              <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>विस्तृत विश्लेषण उपलब्ध नहीं — पुरानी कुंडली। नई बनाएं।</p>
-            </div>
-          )}
+          <button onClick={() => router.push(`/chat?kundliId=${k.id}`)} style={{ padding:'7px 14px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500', flexShrink:0 }}>
+            Chat
+          </button>
+          <button onClick={() => setEditingKundli(k)} title="Edit" style={{ background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', padding:'7px', color:'var(--color-text-secondary)', flexShrink:0, display:'flex' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button onClick={() => deleteKundli(k.id)} title="हटाएं" style={{ background:'none', border:'none', cursor:'pointer', padding:'7px', color:'var(--color-text-tertiary)', flexShrink:0 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
         </div>
-        );
-      })}
+      ))}
+
+      {editingKundli && (
+        <EditKundliModal
+          kundli={editingKundli}
+          onClose={() => setEditingKundli(null)}
+          onSaved={(updated) => {
+            setKundlis(list => list.map(x => x.id === updated.id ? updated : x));
+            setEditingKundli(null);
+          }}
+        />
+      )}
 
 
       {profile.email === 'dendthdel@gmail.com' && (
@@ -675,93 +434,6 @@ export default function ProfilePage() {
       <button onClick={signOut} style={{ width:'100%', marginTop:'8px', padding:'10px', fontSize:'14px', color:'var(--color-text-secondary)', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer' }}>
         Logout
       </button>
-    </div>
-  );
-}
-
-const LIFE_DOMAIN_LABELS = [
-  ['character', 'चरित्र'],
-  ['fortune_satisfaction', 'सौभाग्य व संतुष्टि'],
-  ['lifestyle', 'जीवन शैली'],
-  ['employment', 'रोजगार'],
-  ['business', 'व्यवसाय'],
-  ['health', 'स्वास्थ्य'],
-  ['interests', 'रुचि'],
-  ['love', 'प्रेम आदि'],
-  ['financial', 'आर्थिक'],
-  ['education', 'शिक्षा'],
-];
-
-function LifeDomainAccordion({ domains }) {
-  const [openKey, setOpenKey] = useState('character');
-  if (!domains) return null;
-  return (
-    <div style={{ border:'0.5px solid var(--color-border-tertiary)', borderRadius:'10px', overflow:'hidden' }}>
-      {LIFE_DOMAIN_LABELS.map(([key, label]) => {
-        if (!domains[key]) return null;
-        const isOpen = openKey === key;
-        return (
-          <div key={key} style={{ borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
-            <button onClick={() => setOpenKey(isOpen ? null : key)} style={{ width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'11px 14px', background: isOpen ? 'var(--color-background-secondary)' : 'transparent', border:'none', cursor:'pointer', textAlign:'left' }}>
-              <span style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>{label}</span>
-              <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)', transform: isOpen ? 'rotate(180deg)' : 'none', transition:'transform 0.15s' }}>▼</span>
-            </button>
-            {isOpen && <p style={{ margin:0, padding:'0 14px 14px', fontSize:'12px', lineHeight:'1.75', color:'var(--color-text-secondary)' }}>{domains[key]}</p>}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function AnalysisSection({ title, color, children }) {
-  return (
-    <div>
-      <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'1.5px', textTransform:'uppercase', color, margin:'0 0 6px' }}>{title}</p>
-      <div style={{ fontSize:'13px', color:'var(--color-text-primary)', lineHeight:'1.6' }}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-// ── Retroactive gender backfill — for kundlis saved before gender was
-// mandatory. Cheap PATCH (see /api/kundli/set-gender), no re-analysis. ──
-function GenderBackfillPrompt({ kundliId, onSet }) {
-  const [saving, setSaving] = useState(false);
-  const [open, setOpen] = useState(false);
-
-  async function set(gender) {
-    setSaving(true);
-    const res = await fetch('/api/kundli/set-gender', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kundli_id: kundliId, gender }),
-    });
-    const data = await res.json();
-    if (data.success) onSet(gender);
-    setSaving(false);
-    setOpen(false);
-  }
-
-  if (!open) {
-    return (
-      <span
-        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
-        style={{ display:'inline-block', marginTop:'4px', fontSize:'10px', fontWeight:'500', padding:'2px 8px', borderRadius:'10px', background:'var(--color-background-warning)', color:'var(--color-text-warning)', cursor:'pointer' }}
-      >
-        ⚠ लिंग सेट करें — बेहतर संबोधन के लिए
-      </span>
-    );
-  }
-  return (
-    <div style={{ display:'flex', gap:'6px', marginTop:'4px' }} onClick={(e) => e.stopPropagation()}>
-      {[['male','पुरुष'],['female','महिला'],['other','अन्य']].map(([val, label]) => (
-        <button key={val} type="button" disabled={saving} onClick={() => set(val)}
-          style={{ padding:'3px 9px', fontSize:'11px', borderRadius:'8px', cursor: saving ? 'default' : 'pointer', border:'0.5px solid var(--color-border-secondary)', background:'var(--color-background-secondary)', color:'var(--color-text-primary)' }}>
-          {label}
-        </button>
-      ))}
     </div>
   );
 }
