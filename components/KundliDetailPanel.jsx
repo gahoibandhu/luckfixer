@@ -69,7 +69,7 @@ const TONE_BG = { current: 'var(--color-brand-light)', future: 'var(--color-back
 
 function GocharPhalTimeline({ timeline }) {
   const [expanded, setExpanded] = useState(false);
-  if (!timeline || timeline.length === 0) return <EmptyNote text="इस कुंडली के लिए गोचर फल उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं (प्रोफाइल पेज पर)।" />;
+  if (!timeline || timeline.length === 0) return <EmptyNote text="इस कुंडली के लिए गोचर फल उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।" />;
 
   const today = new Date().toISOString().slice(0, 10);
   const current = timeline.filter(p => p.start <= today && p.end >= today);
@@ -132,7 +132,7 @@ const CATEGORY_META = [
 ];
 
 function VarshikTab({ varshaphal, annualTimeline, annualTransitPeriods }) {
-  if (!varshaphal) return <EmptyNote text="वार्षिक फलादेश उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं।" />;
+  if (!varshaphal) return <EmptyNote text="वार्षिक फलादेश उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।" />;
 
   const today = new Date().toISOString().slice(0, 10);
   // Positional pairing: annualTimeline.periods[i].narrative goes with
@@ -180,7 +180,7 @@ function VarshikTab({ varshaphal, annualTimeline, annualTransitPeriods }) {
                     <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{fmtDate(p.start)} – {fmtDate(p.end)}</span>
                   </div>
                   <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.75', color: 'var(--color-text-secondary)' }}>
-                    {p.narrative || 'इस अवधि का विस्तृत विवरण उपलब्ध नहीं — पुनः विश्लेषण करें।'}
+                    {p.narrative || 'इस अवधि का विस्तृत विवरण उपलब्ध नहीं।'}
                   </p>
                 </div>
               );
@@ -228,7 +228,7 @@ const HINDI_MONTHS = ['जनवरी','फरवरी','मार्च','अ
 // since a dasha change can fall mid-month and split it into two.
 function MasikTab({ varshaphal }) {
   const mudda = varshaphal?.muddaDasha;
-  if (!mudda || mudda.length === 0) return <EmptyNote text="मासिक फलादेश उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं।" />;
+  if (!mudda || mudda.length === 0) return <EmptyNote text="मासिक फलादेश उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।" />;
 
   const today = new Date();
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
@@ -238,7 +238,7 @@ function MasikTab({ varshaphal }) {
   const thisMonth = mudda.filter(m => m.start <= monthEnd && m.end >= monthStart);
 
   if (thisMonth.length === 0) {
-    return <EmptyNote text="इस महीने का डेटा उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं।" />;
+    return <EmptyNote text="इस महीने का डेटा उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।" />;
   }
 
   return (
@@ -286,7 +286,7 @@ function MasikTab({ varshaphal }) {
 // ── साप्ताहिक (Weekly) tab — brief, but with the actual prediction
 // text for each day (nakshatraNote / dayNote), not just labels.
 function SaptahikTab({ saptahikPhal }) {
-  if (!saptahikPhal?.days) return <EmptyNote text="साप्ताहिक फलादेश उपलब्ध नहीं — 'पुनः विश्लेषण करें' दबाएं।" />;
+  if (!saptahikPhal?.days) return <EmptyNote text="साप्ताहिक फलादेश उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।" />;
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -433,7 +433,7 @@ export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 
               <GocharPhalTimeline timeline={gocharPhal} />
 
               {!a && yogas.length === 0 && (
-                <EmptyNote text="विस्तृत विश्लेषण उपलब्ध नहीं — पुरानी कुंडली। प्रोफाइल पेज पर 'पुनः विश्लेषण करें' दबाएं।" />
+                <EmptyNote text="विस्तृत विश्लेषण उपलब्ध नहीं — पुरानी कुंडली।" />
               )}
 
               {kundli.planet_data?.closingVerse && (

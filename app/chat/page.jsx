@@ -458,7 +458,7 @@ export default function ChatPage() {
   async function saveNewKundli(e) {
     e.preventDefault();
     if (!newK.full_name || !newK.dob || !newK.birth_time) { setGeoError('नाम, जन्म तिथि और समय ज़रूरी हैं'); return; }
-    if (!newK.gender) { setGeoError('लिंग चुनना ज़रूरी है'); return; }
+    if (!newK.gender) { setGeoError('कृपया लिंग चुनें'); return; }
     if (!newK.latitude || !newK.longitude) { setGeoError('कृपया जन्म स्थान खोजें, या Latitude/Longitude खुद भरें'); return; }
     setSavingKundli(true); setGeoError('');
     try {
@@ -865,7 +865,7 @@ export default function ChatPage() {
                   )}
                 </div>
                 {geoError && <p style={{ fontSize:'12px', color:'var(--color-text-danger)', margin:0 }}>{geoError}</p>}
-                <button type="submit" disabled={savingKundli || !newK.gender} style={{ padding:'11px', background: !newK.gender ? 'var(--color-border-tertiary)' : 'var(--color-brand)', color:'#fff', border:'none', borderRadius:'8px', cursor: !newK.gender ? 'default' : 'pointer', fontSize:'14px', fontWeight:'500', marginTop:'4px' }}>
+                <button type="submit" disabled={savingKundli || !newK.gender} style={{ padding:'11px', background: (savingKundli || !newK.gender) ? 'var(--color-border-tertiary)' : 'var(--color-brand)', color:'#fff', border:'none', borderRadius:'8px', cursor: (savingKundli || !newK.gender) ? 'default' : 'pointer', fontSize:'14px', fontWeight:'500', marginTop:'4px' }}>
                   {savingKundli
                     ? <>कुंडली बन रही है<span className="lf-loading-dots"><span/><span/><span/></span></>
                     : 'शुरू करें →'}

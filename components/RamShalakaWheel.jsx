@@ -69,14 +69,25 @@ export default function RamShalakaWheel({ onResult }) {
       if (!ringEl) return;
       const n = letters.length;
       const startFlatIdx = ringIdx * CHUNK_SIZE;
+      const radius = RING_RADII[ringIdx];
       const cells = [];
       letters.forEach((letter, i) => {
-        const ang = (360 / n) * i;
+        // Direct trigonometry — one computed (x,y) point per letter,
+        // centered with a single translate(-50%,-50%). Deliberately NOT
+        // using a rotate→translate→rotate→translate chain: that
+        // technique already caused one measured bug in this feature
+        // (the pin-landing calculation) and produced visibly
+        // off-center/corner-drifting letters here too. Plain trig is
+        // easier to verify and impossible to get subtly wrong on
+        // transform order.
+        const angleRad = (2 * Math.PI / n) * i;
+        const x = radius * Math.cos(angleRad);
+        const y = radius * Math.sin(angleRad);
         const el = document.createElement('div');
         el.textContent = letter;
-        el.style.cssText = `position:absolute;top:50%;left:50%;font-size:${RING_FONT_SIZES[ringIdx]}px;color:#7a2020;font-weight:500;transform-origin:0 0;transition:color 0.15s,font-size 0.15s;transform:rotate(${ang}deg) translate(${RING_RADII[ringIdx]}px) rotate(90deg) translate(-50%,-50%);`;
+        el.style.cssText = `position:absolute;top:calc(50% + ${y}px);left:calc(50% + ${x}px);transform:translate(-50%,-50%);font-size:${RING_FONT_SIZES[ringIdx]}px;color:#7a2020;font-weight:500;white-space:nowrap;transition:color 0.15s,font-size 0.15s;`;
         ringEl.appendChild(el);
-        cells.push({ el, letter, flatIdx: startFlatIdx + i });
+        cells.push({ el, letter, flatIdx: startFlatIdx + i, angleRad });
       });
       cellsRef.current[ringIdx] = cells;
     });

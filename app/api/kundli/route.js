@@ -131,46 +131,12 @@ export async function POST(req) {
   return Response.json({ kundli, analysis: aiResult.content, model: aiResult.model });
 }
 
-// PATCH — re-run analysis on an EXISTING kundli with the latest AI
-// schema/prompt (e.g. to pick up new fields like life_domains added
-// after the kundli was originally created), without deleting and
-// re-entering birth details. Same computation as POST, but UPDATEs
-// the existing row instead of inserting a new one.
-// Core logic lives in lib/kundli-reanalysis.js (shared with the
-// admin-side re-analyze route) — this handler is just auth + persist.
-export async function PATCH(req) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const { kundli_id } = await req.json();
-  if (!kundli_id) return Response.json({ error: 'kundli_id required' }, { status: 400 });
-
-  const { data: existing, error: fetchErr } = await supabase
-    .from('saved_kundlis')
-    .select('*')
-    .eq('id', kundli_id)
-    .eq('user_id', user.id) // ownership check — can't re-analyze someone else's kundli
-    .maybeSingle();
-
-  if (fetchErr || !existing) return Response.json({ error: 'कुंडली नहीं मिली' }, { status: 404 });
-
-  let result;
-  try {
-    result = await runFullReAnalysis(existing);
-  } catch (e) {
-    if (e instanceof EphemerisUnavailableError) {
-      console.error('[Kundli PATCH] Ephemeris unavailable, keeping existing analysis untouched:', e.attempts);
-      return Response.json({ error: e.message, retryable: true }, { status: 503 });
-    }
-    throw e;
-  }
-
-  const { data: kundli, error } = await supabase.from('saved_kundlis')
-    .update({ planet_data: result.planet_data, luck_score: result.luck_score, last_analysis: result.last_analysis })
-    .eq('id', kundli_id).select().single();
-
-  if (error) return Response.json({ error: error.message }, { status: 500 });
-
-  return Response.json({ kundli, analysis: result.aiResult.content, model: result.aiResult.model });
-}
+// NOTE: There is deliberately no user-facing PATCH (re-analyze) endpoint
+// here anymore. Re-analysis is admin-only now — see
+// app/api/admin/kundlis/reanalyze/route.js, which uses the same
+// lib/kundli-reanalysis.js core logic but is triggered centrally from
+// the admin "Migrations" tab rather than exposed to individual users
+// (a per-kundli "पुनः विश्लेषण" button existed briefly and was removed
+// because it confused users, not because the capability itself was
+// wrong — admin-triggered bulk re-analysis remains the right way to
+// refresh stale kundlis).
