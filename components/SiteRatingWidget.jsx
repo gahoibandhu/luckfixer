@@ -1,15 +1,17 @@
 'use client';
 // app/components/SiteRatingWidget.jsx
 //
-// Reusable public, open-to-all star-rating widget — backed by
-// app/api/ratings (feature_ratings table, migration_010). Used on
-// the profile page (site-wide "overall" rating) and after a chat
-// session (same 'overall' feature by default, or pass a different
-// `feature` prop to scope it elsewhere).
+// Reusable rating widget — backed by app/api/ratings (feature_ratings
+// table, migration_010 + migration_011). Used on the profile page
+// (site-wide "overall" rating) and after a chat session (same
+// 'overall' feature by default, or pass a different `feature` prop to
+// scope it elsewhere).
 //
-// Every signed-in user can see the average + every comment; each
-// user can only submit/update their OWN rating (enforced server-side
-// by RLS, this component just reflects that).
+// The 1-5 star SCORE is public — every signed-in user sees the
+// aggregate average + count, app-store style. The written comment is
+// PRIVATE — only the author (shown here as "your rating") and admins
+// (Admin panel → Feedback tab) can read it; it's never shown to other
+// users.
 
 import { useState, useEffect } from 'react';
 
@@ -27,7 +29,7 @@ function Stars({ value, onChange, size = 22 }) {
   );
 }
 
-export default function SiteRatingWidget({ feature = 'overall', title = 'यूज़र Rating (सबके लिए खुला)', compact = false }) {
+export default function SiteRatingWidget({ feature = 'overall', title = 'Rating दें', compact = false }) {
   const [ratings,     setRatings]     = useState(null);
   const [myStars,     setMyStars]     = useState(0);
   const [myComment,   setMyComment]   = useState('');
@@ -72,7 +74,7 @@ export default function SiteRatingWidget({ feature = 'overall', title = 'यू�
         onClick={() => setExpanded(true)}
         style={{ width:'100%', padding:'10px', fontSize:'14px', color:'var(--color-text-primary)', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontWeight:'500' }}
       >
-        ⭐ फीडबैक दें {ratings?.count ? `(${ratings.average} / 5 · ${ratings.count} ratings)` : ''}
+        ⭐ Rating व फीडबैक {ratings?.count ? `(${ratings.average} / 5 · ${ratings.count} ratings)` : ''}
       </button>
     );
   }
@@ -96,30 +98,20 @@ export default function SiteRatingWidget({ feature = 'overall', title = 'यू�
         </div>
       )}
 
-      <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 6px' }}>आपकी rating:</p>
+      <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 6px' }}>आपकी rating (सबको दिखेगी):</p>
       <Stars value={myStars} onChange={setMyStars} />
+      <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'12px 0 6px' }}>आपकी प्रतिक्रिया (सिर्फ हमारी टीम पढ़ेगी):</p>
       <textarea
         value={myComment}
         onChange={e => setMyComment(e.target.value)}
-        placeholder="कोई टिप्पणी? (वैकल्पिक)"
+        placeholder="कोई सुझाव या समस्या बताएं? (वैकल्पिक, निजी)"
         rows={2}
-        style={{ width:'100%', marginTop:'10px', fontSize:'13px', resize:'vertical' }}
+        style={{ width:'100%', fontSize:'13px', resize:'vertical' }}
       />
       {msg && <p style={{ fontSize:'12px', color: msg.startsWith('✓') ? 'var(--color-text-success)' : 'var(--color-text-danger)', margin:'6px 0 0' }}>{msg}</p>}
       <button onClick={submit} disabled={saving} style={{ marginTop:'10px', padding:'8px 16px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500' }}>
         {saving ? 'सेव हो रहा है...' : (ratings?.myRating ? 'Rating अपडेट करें' : 'Rating दें')}
       </button>
-
-      {ratings?.recent?.length > 0 && (
-        <div style={{ marginTop:'16px', borderTop:'0.5px solid var(--color-border-tertiary)', paddingTop:'12px' }}>
-          {ratings.recent.filter(r => r.comment).slice(0, 5).map((r, i) => (
-            <div key={i} style={{ marginBottom:'10px' }}>
-              <Stars value={r.stars} size={12} />
-              <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'3px 0 0' }}>{r.comment}</p>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

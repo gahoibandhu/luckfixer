@@ -9,7 +9,7 @@
 // for kundlis (see lib/kundli-reanalysis.js).
 
 import { createClient } from '@/lib/supabase-server';
-import { analyzeStandaloneName } from '@/lib/numerology';
+import { analyzeStandaloneName, analyzeNameWithBirthData } from '@/lib/numerology';
 import { getLuckfixerResponse } from '@/lib/ai-engine';
 
 const CATEGORY_LABEL_HI = {
@@ -19,14 +19,15 @@ const CATEGORY_LABEL_HI = {
   other:   'नाम',
 };
 
-function buildSystemPrompt() {
-  return `You are Luckfixer 2.0's numerology (अंक ज्योतिष) advisor for standalone name checks — a person's own name, a company name, a shop/brand name, or any other name someone wants evaluated. This is INDEPENDENT of any birth chart.
+function buildSystemPrompt(linkedToKundli, moonNakshatra) {
+  return `You are Luckfixer 2.0's numerology (अंक ज्योतिष) advisor for name checks — a person's own name, a company name, a shop/brand name, or any other name someone wants evaluated.
 
 CRITICAL RULES:
-- You will receive a pre-computed deterministic NUMEROLOGY DATA object below (Chaldean compound number, its classical auspicious/inauspicious meaning, Pythagorean expression number, and — if the name needs correction — pre-generated spelling suggestions). Do NOT invent your own numbers, meanings, or spelling variants — only narrate what's given, in warm, plain Hindi.
+- You will receive a pre-computed deterministic NUMEROLOGY DATA object below. Do NOT invent your own numbers, meanings, or spelling variants — only narrate what's given, in warm, plain Hindi.
 - If category is 'company' or 'shop', frame the narrative around business energy (ग्राहक आकर्षण, विश्वसनीयता, वित्तीय स्थिरता) rather than personal-life themes.
 - If category is 'person', frame it around personal energy, career, and relationships.
-- If numerologyData.correction.needsCorrection is true, clearly recommend numerologyData.correction.topSuggestions[0].spelling as a better-balanced alternative and explain briefly why (its compound meaning). Never suggest a completely different name — only the small spelling tweak given.
+${linkedToKundli ? `- This check is LINKED to the person's own saved kundli, so referenceLifePath, soulUrgeNumber, personalityNumber, birthDayNumber and loShu are all computed from their REAL birth date — treat this as authoritative, complete birth data, not a guess. Weave in one line naturally connecting the name-number picture to their birth data (e.g. life path vs compound number harmony).${moonNakshatra ? ` Their Moon nakshatra is ${moonNakshatra} — you may mention it briefly ONLY if it naturally strengthens the correction advice, never force it.` : ''}` : `- No birth data is linked for this check — referenceLifePath will be null; give the reading purely from the name's own numbers, and don't claim any Life-Path comparison that wasn't given.`}
+- If numerologyData.correction?.needsCorrection is true, clearly recommend numerologyData.correction.topSuggestions[0].spelling as a better-balanced alternative and explain briefly why (its compound meaning). Never suggest a completely different name — only the small spelling tweak given.
 - If needsCorrection is false, reassure the user the current spelling is already numerologically sound.
 - Keep it concise: 4-6 short sentences total, plain Hindi/Hinglish, no bullet lists, no markdown.
 - Do NOT make predictions about specific future events, money amounts, or guaranteed outcomes — numerology here is interpretive guidance, not a guarantee.
@@ -45,20 +46,69 @@ export async function POST(req) {
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { name, category, reference_dob } = body;
+  const { name, category, reference_dob, kundli_id } = body;
 
   if (!name || !name.trim()) {
     return Response.json({ error: 'नाम दर्ज करें' }, { status: 400 });
   }
   const cat = ['person', 'company', 'shop', 'other'].includes(category) ? category : 'person';
+  const trimmedName = name.trim();
+
+  // ── Optional: link to one of the user's saved kundlis ───────────
+  // When linked, we already have a COMPLETE numerology sheet computed
+  // at kundli-creation time (buildNumerologySheet, saved on
+  // saved_kundlis.planet_data.numerology) — reuse it directly when the
+  // name being checked is still their own kundli name (exact reuse,
+  // guaranteed consistent with the rest of their chart). If they're
+  // checking a different spelling/name while linked, or just gave a
+  // reference_dob, recompute the full sheet against that dob so the
+  // reading still gets the deeper (soul urge / personality / Lo Shu)
+  // picture instead of the bare compound-number-only version.
+  let effectiveDob = reference_dob || null;
+  let moonNakshatra = null;
+  let linkedKundli = null;
+
+  if (kundli_id) {
+    const { data: k } = await supabase
+      .from('saved_kundlis')
+      .select('id, full_name, dob, planet_data')
+      .eq('id', kundli_id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (k) {
+      linkedKundli = k;
+      effectiveDob = effectiveDob || k.dob;
+      moonNakshatra = k.planet_data?.factSheet?.moonNakshatra || null;
+    }
+  }
 
   // ── Deterministic core (no AI, no network) ─────────────────────
-  const numerologyData = analyzeStandaloneName(name.trim(), reference_dob || null);
+  let numerologyData;
+  if (linkedKundli && trimmedName.toLowerCase() === (linkedKundli.full_name || '').trim().toLowerCase() && linkedKundli.planet_data?.numerology) {
+    // Exact reuse — same name, same dob, already computed for the kundli.
+    const sheet = linkedKundli.planet_data.numerology;
+    numerologyData = {
+      name: trimmedName,
+      chaldean: sheet.chaldean,
+      pythagoreanExpression: { number: sheet.expressionNumber, meaning: sheet.expressionMeaning },
+      referenceLifePath: sheet.lifePathNumber,
+      correction: sheet.nameCorrection,
+      soulUrgeNumber: sheet.soulUrgeNumber, soulUrgeMeaning: sheet.soulUrgeMeaning,
+      personalityNumber: sheet.personalityNumber, personalityMeaning: sheet.personalityMeaning,
+      birthDayNumber: sheet.birthDayNumber, birthDayMeaning: sheet.birthDayMeaning,
+      loShu: sheet.loShu,
+    };
+  } else if (effectiveDob) {
+    numerologyData = analyzeNameWithBirthData(trimmedName, effectiveDob);
+  } else {
+    numerologyData = analyzeStandaloneName(trimmedName, null);
+  }
 
   // ── AI narrative layer ──────────────────────────────────────────
-  const systemPrompt = buildSystemPrompt();
+  const systemPrompt = buildSystemPrompt(!!linkedKundli, moonNakshatra);
   const userPrompt = `नाम की श्रेणी: ${CATEGORY_LABEL_HI[cat]}
-नाम: ${name.trim()}
+नाम: ${trimmedName}
+${linkedKundli ? `(यह जांच उपयोगकर्ता की सेव कुंडली "${linkedKundli.full_name}" से लिंक है — birth data पूरा और authoritative है)` : ''}
 
 NUMEROLOGY DATA (pre-computed, authoritative — do not recalculate):
 ${JSON.stringify(numerologyData, null, 2)}`;
@@ -68,9 +118,10 @@ ${JSON.stringify(numerologyData, null, 2)}`;
   // ── Log the query (own record, RLS-protected) ────────────────────
   const { data: saved } = await supabase.from('numerology_queries').insert({
     user_id:         user.id,
-    name_queried:    name.trim(),
+    name_queried:    trimmedName,
     category:        cat,
-    reference_dob:   reference_dob || null,
+    reference_dob:   effectiveDob || null,
+    kundli_id:       linkedKundli?.id || null,
     numerology_data: numerologyData,
     ai_narrative:    aiResult.content,
     model_used:      aiResult.model,
@@ -78,8 +129,9 @@ ${JSON.stringify(numerologyData, null, 2)}`;
 
   return Response.json({
     id: saved?.id || null,
-    name: name.trim(),
+    name: trimmedName,
     category: cat,
+    linkedKundliId: linkedKundli?.id || null,
     numerology: numerologyData,
     narrative: aiResult.content,
     model: aiResult.model,

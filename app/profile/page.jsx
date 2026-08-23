@@ -426,26 +426,44 @@ export default function ProfilePage() {
         </button>
       )}
 
-      {kundlis.length >= 2 && (
-        <button onClick={() => router.push('/milan')} style={{ width:'100%', marginTop:'8px', padding:'10px', fontSize:'14px', color:'var(--color-text-primary)', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontWeight:'500' }}>
-          💍 कुंडली मिलान करें
+      {/* Tools — Ram Shalaka, Kundli Milan, Numerology, presented as a
+          consistent set of cards (not a stack of plain buttons) so
+          they read as the app's featured tools rather than an
+          afterthought list. */}
+      <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'1.5rem 0 10px' }}>अन्य उपकरण</p>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'10px' }}>
+        <button onClick={() => router.push('/ram-shalaka')} style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:'6px', padding:'14px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', cursor:'pointer', textAlign:'left' }}>
+          <span style={{ fontSize:'22px' }}>🕉️</span>
+          <span style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>राम शलाका</span>
+          <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)' }}>प्रश्नावली</span>
         </button>
-      )}
 
-      <button onClick={() => router.push('/numerology')} style={{ width:'100%', marginTop:'8px', padding:'10px', fontSize:'14px', color:'var(--color-text-primary)', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontWeight:'500' }}>
-        🔢 अंक ज्योतिष (नाम/कंपनी/दुकान जांचें)
-      </button>
+        {kundlis.length >= 2 && (
+          <button onClick={() => router.push('/milan')} style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:'6px', padding:'14px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', cursor:'pointer', textAlign:'left' }}>
+            <span style={{ fontSize:'22px' }}>💍</span>
+            <span style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>कुंडली मिलान</span>
+            <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)' }}>गुण मिलाएं</span>
+          </button>
+        )}
 
-      {/* Site-wide open-to-all rating — every user sees the average +
-          everyone's comments; each user can only submit/update their
-          own (see app/api/ratings + migration_010). */}
-      <div style={{ marginTop:'1.25rem' }}>
-        <SiteRatingWidget feature="overall" title="Luckfixer को Rate करें (सबके लिए खुला)" />
+        <button onClick={() => router.push('/numerology')} style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:'6px', padding:'14px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', cursor:'pointer', textAlign:'left' }}>
+          <span style={{ fontSize:'22px' }}>🔢</span>
+          <span style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>अंक ज्योतिष</span>
+          <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)' }}>नाम/कंपनी/दुकान जांचें</span>
+        </button>
       </div>
 
-      <button onClick={signOut} style={{ width:'100%', marginTop:'8px', padding:'10px', fontSize:'14px', color:'var(--color-text-secondary)', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer' }}>
+      <button onClick={signOut} style={{ width:'100%', marginTop:'1.5rem', padding:'10px', fontSize:'14px', color:'var(--color-text-secondary)', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer' }}>
         Logout
       </button>
+
+      {/* Rating — kept at the very bottom of the page, on its own,
+          so it doesn't compete with the actions above it. The 1-5
+          star average is public (everyone sees it); the written note
+          is private, read only by the Luckfixer team. */}
+      <div style={{ marginTop:'2rem' }}>
+        <SiteRatingWidget feature="overall" title="Luckfixer को Rate करें" />
+      </div>
     </div>
   );
 }

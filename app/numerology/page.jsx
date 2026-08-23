@@ -48,6 +48,12 @@ export default function NumerologyPage() {
   const [error,      setError]      = useState('');
   const [result,     setResult]     = useState(null);
 
+  // ── Link to a saved kundli — pulls name + dob from it automatically
+  // so the correction is evaluated against the person's real, already-
+  // validated birth data instead of retyping everything by hand.
+  const [kundlis,      setKundlis]      = useState([]);
+  const [linkedId,     setLinkedId]     = useState('');   // '' = not linked (custom name)
+
   const [ratings,    setRatings]    = useState(null); // { average, count, myRating, recent }
   const [myStars,    setMyStars]    = useState(0);
   const [myComment,  setMyComment]  = useState('');
@@ -59,9 +65,35 @@ export default function NumerologyPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/login'); return; }
       loadRatings();
+      const { data: ks } = await supabase
+        .from('saved_kundlis').select('id, label, full_name, dob, birth_place')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+      setKundlis(ks || []);
     }
     init();
   }, []);
+
+  // Selecting a saved kundli fills name + dob from it and locks the
+  // category to 'person' (it's their own name). Choosing "कोई भी नाम"
+  // again clears the link so any custom/company/shop name can be typed.
+  function linkKundli(id) {
+    setLinkedId(id);
+    if (!id) return;
+    const k = kundlis.find(x => x.id === id);
+    if (!k) return;
+    setName(k.full_name || '');
+    setRefDob(k.dob || '');
+    setCategory('person');
+    setResult(null);
+  }
+
+  function unlinkKundli() {
+    setLinkedId('');
+    setName('');
+    setRefDob('');
+    setResult(null);
+  }
 
   async function loadRatings() {
     const res = await fetch('/api/ratings?feature=numerology');
@@ -82,7 +114,7 @@ export default function NumerologyPage() {
     const res = await fetch('/api/numerology', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, category, reference_dob: refDob || null }),
+      body: JSON.stringify({ name, category, reference_dob: refDob || null, kundli_id: linkedId || null }),
     });
     const data = await res.json();
     if (!res.ok) { setError(data.error || 'कुछ गड़बड़ हुई'); }
@@ -123,31 +155,54 @@ export default function NumerologyPage() {
         <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:'0 0 12px', lineHeight:'1.5' }}>
           कोई भी नाम जांचें — अपना नाम, कंपनी का नाम, या दुकान/ब्रांड का नाम। Chaldean अंक-पद्धति से नाम की ऊर्जा और ज़रूरत पड़ने पर सुधार सुझाव मिलेगा।
         </p>
+        {/* Link to a saved kundli — auto-fills name + dob so the check
+            runs against real, already-validated birth data (and reuses
+            the fuller numerology sheet already computed for that chart)
+            instead of retyping everything and getting a thinner reading. */}
+        {kundlis.length > 0 && (
+          <div style={{ marginBottom:'12px', padding:'10px 12px', background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)' }}>
+            <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'6px' }}>किसकी नाम-जांच करनी है?</label>
+            <select value={linkedId} onChange={e => linkKundli(e.target.value)} style={{ width:'100%' }}>
+              <option value="">कोई भी नाम (खुद टाइप करें)</option>
+              {kundlis.map(k => (
+                <option key={k.id} value={k.id}>{k.label || k.full_name} — {k.dob}</option>
+              ))}
+            </select>
+            {linkedId && (
+              <p style={{ fontSize:'11px', color:'var(--color-text-success)', margin:'6px 0 0' }}>
+                ✓ कुंडली से लिंक — नाम व जन्म तिथि अपने आप भर गई, पूरा birth data इस्तेमाल होगा।{' '}
+                <span onClick={unlinkKundli} style={{ textDecoration:'underline', cursor:'pointer', color:'var(--color-text-tertiary)' }}>लिंक हटाएं</span>
+              </p>
+            )}
+          </div>
+        )}
+
         <form onSubmit={checkName} style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
           <div>
             <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>नाम *</label>
-            <input value={name} onChange={e => setName(e.target.value)} required placeholder="जैसे: Rohit Sharma / Sharma Traders" style={{ width:'100%' }}/>
+            <input value={name} onChange={e => { setName(e.target.value); if (linkedId) setLinkedId(''); }} required placeholder="जैसे: Rohit Sharma / Sharma Traders" style={{ width:'100%' }}/>
           </div>
           <div>
             <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'6px' }}>श्रेणी</label>
             <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
               {CATEGORIES.map(c => (
-                <button type="button" key={c.id} onClick={() => setCategory(c.id)} style={{
-                  padding:'6px 12px', fontSize:'13px', borderRadius:'var(--border-radius-md)', cursor:'pointer',
+                <button type="button" key={c.id} disabled={!!linkedId} onClick={() => setCategory(c.id)} style={{
+                  padding:'6px 12px', fontSize:'13px', borderRadius:'var(--border-radius-md)', cursor: linkedId ? 'not-allowed' : 'pointer',
                   border: category===c.id ? '0.5px solid var(--color-text-primary)' : '0.5px solid var(--color-border-tertiary)',
                   background: category===c.id ? 'var(--color-background-secondary)' : 'var(--color-background-primary)',
                   color:'var(--color-text-primary)', fontWeight: category===c.id ? '500' : '400',
+                  opacity: linkedId ? 0.6 : 1,
                 }}>{c.label}</button>
               ))}
             </div>
           </div>
-          {(category === 'company' || category === 'shop') && (
-            <div>
-              <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>मालिक/संस्थापक की जन्म तिथि (वैकल्पिक)</label>
-              <input type="date" value={refDob} onChange={e => setRefDob(e.target.value)} />
-              <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'4px 0 0' }}>दें तो नाम-अंक की तुलना मालिक के Life Path अंक से भी होगी</p>
-            </div>
-          )}
+          <div>
+            <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>
+              {category === 'person' ? 'जन्म तिथि (वैकल्पिक)' : 'मालिक/संस्थापक की जन्म तिथि (वैकल्पिक)'}
+            </label>
+            <input type="date" value={refDob} disabled={!!linkedId} onChange={e => setRefDob(e.target.value)} />
+            <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'4px 0 0' }}>दें तो Life Path, Soul Urge, Personality और Lo Shu ग्रिड सहित पूरी रिपोर्ट मिलेगी — नहीं तो सिर्फ नाम-अंक तक सीमित रहेगा</p>
+          </div>
           {error && <p style={{ fontSize:'12px', color:'var(--color-text-danger)', margin:0 }}>{error}</p>}
           <button type="submit" disabled={loading} style={{ padding:'10px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>
             {loading ? 'जांच हो रही है...' : 'नाम जांचें'}
@@ -191,44 +246,34 @@ export default function NumerologyPage() {
         </div>
       )}
 
-      {/* Public open-to-all rating widget */}
+      {/* Rating (public average) + written feedback (private, admin-only) */}
       <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1.25rem' }}>
-        <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>यूज़र Rating (सबके लिए खुला)</p>
+        <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>Rating व फीडबैक</p>
 
         {ratings && (
           <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
             <span style={{ fontSize:'28px', fontWeight:'600', color:'var(--color-text-primary)' }}>{ratings.average || '—'}</span>
             <div>
               <Stars value={Math.round(ratings.average)} size={16} />
-              <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:'2px 0 0' }}>{ratings.count} rating{ratings.count === 1 ? '' : 's'}</p>
+              <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:'2px 0 0' }}>{ratings.count} rating{ratings.count === 1 ? '' : 's'} · सबको दिखती है</p>
             </div>
           </div>
         )}
 
-        <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 6px' }}>आपकी rating:</p>
+        <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 6px' }}>आपकी rating (सबको दिखेगी):</p>
         <Stars value={myStars} onChange={setMyStars} />
+        <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'12px 0 6px' }}>आपकी प्रतिक्रिया (सिर्फ हमारी टीम पढ़ेगी):</p>
         <textarea
           value={myComment}
           onChange={e => setMyComment(e.target.value)}
-          placeholder="कोई टिप्पणी? (वैकल्पिक)"
+          placeholder="कोई सुझाव या समस्या बताएं? (वैकल्पिक, निजी)"
           rows={2}
-          style={{ width:'100%', marginTop:'10px', fontSize:'13px', resize:'vertical' }}
+          style={{ width:'100%', fontSize:'13px', resize:'vertical' }}
         />
         {ratingMsg && <p style={{ fontSize:'12px', color: ratingMsg.startsWith('✓') ? 'var(--color-text-success)' : 'var(--color-text-danger)', margin:'6px 0 0' }}>{ratingMsg}</p>}
         <button onClick={submitRating} disabled={ratingSaving} style={{ marginTop:'10px', padding:'8px 16px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500' }}>
           {ratingSaving ? 'सेव हो रहा है...' : (ratings?.myRating ? 'Rating अपडेट करें' : 'Rating दें')}
         </button>
-
-        {ratings?.recent?.length > 0 && (
-          <div style={{ marginTop:'16px', borderTop:'0.5px solid var(--color-border-tertiary)', paddingTop:'12px' }}>
-            {ratings.recent.filter(r => r.comment).slice(0, 5).map((r, i) => (
-              <div key={i} style={{ marginBottom:'10px' }}>
-                <Stars value={r.stars} size={12} />
-                <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'3px 0 0' }}>{r.comment}</p>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
