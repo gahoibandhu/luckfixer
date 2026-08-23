@@ -320,8 +320,17 @@ function detectLifeArea(lastUserMessage) {
   return 'general';
 }
 
-function buildFocusedContext(area, kundliContext) {
+function buildFocusedContext(area, kundliContext, lastUserMessage = '') {
   if (!kundliContext) return '';
+  const msgLower = (lastUserMessage || '').toLowerCase();
+  // "Am I married or not" / "do I have children or not" — a STATUS
+  // question, distinct from "when will I get married" — a TIMING
+  // question. Both use the same yoga-window data, but a status
+  // question should LEAD with the full list of past eligible windows
+  // (so the person can recognize which year, if any, matched their
+  // real life) rather than just asking them outright.
+  const isMarriageStatusQuery = /shaadi\s*(hui|ho\s*chuki|ho\s*gayi|ho\s*rakhi)|shadi\s*(hui|ho\s*chuki|ho\s*gayi)|vivah\s*(hua|ho\s*chuka)|married\s*(hoon|hu|ho)\b|kya\s*.{0,15}married|meri\s*shaadi\s*hui|shaadi\s*hui\s*hai\s*ya\s*nahi|shadi\s*hui\s*hai\s*ya\s*nahi/i.test(msgLower);
+  const isChildrenStatusQuery = /bachch[ea]\s*(hai|hain)\s*(ya|nahi)|bachche\s*hue|santan\s*(hui|hai)\s*(ya|nahi)|kya\s*.{0,15}bachche\s*hain|mere\s*bachche\s*hain|aulad\s*hai\s*ya\s*nahi/i.test(msgLower);
   const firstName = kundliContext.full_name?.split(' ')[0] || 'user';
   const es = kundliContext.factSheet?.eventScores;
   const vim = kundliContext.vimshottari;
@@ -333,24 +342,63 @@ function buildFocusedContext(area, kundliContext) {
   const PLANETS_HI = { Sun:'सूर्य', Moon:'चंद्र', Mars:'मंगल', Mercury:'बुध', Jupiter:'बृहस्पति', Venus:'शुक्र', Saturn:'शनि', Rahu:'राहु', Ketu:'केतु' };
   const toPlanetHi = p => PLANETS_HI[p] || p;
 
+  // Age of the person (in whole years) on a given ISO date — used to
+  // filter dasha-yoga windows to ones that actually fall within an
+  // eligible age range (e.g. don't surface a "marriage yog" window
+  // from when the person was 12).
+  function ageAtDate(dateStr) {
+    if (!kundliContext.dob) return null;
+    const birth = new Date(kundliContext.dob);
+    const at = new Date(dateStr);
+    let age = at.getFullYear() - birth.getFullYear();
+    const beforeBirthday = (at.getMonth() < birth.getMonth()) || (at.getMonth() === birth.getMonth() && at.getDate() < birth.getDate());
+    if (beforeBirthday) age -= 1;
+    return age;
+  }
+
+  // Minimum legally/socially marriageable age — 21 for male, 18 for
+  // female (India's legal minimums); used as the floor for scanning
+  // marriage-yog windows, and reused as a sensible floor for
+  // santan/children-yog windows too (child-yog windows before this
+  // age aren't a meaningful real-world signal either). Defaults to
+  // the more permissive 18 when gender isn't on record, so a genuine
+  // window near the boundary is never silently dropped.
+  const minEligibleAge = kundliContext.gender === 'male' ? 21 : 18;
+
   // ── Real dasha-yoga timing scan (the actual classical technique for
   // "kis kis saal yog bana/banega") — not a vague guess from only the
   // current dasha. Given the relevant house-lord + karaka planets for
   // this life area, scan the WHOLE dasha timeline (birth to ~120 yrs,
   // already computed in vim.mahadashas) and surface real year-ranges.
-  function formatYogaWindows(relevantLords, label) {
+  // `minAge` (optional) filters out windows that start before the
+  // person could plausibly be affected by them (e.g. marriage/santan
+  // yog before the legal minimum age isn't a meaningful real-world
+  // signal) — pass null/omit for life areas with no such floor.
+  function formatYogaWindows(relevantLords, label, minAge = null) {
     if (!vim?.mahadashas || relevantLords.length === 0) return '';
-    const periods = findYogaPeriods(vim.mahadashas, relevantLords);
+    let periods = findYogaPeriods(vim.mahadashas, relevantLords);
+    if (minAge != null) {
+      periods = periods.filter(p => { const a = ageAtDate(p.start); return a == null || a >= minAge; });
+    }
     if (periods.length === 0) return '';
 
     const now = new Date();
-    const past = periods.filter(p => new Date(p.end) < now).slice(-2);   // last 2 past windows
-    const future = periods.filter(p => new Date(p.end) >= now).slice(0, 3); // next 3 windows
+    // For status/eligibility questions ("shaadi hui ya nahi", "bachche
+    // hain ya nahi") every PAST eligible window matters, not just the
+    // last couple — the person needs the full list to recognize which
+    // year(s), if any, matched their real life. Future windows stay
+    // capped at 3 (that's a forward-looking answer, not a lookup).
+    const past = periods.filter(p => new Date(p.end) < now);
+    const future = periods.filter(p => new Date(p.end) >= now).slice(0, 3);
 
-    const fmt = p => `${p.mdLordHi}-${p.adLordHi} (${p.start.slice(0,4)}–${p.end.slice(0,4)}, ${p.strength === 'strong' ? 'मजबूत' : 'सामान्य'})`;
+    const fmt = p => {
+      const ageStart = ageAtDate(p.start), ageEnd = ageAtDate(p.end);
+      const ageStr = (ageStart != null && ageEnd != null) ? `, umar ${ageStart}-${ageEnd} saal` : '';
+      return `${p.mdLordHi}-${p.adLordHi} (${p.start.slice(0,4)}–${p.end.slice(0,4)}${ageStr}, ${p.strength === 'strong' ? 'मजबूत' : 'सामान्य'})`;
+    };
 
-    let out = `\n${label} — पूरी दशा-timeline स्कैन करके निकाले गए असली windows (guess नहीं, actual computed periods):`;
-    if (past.length) out += `\nपिछले सक्रिय windows: ${past.map(fmt).join('; ')}`;
+    let out = `\n${label} — पूरी दशा-timeline स्कैन करके निकाले गए असली windows (guess नहीं, actual computed periods)${minAge != null ? `, ${minAge} साल की उम्र के बाद के ही:` : ':'}`;
+    if (past.length) out += `\nपिछले सक्रिय windows (सभी): ${past.map(fmt).join('; ')}`;
     if (future.length) out += `\nआगे के सक्रिय windows: ${future.map(fmt).join('; ')}`;
     out += `\nINSTRUCTION: Use THESE exact computed windows for timing — don't invent a different "next 12 months" style guess. "मजबूत" (strong = both Mahadasha and Antardasha lord relevant) window is the primary answer; "सामान्य" (moderate) windows are secondary possibilities. If a past strong window already passed and the user hasn't confirmed the event happened, you can mention it as "yeh dauraan bhi strong yog tha" — but don't assert as fact whether it already happened (see NEVER GUESS ALREADY-LIVED FACTS rule).`;
     return out;
@@ -391,15 +439,21 @@ INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Give ONE specif
     const jupiter = planets.find(p => p.name === 'Jupiter');
     const d9 = kundliContext.factSheet?.d9Chart;
 
-    // Calculate age for age-aware prediction (avoid blindly predicting
-    // future marriage for someone whose prime marriage-age window has
-    // already passed — instead, surface what window WAS strong)
+    // Age-aware framing: whatever their current age, always surface
+    // which PAST windows (from the legal-minimum marriageable age —
+    // 21 male / 18 female — onward) were astrologically active, not
+    // just a future guess. This is what actually answers "shaadi hui
+    // hai ya nahi" style questions — the person can recognize which
+    // year, if any, matches their real life, instead of the AI just
+    // asking blankly.
     let ageNote = '';
     if (kundliContext.dob) {
-      const birth = new Date(kundliContext.dob);
-      const ageNow = Math.floor((Date.now() - birth.getTime()) / (365.25*24*60*60*1000));
-      if (ageNow >= 30) {
-        ageNote = `\nAGE AWARENESS: User is currently ${ageNow} years old. Don't just predict a vague future window — check if a strong marriage yog already existed in the PAST (commonly age 24-30, or whenever Venus/Jupiter dasha or transit was active) and mention that window explicitly using their dasha history. IMPORTANT: the chart has NO way to know whether this person is actually already married — that's a real-world fact only they know, never stored anywhere in this system. Never assume or guess it either way. If it's relevant to frame the answer differently for a married vs unmarried person, ASK them briefly ("aap already married hain ya abhi dhoond rahe hain?") rather than declaring one or the other from the chart.`;
+      const ageNow = ageAtDate(new Date().toISOString().slice(0,10));
+      ageNote = `\nAGE AWARENESS: User is currently ${ageNow} years old (eligible marriage-yog scan starts from age ${minEligibleAge}, per their gender). IMPORTANT: the chart has NO way to know whether this person is actually already married — that's a real-world fact only they know, never stored anywhere in this system. Never assume or guess it either way.`;
+      if (isMarriageStatusQuery) {
+        ageNote += ` THIS IS A STATUS QUESTION ("shaadi hui ya nahi" style) — DO NOT just ask them outright as your first move. Instead, LEAD your answer with the full list of past eligible VIVAH YOG WINDOWS below (all of them, with years and their age at the time), phrased as "in saal/umar mein vivah yog bana tha" (a yoga was active/formed, not "shaadi hui thi"/"you got married" — never assert the event itself happened). THEN ask them to confirm which window (if any) matches, e.g. "inme se kisi saal aapki shaadi hui thi kya?" This gives them something concrete to recognize instead of a blank question.`;
+      } else {
+        ageNote += ` If it's relevant to frame the answer differently for a married vs unmarried person, ASK them briefly ("aap already married hain ya abhi dhoond rahe hain?") rather than declaring one or the other from the chart.`;
       }
     }
 
@@ -414,7 +468,7 @@ D9 (Navamsa) Venus: ${d9?.Venus || 'N/A'}
 Marriage yogas: ${marYogas.length > 0 ? marYogas.map(y => y.name).join('; ') : 'none specific'}
 Dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD
 Varshaphal relationships: ${varsh?.areas?.find(a => a.area.includes('संबंध'))?.note || 'N/A'}${ageNote}
-${formatYogaWindows([lord7, 'Venus', 'Jupiter'].filter(Boolean), 'VIVAH YOG WINDOWS')}
+${formatYogaWindows([lord7, 'Venus', 'Jupiter'].filter(Boolean), 'VIVAH YOG WINDOWS', minEligibleAge)}
 INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Be specific about WHETHER and WHEN vivah looks/looked likely — past or future as relevant to their age. Give exact year/window from the VIVAH YOG WINDOWS data above, not a vague invented phrase. Connect to their specific 7th lord and Venus position.`;
   }
 
@@ -424,12 +478,20 @@ INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Be specific abo
     const jupiter = planets.find(p => p.name === 'Jupiter');
     const d9 = kundliContext.factSheet?.d9Chart;
 
+    let childrenNote = 'IMPORTANT: the chart has NO way to know whether this person already has children — that\'s a real-world fact only they know, never stored anywhere in this system. Never assume or guess it either way.';
+    if (isChildrenStatusQuery) {
+      childrenNote += ' THIS IS A STATUS QUESTION ("bachche hain ya nahi" style) — DO NOT just ask them outright as your first move. Instead, LEAD your answer with the full list of past eligible SANTAN YOG WINDOWS below (all of them, with years and age at the time), phrased as "in saal mein santan yog bana tha" (a yoga was active/formed, not "aapke bachche hue" — never assert the event itself happened). ALWAYS include a clear disclaimer in plain words that these are astrologically active windows/possibilities as of that time, NOT a confirmed or sure prediction — the actual outcome depends on many real-life factors this chart cannot see. THEN ask them to confirm which window (if any) matches their real life.';
+    } else {
+      childrenNote += ' If relevant, ask them directly rather than assuming.';
+    }
+
     block = `\n[SANTAN/CHILDREN CONTEXT for ${firstName} — use ALL of this]:
 5th lord: ${lord5 ? toPlanetHi(lord5) : 'check houseLords'}
 Jupiter (santan karaka) position: ${jupiter ? jupiter.signHi + ' (' + jupiter.house + 'th house, ' + jupiter.dignity + ')' : 'N/A'}
 Dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD
-${formatYogaWindows([lord5, 'Jupiter'].filter(Boolean), 'SANTAN YOG WINDOWS')}
-INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Give exact year/window from the SANTAN YOG WINDOWS data above for when santan-yog is/was strongest — don't invent a vague "kuch saal mein" phrase. Never assert whether they already have children or not (see NEVER GUESS ALREADY-LIVED FACTS rule) — if relevant, ask them directly.`;
+${formatYogaWindows([lord5, 'Jupiter'].filter(Boolean), 'SANTAN YOG WINDOWS', minEligibleAge)}
+${childrenNote}
+INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Give exact year/window from the SANTAN YOG WINDOWS data above for when santan-yog is/was strongest — don't invent a vague "kuch saal mein" phrase.`;
   }
 
   else if (area === 'daily') {
@@ -911,11 +973,22 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
         console.warn('[Chat] Transit calculation failed (non-fatal):', e.message);
       }
     }
-    // Language preference override
+    // Language preference override — 'auto' (no override) lets the base
+    // system prompt's own Hinglish-by-default, match-the-user's-register
+    // behavior run untouched. Explicit choices force one register
+    // regardless of what the user typed in.
     if (langPref && langPref !== 'auto') {
-      const langOverride = langPref === 'hi'
-        ? '\n\n[LANGUAGE OVERRIDE: Always respond in Hindi (Devanagari script)]'
-        : '\n\n[LANGUAGE OVERRIDE: Always respond in English]';
+      let langOverride;
+      if (langPref === 'hi') {
+        langOverride = '\n\n[LANGUAGE OVERRIDE: Always respond in Hindi (Devanagari script)]';
+      } else if (langPref === 'en') {
+        langOverride = '\n\n[LANGUAGE OVERRIDE: Always respond in English]';
+      } else {
+        // 'hinglish' — the app's default. Explicit rather than relying
+        // only on the base prompt's default, so it holds even if a
+        // future prompt edit changes that default.
+        langOverride = '\n\n[LANGUAGE OVERRIDE: Always respond in Hinglish — Roman script (NOT Devanagari), casual conversational Hindi blended naturally with English words, exactly like normal everyday WhatsApp Hindi typing]';
+      }
       systemPrompt += langOverride;
     }
 
@@ -930,7 +1003,7 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
     if (kundliContext) {
       const lastMsg = messages[messages.length - 1]?.content || '';
       const lifeArea = detectLifeArea(lastMsg);
-      const focusedCtx = buildFocusedContext(lifeArea, kundliContext);
+      const focusedCtx = buildFocusedContext(lifeArea, kundliContext, lastMsg);
       if (focusedCtx) {
         systemPrompt += focusedCtx;
       }

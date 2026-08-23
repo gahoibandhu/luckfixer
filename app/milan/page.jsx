@@ -218,7 +218,7 @@ export default function MilanPage() {
         <div style={{ textAlign:'center', padding:'2rem', color:'var(--color-text-tertiary)', fontSize:'13px', border:'0.5px dashed var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)' }}>
           मिलान के लिए कम से कम 2 कुंडली चाहिए।
           <br />
-          <button onClick={() => router.push('/profile')} style={{ marginTop:'8px', color:'var(--color-text-info)', background:'none', border:'none', cursor:'pointer', fontSize:'13px' }}>
+          <button onClick={() => router.push('/profile?addKundli=1')} style={{ marginTop:'8px', color:'var(--color-text-info)', background:'none', border:'none', cursor:'pointer', fontSize:'13px' }}>
             प्रोफाइल में जाकर कुंडली जोड़ें →
           </button>
         </div>

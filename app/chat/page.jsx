@@ -13,10 +13,17 @@ export const dynamic = 'force-dynamic';
 
 const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
 
+// Hinglish (Roman-script Hindi + English blended naturally) is the
+// product's default — it's what the target audience actually reads
+// comfortably day to day; pure Devanagari Hindi reads as noticeably
+// more formal/harder for many users, and English is opt-in only.
+// 'auto' lets the AI mirror whatever script the user themselves types
+// in, message to message, instead of forcing one.
 const LANG_OPTIONS = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'hi',   label: 'हिंदी' },
-  { value: 'en',   label: 'English' },
+  { value: 'auto',     label: 'Auto' },
+  { value: 'hinglish', label: 'Hinglish' },
+  { value: 'hi',       label: 'हिंदी' },
+  { value: 'en',       label: 'English' },
 ];
 
 // ── Letter-by-letter "typewriter" text component ─────────────────
@@ -171,7 +178,7 @@ export default function ChatPage() {
   const [loading,          setLoading]          = useState(false);
   const [usage,            setUsage]            = useState({ freeChatsLeft:5, freeMinsLeft:10 });
   const [limitErr,         setLimitErr]         = useState('');
-  const [langPref,         setLangPref]         = useState('hi');
+  const [langPref,         setLangPref]         = useState('hinglish'); // app default — see LANG_OPTIONS below; pure Hindi/English only on explicit request
   const [uiLang,           setUiLang]           = useState('hi'); // app's own UI chrome language — kept in sync with langPref by changeLanguage()
   const [langMenuOpen,     setLangMenuOpen]      = useState(false);
   const [sidebarOpen,      setSidebarOpen]      = useState(false);

@@ -45,6 +45,13 @@ export default function ProfilePage() {
 
   useEffect(() => {
     loadAll();
+    // Deep link from /milan's "you need a second kundli" empty state —
+    // jumps straight into the add-kundli form instead of dropping the
+    // user back on a plain profile page where they have to notice and
+    // click "+ नई कुंडली" themselves.
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('addKundli') === '1') {
+      setAddOpen(true);
+    }
     // Warm up Render ephemeris service so it's ready when user saves kundli
     fetch('/api/warmup').catch(() => {});
     // Re-load when auth state settles (handles fresh login redirects where
@@ -438,13 +445,17 @@ export default function ProfilePage() {
           <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)' }}>प्रश्नावली</span>
         </button>
 
-        {kundlis.length >= 2 && (
-          <button onClick={() => router.push('/milan')} style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:'6px', padding:'14px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', cursor:'pointer', textAlign:'left' }}>
-            <span style={{ fontSize:'22px' }}>💍</span>
-            <span style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>कुंडली मिलान</span>
-            <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)' }}>गुण मिलाएं</span>
-          </button>
-        )}
+        {/* Always shown — even with <2 kundlis — so the feature is
+            discoverable at all. Clicking with <2 kundlis lands on
+            /milan's own empty state, which links to
+            /profile?addKundli=1 (opens the add-kundli form directly,
+            see the init effect above) so adding the second kundli is
+            one click away instead of a dead end. */}
+        <button onClick={() => router.push('/milan')} style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:'6px', padding:'14px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', cursor:'pointer', textAlign:'left' }}>
+          <span style={{ fontSize:'22px' }}>💍</span>
+          <span style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>कुंडली मिलान</span>
+          <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)' }}>{kundlis.length >= 2 ? 'गुण मिलाएं' : 'गुण मिलाने के लिए 1 और कुंडली जोड़ें'}</span>
+        </button>
 
         <button onClick={() => router.push('/numerology')} style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:'6px', padding:'14px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', cursor:'pointer', textAlign:'left' }}>
           <span style={{ fontSize:'22px' }}>🔢</span>

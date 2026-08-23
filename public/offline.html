@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Luckfixer 2.0 — ऑफलाइन</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #0d0d0f;
+    color: #f1efe8;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+  .wrap {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem 1.5rem;
+  }
+  img {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 18px;
+    opacity: 0.95;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0 0 8px;
+  }
+  p {
+    font-size: 14px;
+    color: #b4b2a9;
+    margin: 0 0 24px;
+    max-width: 320px;
+    line-height: 1.6;
+  }
+  button {
+    padding: 11px 24px;
+    font-size: 15px;
+    font-weight: 500;
+    color: #0d0d0f;
+    background: #e08e5b;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  button:active { opacity: 0.85; }
+  .tag {
+    margin-top: 28px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #5f5e5a;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <img src="https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg" alt="Luckfixer">
+    <h1>आप ऑफलाइन हैं</h1>
+    <p>इंटरनेट कनेक्शन नहीं मिल रहा। Wi-Fi या Mobile Data चेक करें और दोबारा कोशिश करें — बाकी सब कुछ वैसा ही रहेगा जैसा छोड़ा था।</p>
+    <button onclick="location.reload()">दोबारा कोशिश करें</button>
+    <p class="tag">Luckfixer 2.0</p>
+  </div>
+</body>
+</html>

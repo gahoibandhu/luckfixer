@@ -41,8 +41,8 @@ export async function GET() {
   ] = await Promise.all([
     adminSupabase.from('user_profiles').select('*', { count: 'exact', head: true }),
     adminSupabase.from('saved_kundlis').select('*', { count: 'exact', head: true }),
-    adminSupabase.from('usage_log').select('chat_count, free_mins_used, total_tokens').eq('log_date', today),
-    adminSupabase.from('usage_log').select('log_date, chat_count, free_mins_used').gte('log_date', sevenDaysAgo.toISOString().split('T')[0]).order('log_date', { ascending: true }),
+    adminSupabase.from('usage_log').select('user_id, chat_count, free_mins_used, total_tokens').eq('log_date', today),
+    adminSupabase.from('usage_log').select('log_date, chat_count, free_mins_used, total_tokens').gte('log_date', sevenDaysAgo.toISOString().split('T')[0]).order('log_date', { ascending: true }),
     adminSupabase.from('plan_config').select('*').eq('plan_name', 'free').single(),
     adminSupabase.from('user_profiles').select('id, full_name, email, mobile, created_at').order('created_at', { ascending: false }).limit(20),
     adminSupabase.from('outcome_tracking').select('outcome').not('outcome', 'is', null),
@@ -74,14 +74,63 @@ export async function GET() {
 
   const activeToday = (todayUsage || []).filter(r => r.chat_count > 0).length;
 
+  // ── Real signed-in "visitors" today ──────────────────────────
+  // activeToday (above) only counts people who actually SENT a chat
+  // message — it misses someone who logged in, browsed their kundli
+  // or profile, and left without chatting. Supabase Auth's
+  // last_sign_in_at is the ground-truth signal for "opened the app
+  // today" regardless of what they did once inside. Paginated (and
+  // capped) so this stays cheap even as the user base grows.
+  let todayVisitors = 0;
+  let totalAuthUsers = 0;
+  try {
+    let page = 1;
+    const perPage = 1000;
+    const maxPages = 10; // safety cap — 10,000 users
+    let keepGoing = true;
+    while (keepGoing && page <= maxPages) {
+      const { data: pageData, error: pageErr } = await adminSupabase.auth.admin.listUsers({ page, perPage });
+      if (pageErr || !pageData?.users?.length) { keepGoing = false; break; }
+      totalAuthUsers += pageData.users.length;
+      todayVisitors += pageData.users.filter(u => u.last_sign_in_at && u.last_sign_in_at.slice(0, 10) === today).length;
+      keepGoing = pageData.users.length === perPage;
+      page += 1;
+    }
+  } catch (e) {
+    console.error('[Admin stats] listUsers error (non-fatal):', e.message);
+  }
+
+  // ── Per-user usage today — "token kisne kitna use kiya" ──────
+  // Sorted by token spend so the heaviest users (or a runaway bug on
+  // one account) are immediately visible, not buried in an average.
+  const todayUserIds = [...new Set((todayUsage || []).map(r => r.user_id).filter(Boolean))];
+  let todayUsersDetailed = [];
+  if (todayUserIds.length > 0) {
+    const { data: profiles } = await adminSupabase
+      .from('user_profiles').select('id, full_name, email').in('id', todayUserIds);
+    const profileById = {};
+    (profiles || []).forEach(p => { profileById[p.id] = p; });
+    todayUsersDetailed = (todayUsage || [])
+      .map(r => ({
+        user_id: r.user_id,
+        full_name: profileById[r.user_id]?.full_name || '',
+        email: profileById[r.user_id]?.email || '(unknown)',
+        chats: r.chat_count || 0,
+        mins: parseFloat((r.free_mins_used || 0).toFixed ? r.free_mins_used.toFixed(2) : r.free_mins_used || 0),
+        tokens: r.total_tokens || 0,
+      }))
+      .sort((a, b) => b.tokens - a.tokens);
+  }
+
   const dailyMap = {};
   (weekUsage || []).forEach(row => {
-    if (!dailyMap[row.log_date]) dailyMap[row.log_date] = { date: row.log_date, chats: 0, mins: 0, users: 0 };
-    dailyMap[row.log_date].chats += row.chat_count || 0;
-    dailyMap[row.log_date].mins  += parseFloat(row.free_mins_used || 0);
-    dailyMap[row.log_date].users += 1;
+    if (!dailyMap[row.log_date]) dailyMap[row.log_date] = { date: row.log_date, chats: 0, mins: 0, tokens: 0, users: 0 };
+    dailyMap[row.log_date].chats  += row.chat_count || 0;
+    dailyMap[row.log_date].mins   += parseFloat(row.free_mins_used || 0);
+    dailyMap[row.log_date].tokens += row.total_tokens || 0;
+    dailyMap[row.log_date].users  += 1;
   });
-  const weekTrend = Object.values(dailyMap);
+  const weekTrend = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
 
   const outcomeStats = outcomeRows ? {
     total_tracked: outcomeRows.length,
@@ -95,9 +144,12 @@ export async function GET() {
 
   return Response.json({
     totalUsers: totalUsers || 0,
+    totalAuthUsers,
     totalKundlis: totalKundlis || 0,
     activeToday,
+    todayVisitors,
     today: todayTotals,
+    todayUsersDetailed,
     weekTrend,
     plan,
     recentUsers: recentUsers || [],

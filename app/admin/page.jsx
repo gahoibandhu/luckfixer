@@ -60,6 +60,10 @@ export default function AdminPage() {
   const [lifeDomainsLastBatch, setLifeDomainsLastBatch] = useState(null);
   const [migrating, setMigrating] = useState(false);
 
+  // ── Feedback tab state ──────────────────────────────────────
+  const [feedbackData, setFeedbackData] = useState(null);
+  const [feedbackLoaded, setFeedbackLoaded] = useState(false);
+
   useEffect(() => { checkAuth(); }, []);
 
   async function checkAuth() {
@@ -315,6 +319,14 @@ export default function AdminPage() {
     if (t === 'demo' && demoUsers.length === 0) loadDemoUsers();
     if (t === 'broadcast' && !broadcastHistoryLoaded) loadBroadcastHistory();
     if (t === 'migrations' && !kundliListLoaded) loadKundliList();
+    if (t === 'feedback' && !feedbackLoaded) loadFeedback();
+  }
+
+  async function loadFeedback() {
+    const res = await fetch('/api/admin/feedback');
+    const data = await res.json();
+    setFeedbackData(data);
+    setFeedbackLoaded(true);
   }
 
   async function loadBroadcastHistory() {
@@ -409,7 +421,9 @@ export default function AdminPage() {
       <div style={{ display:'flex', gap:'4px', marginBottom:'1.5rem', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
         {[
           { id:'overview', label:'Overview' },
+          { id:'usage',    label:'📊 Usage' },
           { id:'chats',    label:'Chat Audit' },
+          { id:'feedback', label:'⭐ Feedback' },
           { id:'plan',     label:'Plan Config' },
           { id:'demo',     label:'Demo Users' },
           { id:'broadcast',label:'📢 Broadcast' },
@@ -430,7 +444,8 @@ export default function AdminPage() {
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'12px', marginBottom:'1.5rem' }}>
             <MetricCard label="कुल Users" value={stats.totalUsers} />
             <MetricCard label="कुल Kundlis" value={stats.totalKundlis} />
-            <MetricCard label="आज Active" value={stats.activeToday} />
+            <MetricCard label="आज Visitors" value={stats.todayVisitors ?? '—'} />
+            <MetricCard label="आज Active (Chat)" value={stats.activeToday} />
             <MetricCard label="आज की Chats" value={stats.today.chats} />
             <MetricCard label="आज के Minutes" value={stats.today.mins.toFixed(1)} />
             <MetricCard label="आज के Tokens" value={stats.today.tokens.toLocaleString()} />
@@ -439,6 +454,9 @@ export default function AdminPage() {
               <MetricCard label="Accuracy %" value={stats.outcomeStats.accuracy_pct != null ? `${stats.outcomeStats.accuracy_pct}%` : '—'} />
             </>}
           </div>
+          <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'-10px 0 1.5rem' }}>
+            Visitors = आज login किया (भले chat ना किया हो) · Active (Chat) = आज कम से कम एक chat message भेजा
+          </p>
 
           {/* Model usage breakdown — shows how much traffic is landing on
               Gemini (primary) vs weaker fallback providers. If chat/prediction
@@ -542,6 +560,116 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* USAGE TAB — per-user token/minute/chat breakdown for today,
+          plus the 7-day trend. Overview gives site-wide totals; this
+          answers "kisne kitna use kiya" at the individual level, and
+          "trend" over the last week so a spike/drop is visible without
+          exporting the DB. */}
+      {tab === 'usage' && stats && (
+        <div>
+          <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>आज — User के हिसाब से Usage</p>
+          <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden', marginBottom:'1.5rem' }}>
+            {(!stats.todayUsersDetailed || stats.todayUsersDetailed.length === 0) ? (
+              <p style={{ padding:'1rem', fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>आज अभी तक किसी ने इस्तेमाल नहीं किया</p>
+            ) : (
+              <>
+                <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr', gap:'8px', padding:'8px 14px', fontSize:'11px', fontWeight:'500', color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.5px', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
+                  <span>User</span><span>Chats</span><span>Minutes</span><span>Tokens</span>
+                </div>
+                {stats.todayUsersDetailed.map((u, i) => (
+                  <div key={u.user_id} style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr', gap:'8px', padding:'9px 14px', fontSize:'13px', borderBottom: i < stats.todayUsersDetailed.length-1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
+                    <div style={{ minWidth:0 }}>
+                      <p style={{ margin:0, fontWeight:'500', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.full_name || '(no name)'}</p>
+                      <p style={{ margin:0, fontSize:'11px', color:'var(--color-text-tertiary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email}</p>
+                    </div>
+                    <span style={{ color:'var(--color-text-secondary)' }}>{u.chats}</span>
+                    <span style={{ color:'var(--color-text-secondary)' }}>{u.mins}</span>
+                    <span style={{ color: i === 0 ? 'var(--color-text-warning)' : 'var(--color-text-secondary)', fontWeight: i === 0 ? '600' : '400' }}>{u.tokens.toLocaleString()}</span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+
+          <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>पिछले 7 दिन — Trend</p>
+          <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden' }}>
+            {(!stats.weekTrend || stats.weekTrend.length === 0) ? (
+              <p style={{ padding:'1rem', fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>कोई डेटा नहीं</p>
+            ) : (
+              <>
+                <div style={{ display:'grid', gridTemplateColumns:'1.3fr 1fr 1fr 1fr 1fr', gap:'8px', padding:'8px 14px', fontSize:'11px', fontWeight:'500', color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.5px', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
+                  <span>तारीख</span><span>Active Users</span><span>Chats</span><span>Minutes</span><span>Tokens</span>
+                </div>
+                {stats.weekTrend.map((d, i) => (
+                  <div key={d.date} style={{ display:'grid', gridTemplateColumns:'1.3fr 1fr 1fr 1fr 1fr', gap:'8px', padding:'9px 14px', fontSize:'13px', borderBottom: i < stats.weekTrend.length-1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
+                    <span style={{ color:'var(--color-text-primary)', fontWeight:'500' }}>{new Date(d.date).toLocaleDateString('hi-IN', { day:'numeric', month:'short' })}</span>
+                    <span style={{ color:'var(--color-text-secondary)' }}>{d.users}</span>
+                    <span style={{ color:'var(--color-text-secondary)' }}>{d.chats}</span>
+                    <span style={{ color:'var(--color-text-secondary)' }}>{d.mins.toFixed(1)}</span>
+                    <span style={{ color:'var(--color-text-secondary)' }}>{d.tokens.toLocaleString()}</span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* FEEDBACK TAB — the private written feedback (star-rating
+          comments + kundli thumbs/correction notes) users leave.
+          These are intentionally NOT shown to other users (see
+          migration_011 + app/api/admin/feedback) — this is the one
+          place they surface. */}
+      {tab === 'feedback' && (
+        <div>
+          {!feedbackData ? (
+            <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)' }}>लोड हो रहा है...</p>
+          ) : (
+            <>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'12px', marginBottom:'1.5rem' }}>
+                <MetricCard label="कुल Ratings" value={feedbackData.summary.totalRatings} />
+                <MetricCard label="Ratings के साथ Comment" value={feedbackData.summary.totalComments} />
+                <MetricCard label="Kundli Feedback (👍/👎)" value={feedbackData.summary.totalFeedback} />
+                <MetricCard label="👍 Up" value={feedbackData.summary.thumbsUp} />
+                <MetricCard label="👎 Down" value={feedbackData.summary.thumbsDown} />
+              </div>
+
+              <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>Rating Comments (निजी)</p>
+              <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden', marginBottom:'1.5rem' }}>
+                {feedbackData.ratingsWithComment.length === 0 ? (
+                  <p style={{ padding:'1rem', fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>अभी तक कोई written feedback नहीं</p>
+                ) : feedbackData.ratingsWithComment.map((r, i) => (
+                  <div key={r.id} style={{ padding:'10px 14px', borderBottom: i < feedbackData.ratingsWithComment.length-1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'3px' }}>
+                      <span style={{ fontSize:'12px', fontWeight:'500', color:'var(--color-text-primary)' }}>{'⭐'.repeat(r.stars)} · {r.feature}</span>
+                      <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)' }}>{new Date(r.created_at).toLocaleDateString('hi-IN')}</span>
+                    </div>
+                    <p style={{ margin:'0 0 3px', fontSize:'13px', color:'var(--color-text-primary)', lineHeight:'1.5' }}>{r.comment}</p>
+                    <p style={{ margin:0, fontSize:'11px', color:'var(--color-text-tertiary)' }}>{r.user}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>Kundli Feedback — Correction Notes</p>
+              <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden' }}>
+                {feedbackData.feedbackWithNote.length === 0 ? (
+                  <p style={{ padding:'1rem', fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>अभी तक कोई correction note नहीं</p>
+                ) : feedbackData.feedbackWithNote.map((f, i) => (
+                  <div key={f.id} style={{ padding:'10px 14px', borderBottom: i < feedbackData.feedbackWithNote.length-1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'3px' }}>
+                      <span style={{ fontSize:'12px', fontWeight:'500', color: f.rating === 'up' ? 'var(--color-text-success)' : 'var(--color-text-danger)' }}>{f.rating === 'up' ? '👍' : '👎'} · {f.section}</span>
+                      <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)' }}>{new Date(f.created_at).toLocaleDateString('hi-IN')}</span>
+                    </div>
+                    <p style={{ margin:'0 0 3px', fontSize:'13px', color:'var(--color-text-primary)', lineHeight:'1.5' }}>{f.correction_note}</p>
+                    <p style={{ margin:0, fontSize:'11px', color:'var(--color-text-tertiary)' }}>{f.user}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
