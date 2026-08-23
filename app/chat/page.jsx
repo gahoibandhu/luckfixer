@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import KundliDetailPanel from '@/components/KundliDetailPanel';
 import DateOfBirthInput from '@/components/DateOfBirthInput';
-import { t, UI_LANGUAGES } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
@@ -172,7 +172,7 @@ export default function ChatPage() {
   const [usage,            setUsage]            = useState({ freeChatsLeft:5, freeMinsLeft:10 });
   const [limitErr,         setLimitErr]         = useState('');
   const [langPref,         setLangPref]         = useState('hi');
-  const [uiLang,           setUiLang]           = useState('hi'); // app's own UI chrome language — separate from langPref (AI reply language)
+  const [uiLang,           setUiLang]           = useState('hi'); // app's own UI chrome language — kept in sync with langPref by changeLanguage()
   const [langMenuOpen,     setLangMenuOpen]      = useState(false);
   const [sidebarOpen,      setSidebarOpen]      = useState(false);
   const [panel,            setPanel]            = useState('sessions'); // 'sessions'|'kundlis'
@@ -279,16 +279,35 @@ export default function ChatPage() {
     el.style.height = Math.min(el.scrollHeight, 160) + 'px';
   }
 
-  function changeUiLang(code) {
-    setUiLang(code);
-    if (typeof window !== 'undefined') window.localStorage.setItem('lf_ui_lang', code);
+  // Single language control — one choice drives BOTH the app's own
+  // chrome text (uiLang, via lib/i18n.js) and the language the AI
+  // replies in (langPref, sent to /api/chat). Previously these were
+  // two separate selectors (a top-bar dropdown for AI replies + a
+  // bottom-sidebar hi/en toggle for chrome text) that could disagree
+  // with each other and confused people — now there's exactly one
+  // dropdown (top bar) and it keeps both in sync. 'auto' lets the AI
+  // detect/mirror the user's own language per message; the app's own
+  // buttons still need a concrete choice, so 'auto' shows Hindi chrome
+  // (the app's primary language) while still auto-detecting AI replies.
+  function changeLanguage(code) {
+    setLangPref(code);
+    const chromeCode = code === 'en' ? 'en' : 'hi';
+    setUiLang(chromeCode);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('lf_lang_pref', code);
+      window.localStorage.setItem('lf_ui_lang', chromeCode);
+    }
+    setLangMenuOpen(false);
   }
 
   useEffect(() => { messagesEnd.current?.scrollIntoView({ behavior:'smooth' }); }, [messages]);
 
   async function init() {
-    const savedUiLang = typeof window !== 'undefined' ? window.localStorage.getItem('lf_ui_lang') : null;
-    if (savedUiLang) setUiLang(savedUiLang);
+    const savedLangPref = typeof window !== 'undefined' ? window.localStorage.getItem('lf_lang_pref') : null;
+    if (savedLangPref) {
+      setLangPref(savedLangPref);
+      setUiLang(savedLangPref === 'en' ? 'en' : 'hi');
+    }
 
     const urlKundliId = new URLSearchParams(window.location.search).get('kundliId');
     const { data:{ session } } = await supabase.auth.getSession();
@@ -697,22 +716,6 @@ export default function ChatPage() {
             );
           })}
 
-
-          {/* UI language toggle — separate from the AI reply-language
-              selector above; this switches the app's own buttons/labels. */}
-          <div style={{ display:'flex', gap:'4px', margin:'6px 0' }}>
-            {UI_LANGUAGES.map(l => (
-              <button key={l.code} onClick={() => changeUiLang(l.code)} style={{
-                flex:1, padding:'5px', fontSize:'11px', borderRadius:'7px', cursor:'pointer',
-                border: uiLang===l.code ? '1px solid var(--color-brand)' : '0.5px solid var(--color-border-tertiary)',
-                background: uiLang===l.code ? 'var(--color-brand-light)' : 'none',
-                color: uiLang===l.code ? 'var(--color-brand)' : 'var(--color-text-tertiary)',
-              }}>
-                {l.label}
-              </button>
-            ))}
-          </div>
-
           <button onClick={signOut} style={{ width:'100%', padding:'6px', fontSize:'11px', background:'none', border:'none', cursor:'pointer', color:'var(--color-text-tertiary)' }}>{t('logout', uiLang)}</button>
         </div>
       </div>
@@ -762,7 +765,7 @@ export default function ChatPage() {
                   {LANG_OPTIONS.map(opt => (
                     <div
                       key={opt.value}
-                      onClick={() => { setLangPref(opt.value); setLangMenuOpen(false); }}
+                      onClick={() => changeLanguage(opt.value)}
                       style={{
                         padding:'9px 14px', fontSize:'13px', cursor:'pointer',
                         background: langPref === opt.value ? 'var(--color-background-info)' : 'transparent',
