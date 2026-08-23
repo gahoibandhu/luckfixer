@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import KundliDetailPanel from '@/components/KundliDetailPanel';
 import DateOfBirthInput from '@/components/DateOfBirthInput';
+import SiteRatingWidget from '@/components/SiteRatingWidget';
 import { t, UI_LANGUAGES } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
@@ -162,6 +163,8 @@ export default function ChatPage() {
   const [kundli,           setKundli]           = useState(null);
   const [dailyCard,        setDailyCard]        = useState(null); // today's proactive gochar insight, dismissible
   const [notableFinding,   setNotableFinding]   = useState(null); // one-time "we found something" teaser
+  const [showRateNudge,    setShowRateNudge]    = useState(false); // "साइट को रेट करें" nudge after a few chat turns
+  const [rateNudgeDismissed, setRateNudgeDismissed] = useState(false);
   const [sessions,         setSessions]         = useState([]);
   const [sessionId,        setSessionId]        = useState(null);
   const [pendingKundliId,  setPendingKundliId]  = useState(null);
@@ -285,6 +288,19 @@ export default function ChatPage() {
   }
 
   useEffect(() => { messagesEnd.current?.scrollIntoView({ behavior:'smooth' }); }, [messages]);
+
+  // Show a one-time "rate the site" nudge once the conversation has
+  // gone a few turns — the moment right after they've actually used
+  // (and presumably formed an opinion on) the product, not before.
+  useEffect(() => {
+    const assistantReplies = messages.filter(m => m.role === 'assistant').length;
+    if (assistantReplies >= 3 && !rateNudgeDismissed) setShowRateNudge(true);
+  }, [messages, rateNudgeDismissed]);
+
+  function dismissRateNudge() {
+    setShowRateNudge(false);
+    setRateNudgeDismissed(true);
+  }
 
   async function init() {
     const savedUiLang = typeof window !== 'undefined' ? window.localStorage.getItem('lf_ui_lang') : null;
@@ -697,6 +713,15 @@ export default function ChatPage() {
             );
           })}
 
+          {/* Open-to-all site feedback — always reachable from chat,
+              not just after the conversation ends. Compact mode: a
+              single button, expands inline to the full public rating
+              widget (average + everyone's comments, own rating entry).
+              See components/SiteRatingWidget.jsx + app/api/ratings. */}
+          <div style={{ margin:'3px 0' }}>
+            <SiteRatingWidget feature="overall" compact />
+          </div>
+
           {/* UI language toggle — separate from the AI reply-language
               selector above; this switches the app's own buttons/labels. */}
           <div style={{ display:'flex', gap:'4px', margin:'6px 0' }}>
@@ -803,6 +828,23 @@ export default function ChatPage() {
               <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)' }}>{notableFinding.label} — टैप करके जानें</p>
             </div>
             <button onClick={(e) => { e.stopPropagation(); dismissNotableFinding(); }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-tertiary)', fontSize:'16px', padding:'0 2px', flexShrink:0, lineHeight:1 }}>✕</button>
+          </div>
+        )}
+
+        {/* Chat के बाद खुला (open-to-all) feedback nudge — dismissible,
+            appears after a few AI replies. Expands inline into the
+            full public SiteRatingWidget (average + everyone's
+            comments, own rating entry) — not a private thumbs-up. */}
+        {showRateNudge && (
+          <div style={{ margin:'10px 14px 0', flexShrink:0 }}>
+            <div style={{ padding:'12px 14px', borderRadius:'12px', background:'var(--color-background-warning)', border:'1px solid var(--color-text-warning)', display:'flex', gap:'10px', alignItems:'flex-start' }}>
+              <span style={{ fontSize:'18px', flexShrink:0 }}>⭐</span>
+              <div style={{ flex:1, minWidth:0 }}>
+                <p style={{ margin:'0 0 6px', fontSize:'12px', fontWeight:'600', color:'var(--color-text-primary)' }}>Luckfixer कैसा लग रहा है?</p>
+                <SiteRatingWidget feature="overall" />
+              </div>
+              <button onClick={dismissRateNudge} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-tertiary)', fontSize:'16px', padding:'0 2px', flexShrink:0, lineHeight:1 }}>✕</button>
+            </div>
           </div>
         )}
 

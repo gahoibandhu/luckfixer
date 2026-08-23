@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
+import SiteRatingWidget from '@/components/SiteRatingWidget';
 import DateOfBirthInput from '@/components/DateOfBirthInput';
 import EditKundliModal from '@/components/EditKundliModal';
 
@@ -430,6 +431,17 @@ export default function ProfilePage() {
           💍 कुंडली मिलान करें
         </button>
       )}
+
+      <button onClick={() => router.push('/numerology')} style={{ width:'100%', marginTop:'8px', padding:'10px', fontSize:'14px', color:'var(--color-text-primary)', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontWeight:'500' }}>
+        🔢 अंक ज्योतिष (नाम/कंपनी/दुकान जांचें)
+      </button>
+
+      {/* Site-wide open-to-all rating — every user sees the average +
+          everyone's comments; each user can only submit/update their
+          own (see app/api/ratings + migration_010). */}
+      <div style={{ marginTop:'1.25rem' }}>
+        <SiteRatingWidget feature="overall" title="Luckfixer को Rate करें (सबके लिए खुला)" />
+      </div>
 
       <button onClick={signOut} style={{ width:'100%', marginTop:'8px', padding:'10px', fontSize:'14px', color:'var(--color-text-secondary)', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer' }}>
         Logout
