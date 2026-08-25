@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import SiteRatingWidget from '@/components/SiteRatingWidget';
 import DateOfBirthInput from '@/components/DateOfBirthInput';
 import EditKundliModal from '@/components/EditKundliModal';
+import MissingKundliFieldsModal from '@/components/MissingKundliFieldsModal';
+import { getMissingKundliFields } from '@/lib/kundli-form-validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +34,7 @@ export default function ProfilePage() {
   const [editingKundli, setEditingKundli] = useState(null); // kundli row being edited, or null
   const [newK,     setNewK]     = useState({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'' });
   const [analyzing,setAnalyzing]= useState(false);
+  const [missingFields, setMissingFields] = useState(null); // array from getMissingKundliFields(), or null when modal is closed
   const [wizardStep, setWizardStep] = useState(1); // 1=naam+dob, 2=time, 3=place
   const [analyzingStepIdx, setAnalyzingStepIdx] = useState(0);
 
@@ -151,15 +154,24 @@ export default function ProfilePage() {
 
   async function addKundli(e) {
     e.preventDefault();
-    if (!newK.gender) {
-      setGeoError('कृपया लिंग चुनें — बेहतर विश्लेषण और संबोधन के लिए ज़रूरी है');
-      setWizardStep(1);
+
+    // Single authoritative check, run at actual submit time — not
+    // just relying on each wizard step's "disabled" button, which is
+    // a UX nudge but not the last line of defense (e.g. a step could
+    // be revisited and a field cleared without re-triggering the
+    // disabled state some other way). Shows EVERY missing field at
+    // once in a popup instead of one inline message at a time.
+    const missing = getMissingKundliFields(newK);
+    if (missing.length > 0) {
+      setMissingFields(missing);
+      // Jump to whichever step actually contains the first missing
+      // field, so closing the popup drops them right where they need
+      // to be instead of leaving them stuck wherever they were.
+      const fieldsByStep = { full_name: 1, dob: 1, gender: 1, birth_time: 2, birth_place: 3 };
+      setWizardStep(fieldsByStep[missing[0].field] || 1);
       return;
     }
-    if (!newK.latitude || !newK.longitude) {
-      setGeoError('कृपया जन्म स्थान डालकर बाहर क्लिक करें, या Latitude/Longitude खुद भरें');
-      return;
-    }
+
     setAnalyzing(true);
     const res = await fetch('/api/kundli', {
       method: 'POST',
@@ -475,6 +487,8 @@ export default function ProfilePage() {
       <div style={{ marginTop:'2rem' }}>
         <SiteRatingWidget feature="overall" title="Luckfixer को Rate करें" />
       </div>
+
+      <MissingKundliFieldsModal missing={missingFields} onClose={() => setMissingFields(null)} />
     </div>
   );
 }

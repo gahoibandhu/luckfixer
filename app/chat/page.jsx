@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import KundliDetailPanel from '@/components/KundliDetailPanel';
 import DateOfBirthInput from '@/components/DateOfBirthInput';
+import MissingKundliFieldsModal from '@/components/MissingKundliFieldsModal';
+import { getMissingKundliFields } from '@/lib/kundli-form-validation';
 import { t } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
@@ -190,6 +192,7 @@ export default function ChatPage() {
 
   // ── In-chat kundli onboarding (no redirect to /profile) ─────────
   const [addKundliOpen, setAddKundliOpen]   = useState(false);
+  const [missingFields, setMissingFields]   = useState(null); // array from getMissingKundliFields(), or null when modal is closed
   const [newK,          setNewK]            = useState({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'' });
   const [geocoding,     setGeocoding]       = useState(false);
   const [geoResults,    setGeoResults]      = useState([]);
@@ -483,9 +486,15 @@ export default function ChatPage() {
 
   async function saveNewKundli(e) {
     e.preventDefault();
-    if (!newK.full_name || !newK.dob || !newK.birth_time) { setGeoError('नाम, जन्म तिथि और समय ज़रूरी हैं'); return; }
-    if (!newK.gender) { setGeoError('कृपया लिंग चुनें'); return; }
-    if (!newK.latitude || !newK.longitude) { setGeoError('कृपया जन्म स्थान खोजें, या Latitude/Longitude खुद भरें'); return; }
+    // Same authoritative check as the profile page's wizard — shows
+    // every missing field at once in a popup rather than one inline
+    // message at a time (previously: 3 separate sequential checks,
+    // each only revealing the next problem after fixing the last one).
+    const missing = getMissingKundliFields(newK);
+    if (missing.length > 0) {
+      setMissingFields(missing);
+      return;
+    }
     setSavingKundli(true); setGeoError('');
     try {
       const res = await fetch('/api/kundli', {
@@ -1116,6 +1125,7 @@ export default function ChatPage() {
       `}</style>
 
       <KundliDetailPanel kundli={kundli} open={detailPanelOpen} onClose={() => setDetailPanelOpen(false)} initialTab={detailPanelTab} />
+      <MissingKundliFieldsModal missing={missingFields} onClose={() => setMissingFields(null)} />
     </div>
   );
 }

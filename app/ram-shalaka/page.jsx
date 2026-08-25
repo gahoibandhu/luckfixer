@@ -34,14 +34,30 @@ export default function RamShalakaPage() {
   const [showFullChaupai, setShowFullChaupai] = useState(false);
   const [wheelKey, setWheelKey] = useState(0); // bump to force a fresh wheel instance
 
+  function logUsage(answer, mode) {
+    // Fire-and-forget — never blocks or interrupts the reading itself.
+    fetch('/api/ram-shalaka/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tone: answer?.tone || null, mode }),
+    }).catch(() => {});
+  }
+
   function pickCell(row, col) {
     if (revealing) return;
     setPickedCell({ row, col });
     setRevealing(true);
     setTimeout(() => {
-      setResult(getAnswerForCell(row, col));
+      const answer = getAnswerForCell(row, col);
+      setResult(answer);
+      logUsage(answer, 'grid');
       setRevealing(false);
     }, 600);
+  }
+
+  function handleWheelResult(answer) {
+    setResult(answer);
+    logUsage(answer, 'wheel');
   }
 
   function reset() {
@@ -87,7 +103,7 @@ export default function RamShalakaPage() {
           </div>
 
           {mode === 'wheel' && (
-            <RamShalakaWheel key={wheelKey} onResult={setResult} />
+            <RamShalakaWheel key={wheelKey} onResult={handleWheelResult} />
           )}
 
           {mode === 'grid' && (

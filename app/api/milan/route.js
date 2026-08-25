@@ -36,6 +36,19 @@ export async function POST(req) {
     return Response.json({ error: 'मिलान के लिए चंद्र नक्षत्र डेटा उपलब्ध नहीं — कुंडली migrate करें' }, { status: 422 });
   }
 
+  // Log usage (non-fatal if it fails) — Milan previously wrote nothing
+  // to the database at all, so the admin panel had zero visibility
+  // into how often this feature was actually used. See migration_012.
+  try {
+    await supabase.from('feature_usage_log').insert({
+      user_id: user.id,
+      feature: 'milan',
+      meta: { total_score: result.totalScore ?? null },
+    });
+  } catch (e) {
+    console.error('[Milan] usage log error (non-fatal):', e.message);
+  }
+
   return Response.json({
     boy:    { id: k1.id, label: label1 || k1.label || k1.full_name },
     girl:   { id: k2.id, label: label2 || k2.label || k2.full_name },

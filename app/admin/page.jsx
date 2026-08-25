@@ -64,6 +64,14 @@ export default function AdminPage() {
   const [feedbackData, setFeedbackData] = useState(null);
   const [feedbackLoaded, setFeedbackLoaded] = useState(false);
 
+  // ── Users tab state ──────────────────────────────────────────
+  const [usersData, setUsersData] = useState(null);
+  const [usersLoaded, setUsersLoaded] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [expandedUserId, setExpandedUserId] = useState(null);
+  const [userDetail, setUserDetail] = useState(null); // detail payload for expandedUserId, or 'loading'
+  const [featuresData, setFeaturesData] = useState(null);
+
   useEffect(() => { checkAuth(); }, []);
 
   async function checkAuth() {
@@ -91,6 +99,7 @@ export default function AdminPage() {
         plan_type:      data.plan.plan_type || 'chat',
       });
     }
+    loadFeatures(); // feature-adoption cards render inside Overview, the default tab, so load immediately rather than waiting for a switchTab call
   }
 
   async function loadSessions(deleted = false, date = dateFilter) {
@@ -320,6 +329,29 @@ export default function AdminPage() {
     if (t === 'broadcast' && !broadcastHistoryLoaded) loadBroadcastHistory();
     if (t === 'migrations' && !kundliListLoaded) loadKundliList();
     if (t === 'feedback' && !feedbackLoaded) loadFeedback();
+    if (t === 'users' && !usersLoaded) loadUsers();
+  }
+
+  async function loadUsers(search = '') {
+    const res = await fetch(`/api/admin/users${search ? `?search=${encodeURIComponent(search)}` : ''}`);
+    const data = await res.json();
+    setUsersData(data);
+    setUsersLoaded(true);
+  }
+
+  async function loadFeatures() {
+    const res = await fetch('/api/admin/features');
+    const data = await res.json();
+    setFeaturesData(data);
+  }
+
+  async function toggleUserDetail(userId) {
+    if (expandedUserId === userId) { setExpandedUserId(null); setUserDetail(null); return; }
+    setExpandedUserId(userId);
+    setUserDetail('loading');
+    const res = await fetch(`/api/admin/user-detail?userId=${userId}`);
+    const data = await res.json();
+    setUserDetail(data);
   }
 
   async function loadFeedback() {
@@ -421,6 +453,7 @@ export default function AdminPage() {
       <div style={{ display:'flex', gap:'4px', marginBottom:'1.5rem', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
         {[
           { id:'overview', label:'Overview' },
+          { id:'users',    label:'👥 Users' },
           { id:'usage',    label:'📊 Usage' },
           { id:'chats',    label:'Chat Audit' },
           { id:'feedback', label:'⭐ Feedback' },
@@ -546,7 +579,27 @@ export default function AdminPage() {
             <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'0 0 1.5rem' }}>✓ सभी कुंडलियां नए Vishleshan format (life_domains / वार्षिक Faladesh) के साथ up-to-date हैं</p>
           )}
 
-          <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>हाल के Users</p>
+          {/* Feature adoption — before migration_012 + this route,
+              Milan and Ram Shalaka wrote nothing to the database at
+              all, so there was zero signal here on whether people
+              actually use them. */}
+          <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>Feature Adoption</p>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'12px', marginBottom:'1.5rem' }}>
+            {!featuresData ? (
+              <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)' }}>लोड हो रहा है...</p>
+            ) : featuresData.features.map(f => (
+              <div key={f.key} style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'1rem' }}>
+                <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 4px' }}>{f.label}</p>
+                <p style={{ fontSize:'22px', fontWeight:'500', color:'var(--color-text-primary)', margin:0 }}>{f.total.toLocaleString()}</p>
+                <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'2px 0 0' }}>{f.last7d} पिछले 7 दिन में</p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', margin:'0 0 10px' }}>
+            <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:0 }}>हाल के Users</p>
+            <button onClick={() => switchTab('users')} style={{ fontSize:'12px', color:'var(--color-text-info)', background:'none', border:'none', cursor:'pointer', padding:0 }}>पूरी सूची + पूरा data देखें →</button>
+          </div>
           <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden' }}>
             {stats.recentUsers.length === 0 ? (
               <p style={{ padding:'1rem', fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>कोई users नहीं</p>
@@ -560,6 +613,73 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* USERS TAB — full user list (not just the last 20), with real
+          per-user micro-stats, search, and a click-to-expand
+          drill-down showing everything that user has done on the
+          site: kundlis, sessions, full usage history, numerology
+          queries, milan/ram-shalaka uses, ratings and feedback given.
+          This is the "on click sab dikhe" view. */}
+      {tab === 'users' && (
+        <div>
+          <div style={{ display:'flex', gap:'8px', marginBottom:'14px' }}>
+            <input
+              value={userSearch}
+              onChange={e => setUserSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') loadUsers(userSearch); }}
+              placeholder="नाम या email से खोजें..."
+              style={{ flex:1, fontSize:'13px' }}
+            />
+            <button onClick={() => loadUsers(userSearch)} style={{ padding:'8px 16px', fontSize:'13px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-primary)' }}>खोजें</button>
+            {userSearch && (
+              <button onClick={() => { setUserSearch(''); loadUsers(''); }} style={{ padding:'8px 12px', fontSize:'13px', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-tertiary)' }}>Clear</button>
+            )}
+          </div>
+
+          {!usersData ? (
+            <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)' }}>लोड हो रहा है...</p>
+          ) : (
+            <>
+              <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>{usersData.count} users {userSearch && `— "${userSearch}" से match`} · सबसे ज़्यादा tokens इस्तेमाल करने वाले पहले</p>
+              <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1.8fr 0.6fr 0.9fr 0.9fr', gap:'8px', padding:'8px 14px', fontSize:'11px', fontWeight:'500', color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.5px', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
+                  <span>User</span><span>Kundlis</span><span>Tokens</span><span>Last Active</span>
+                </div>
+                {usersData.users.length === 0 ? (
+                  <p style={{ padding:'1rem', fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>कोई user नहीं मिला</p>
+                ) : usersData.users.map((u, i) => (
+                  <div key={u.id}>
+                    <div
+                      onClick={() => toggleUserDetail(u.id)}
+                      style={{ display:'grid', gridTemplateColumns:'1.8fr 0.6fr 0.9fr 0.9fr', gap:'8px', padding:'10px 14px', fontSize:'13px', cursor:'pointer', borderBottom: (i < usersData.users.length-1 || expandedUserId===u.id) ? '0.5px solid var(--color-border-tertiary)' : 'none', background: expandedUserId===u.id ? 'var(--color-background-secondary)' : 'transparent' }}
+                    >
+                      <div style={{ minWidth:0 }}>
+                        <p style={{ margin:0, fontWeight:'500', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.full_name || '(no name)'} {expandedUserId===u.id ? '▲' : '▼'}</p>
+                        <p style={{ margin:0, fontSize:'11px', color:'var(--color-text-tertiary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email}</p>
+                      </div>
+                      <span style={{ color:'var(--color-text-secondary)' }}>{u.kundlis}</span>
+                      <span style={{ color:'var(--color-text-secondary)' }}>{u.total_tokens.toLocaleString()}</span>
+                      <span style={{ color:'var(--color-text-tertiary)', fontSize:'12px' }}>{u.last_active ? new Date(u.last_active).toLocaleDateString('hi-IN') : '—'}</span>
+                    </div>
+
+                    {expandedUserId === u.id && (
+                      <div style={{ padding:'14px', background:'var(--color-background-secondary)', borderBottom: i < usersData.users.length-1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
+                        {userDetail === 'loading' ? (
+                          <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>लोड हो रहा है...</p>
+                        ) : userDetail?.error ? (
+                          <p style={{ fontSize:'12px', color:'var(--color-text-danger)', margin:0 }}>{userDetail.error}</p>
+                        ) : userDetail && (
+                          <UserDetailPanel detail={userDetail} />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -1106,6 +1226,86 @@ function MetricCard({ label, value }) {
     <div style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'1rem' }}>
       <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 4px' }}>{label}</p>
       <p style={{ fontSize:'24px', fontWeight:'500', color:'var(--color-text-primary)', margin:0 }}>{value}</p>
+    </div>
+  );
+}
+
+// Full drill-down for one user, rendered inline under their row in
+// the Users tab (see /api/admin/user-detail). Everything a single
+// click can surface: profile, kundlis, sessions, full usage history,
+// numerology queries, milan/ram-shalaka uses, ratings + feedback.
+function UserDetailPanel({ detail }) {
+  const { profile, kundlis, sessions, usage, numerology, milanUses, ramShalakaUses, ratings, feedback } = detail;
+  const Section = ({ title, children }) => (
+    <div style={{ marginBottom:'12px' }}>
+      <p style={{ fontSize:'10px', fontWeight:'600', letterSpacing:'1px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 6px' }}>{title}</p>
+      {children}
+    </div>
+  );
+
+  return (
+    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:'16px' }}>
+      <div>
+        <Section title="प्रोफाइल">
+          <p style={{ fontSize:'12px', margin:'0 0 2px', color:'var(--color-text-primary)' }}>{profile.full_name || '(no name)'}</p>
+          <p style={{ fontSize:'12px', margin:'0 0 2px', color:'var(--color-text-secondary)' }}>{profile.email}</p>
+          <p style={{ fontSize:'12px', margin:'0 0 2px', color:'var(--color-text-secondary)' }}>{profile.mobile || 'mobile: —'}</p>
+          <p style={{ fontSize:'11px', margin:0, color:'var(--color-text-tertiary)' }}>Signed up: {new Date(profile.created_at).toLocaleDateString('hi-IN')}</p>
+        </Section>
+
+        <Section title={`Usage (lifetime) — ${usage.activeDays} active days`}>
+          <p style={{ fontSize:'12px', margin:'0 0 2px', color:'var(--color-text-primary)' }}>{usage.totals.chats} chats · {usage.totals.mins} min · {usage.totals.tokens.toLocaleString()} tokens</p>
+          <p style={{ fontSize:'11px', margin:0, color:'var(--color-text-tertiary)' }}>
+            {usage.firstActive ? `पहली बार: ${new Date(usage.firstActive).toLocaleDateString('hi-IN')}` : ''} {usage.lastActive ? `· आख़िरी बार: ${new Date(usage.lastActive).toLocaleDateString('hi-IN')}` : ''}
+          </p>
+        </Section>
+
+        <Section title={`Feature Usage`}>
+          <p style={{ fontSize:'12px', margin:'0 0 2px', color:'var(--color-text-primary)' }}>🔢 अंक ज्योतिष: {numerology.length}</p>
+          <p style={{ fontSize:'12px', margin:'0 0 2px', color:'var(--color-text-primary)' }}>💍 कुंडली मिलान: {milanUses.length}</p>
+          <p style={{ fontSize:'12px', margin:0, color:'var(--color-text-primary)' }}>🕉️ राम शलाका: {ramShalakaUses.length}</p>
+        </Section>
+      </div>
+
+      <div>
+        <Section title={`कुंडली (${kundlis.length})`}>
+          {kundlis.length === 0 ? <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>कोई नहीं</p> :
+            kundlis.slice(0, 6).map(k => (
+              <p key={k.id} style={{ fontSize:'12px', margin:'0 0 3px', color:'var(--color-text-primary)' }}>
+                {k.label || k.full_name} · <span style={{ color:'var(--color-text-tertiary)' }}>{k.dob} · Luck {k.luck_score ?? '—'}</span>
+              </p>
+            ))}
+        </Section>
+
+        <Section title={`हाल के Sessions (${sessions.length})`}>
+          {sessions.length === 0 ? <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>कोई नहीं</p> :
+            sessions.slice(0, 5).map(s => (
+              <p key={s.id} style={{ fontSize:'12px', margin:'0 0 3px', color:'var(--color-text-primary)' }}>
+                {s.title || 'Chat'} · <span style={{ color:'var(--color-text-tertiary)' }}>{new Date(s.updated_at).toLocaleDateString('hi-IN')}</span>
+              </p>
+            ))}
+        </Section>
+      </div>
+
+      <div>
+        <Section title={`Ratings दिए (${ratings.length})`}>
+          {ratings.length === 0 ? <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>कोई नहीं</p> :
+            ratings.map((r, i) => (
+              <p key={i} style={{ fontSize:'12px', margin:'0 0 3px', color:'var(--color-text-primary)' }}>
+                {'⭐'.repeat(r.stars)} ({r.feature}) {r.comment ? `— "${r.comment}"` : ''}
+              </p>
+            ))}
+        </Section>
+
+        <Section title={`Kundli Feedback (${feedback.length})`}>
+          {feedback.length === 0 ? <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>कोई नहीं</p> :
+            feedback.map((f, i) => (
+              <p key={i} style={{ fontSize:'12px', margin:'0 0 3px', color: f.rating === 'up' ? 'var(--color-text-success)' : 'var(--color-text-danger)' }}>
+                {f.rating === 'up' ? '👍' : '👎'} ({f.section}) {f.correction_note ? `— "${f.correction_note}"` : ''}
+              </p>
+            ))}
+        </Section>
+      </div>
     </div>
   );
 }

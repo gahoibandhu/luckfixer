@@ -438,7 +438,19 @@ INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Give ONE specif
     const venus = planets.find(p => p.name === 'Venus');
     const jupiter = planets.find(p => p.name === 'Jupiter');
     const d9 = kundliContext.factSheet?.d9Chart;
+    const ageNow = kundliContext.dob ? ageAtDate(new Date().toISOString().slice(0,10)) : null;
 
+    // HARD GATE: below the legal-minimum marriageable age (21 male /
+    // 18 female), don't give a marriage prediction at all — no yoga
+    // windows, no timing, nothing framed as "when will you get
+    // married". Giving that kind of reading to someone who's, say,
+    // 14 reads as tone-deaf/inappropriate regardless of how it's
+    // caveated. Redirect warmly instead.
+    if (ageNow != null && ageNow < minEligibleAge) {
+      block = `\n[MARRIAGE/RELATIONSHIP CONTEXT for ${firstName}]:
+User is currently ${ageNow} years old — below the eligible age for a marriage reading (${minEligibleAge}, per their gender).
+INSTRUCTION: Do NOT give any marriage yoga, timing, or vivah-related prediction — not even a "future window" framing. Start with "${firstName}," warmly acknowledge the curiosity, briefly explain this is too early a topic for a meaningful reading right now, and redirect to something age-appropriate they might actually want to know about their chart (studies, talents, personality, career direction). Keep it light and brief — don't lecture.`;
+    } else {
     // Age-aware framing: whatever their current age, always surface
     // which PAST windows (from the legal-minimum marriageable age —
     // 21 male / 18 female — onward) were astrologically active, not
@@ -448,7 +460,6 @@ INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Give ONE specif
     // asking blankly.
     let ageNote = '';
     if (kundliContext.dob) {
-      const ageNow = ageAtDate(new Date().toISOString().slice(0,10));
       ageNote = `\nAGE AWARENESS: User is currently ${ageNow} years old (eligible marriage-yog scan starts from age ${minEligibleAge}, per their gender). IMPORTANT: the chart has NO way to know whether this person is actually already married — that's a real-world fact only they know, never stored anywhere in this system. Never assume or guess it either way.`;
       if (isMarriageStatusQuery) {
         ageNote += ` THIS IS A STATUS QUESTION ("shaadi hui ya nahi" style) — DO NOT just ask them outright as your first move. Instead, LEAD your answer with the full list of past eligible VIVAH YOG WINDOWS below (all of them, with years and their age at the time), phrased as "in saal/umar mein vivah yog bana tha" (a yoga was active/formed, not "shaadi hui thi"/"you got married" — never assert the event itself happened). THEN ask them to confirm which window (if any) matches, e.g. "inme se kisi saal aapki shaadi hui thi kya?" This gives them something concrete to recognize instead of a blank question.`;
@@ -470,6 +481,7 @@ Dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD
 Varshaphal relationships: ${varsh?.areas?.find(a => a.area.includes('संबंध'))?.note || 'N/A'}${ageNote}
 ${formatYogaWindows([lord7, 'Venus', 'Jupiter'].filter(Boolean), 'VIVAH YOG WINDOWS', minEligibleAge)}
 INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Be specific about WHETHER and WHEN vivah looks/looked likely — past or future as relevant to their age. Give exact year/window from the VIVAH YOG WINDOWS data above, not a vague invented phrase. Connect to their specific 7th lord and Venus position.`;
+    }
   }
 
   else if (area === 'children') {
@@ -477,6 +489,16 @@ INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Be specific abo
     const planets = kundliContext.factSheet?.planets || [];
     const jupiter = planets.find(p => p.name === 'Jupiter');
     const d9 = kundliContext.factSheet?.d9Chart;
+    const ageNow = kundliContext.dob ? ageAtDate(new Date().toISOString().slice(0,10)) : null;
+
+    // Same hard gate as marriage, and for the same reason — a santan
+    // (children) prediction for someone below the eligible age isn't
+    // just premature, it reads as inappropriate. No exception.
+    if (ageNow != null && ageNow < minEligibleAge) {
+      block = `\n[SANTAN/CHILDREN CONTEXT for ${firstName}]:
+User is currently ${ageNow} years old — below the eligible age for a santan reading (${minEligibleAge}, per their gender).
+INSTRUCTION: Do NOT give any santan/children yoga, timing, or prediction — not even a "future window" framing. Start with "${firstName},", warmly acknowledge the curiosity, briefly explain this is too early a topic for a meaningful reading right now, and redirect to something age-appropriate about their chart instead (studies, talents, personality, career direction). Keep it light and brief — don't lecture.`;
+    } else {
 
     let childrenNote = 'IMPORTANT: the chart has NO way to know whether this person already has children — that\'s a real-world fact only they know, never stored anywhere in this system. Never assume or guess it either way.';
     if (isChildrenStatusQuery) {
@@ -492,6 +514,7 @@ Dasha: ${vim?.mahaDasha?.lordHi} MD → ${vim?.antarDasha?.lordHi} AD
 ${formatYogaWindows([lord5, 'Jupiter'].filter(Boolean), 'SANTAN YOG WINDOWS', minEligibleAge)}
 ${childrenNote}
 INSTRUCTION: Start with "${firstName} bhai," or "${firstName},". Give exact year/window from the SANTAN YOG WINDOWS data above for when santan-yog is/was strongest — don't invent a vague "kuch saal mein" phrase.`;
+    }
   }
 
   else if (area === 'daily') {
