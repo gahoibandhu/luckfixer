@@ -67,7 +67,7 @@ export default function AdminPage() {
   // ── Users tab state ──────────────────────────────────────────
   const [usersData, setUsersData] = useState(null);
   const [usersLoaded, setUsersLoaded] = useState(false);
-  const [userSearch, setUserSearch] = useState('');
+  const [userListSearch, setUserListSearch] = useState('');
   const [expandedUserId, setExpandedUserId] = useState(null);
   const [userDetail, setUserDetail] = useState(null); // detail payload for expandedUserId, or 'loading'
   const [featuresData, setFeaturesData] = useState(null);
@@ -626,15 +626,15 @@ export default function AdminPage() {
         <div>
           <div style={{ display:'flex', gap:'8px', marginBottom:'14px' }}>
             <input
-              value={userSearch}
-              onChange={e => setUserSearch(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') loadUsers(userSearch); }}
+              value={userListSearch}
+              onChange={e => setUserListSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') loadUsers(userListSearch); }}
               placeholder="नाम या email से खोजें..."
               style={{ flex:1, fontSize:'13px' }}
             />
-            <button onClick={() => loadUsers(userSearch)} style={{ padding:'8px 16px', fontSize:'13px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-primary)' }}>खोजें</button>
-            {userSearch && (
-              <button onClick={() => { setUserSearch(''); loadUsers(''); }} style={{ padding:'8px 12px', fontSize:'13px', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-tertiary)' }}>Clear</button>
+            <button onClick={() => loadUsers(userListSearch)} style={{ padding:'8px 16px', fontSize:'13px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-primary)' }}>खोजें</button>
+            {userListSearch && (
+              <button onClick={() => { setUserListSearch(''); loadUsers(''); }} style={{ padding:'8px 12px', fontSize:'13px', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-tertiary)' }}>Clear</button>
             )}
           </div>
 
@@ -642,7 +642,7 @@ export default function AdminPage() {
             <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)' }}>लोड हो रहा है...</p>
           ) : (
             <>
-              <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>{usersData.count} users {userSearch && `— "${userSearch}" से match`} · सबसे ज़्यादा tokens इस्तेमाल करने वाले पहले</p>
+              <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>{usersData.count} users {userListSearch && `— "${userListSearch}" से match`} · सबसे ज़्यादा tokens इस्तेमाल करने वाले पहले</p>
               <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden' }}>
                 <div style={{ display:'grid', gridTemplateColumns:'1.8fr 0.6fr 0.9fr 0.9fr', gap:'8px', padding:'8px 14px', fontSize:'11px', fontWeight:'500', color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.5px', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
                   <span>User</span><span>Kundlis</span><span>Tokens</span><span>Last Active</span>
