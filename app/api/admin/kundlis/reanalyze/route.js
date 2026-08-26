@@ -20,6 +20,7 @@ import { createClient } from '@/lib/supabase-server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { runFullReAnalysis, EphemerisUnavailableError } from '@/lib/kundli-reanalysis';
+import { logRemedyPlan } from '@/lib/remedy-tracking';
 
 function getSupabaseAdmin() {
   return createAdminClient(
@@ -68,6 +69,24 @@ export async function POST(req) {
         results.failed.push({ id, error: updateErr.message });
       } else {
         results.succeeded.push(id);
+        // ── Remedy tracking gap fix: the regular user-facing PATCH ──
+        // /api/kundli route logs remedies, but this admin bulk path
+        // updates saved_kundlis directly and was skipping it — meaning
+        // any kundli only ever touched via bulk re-analyze never got
+        // its remedies into "मेरे उपाय". adminDb is a service-role
+        // client here, so it can insert for any user_id regardless of
+        // RLS (needed since this loop touches many different users).
+        try {
+          await logRemedyPlan(adminDb, {
+            userId:     existing.user_id,
+            kundliId:   id,
+            source:     'kundli_analysis',
+            remedyPlan: result.planet_data?.factSheet?.remedyPlan,
+            yogas:      result.planet_data?.yogas,
+          });
+        } catch (e) {
+          console.warn('[Admin Reanalyze] remedy logging failed (non-fatal):', e.message);
+        }
       }
     } catch (e) {
       if (e instanceof EphemerisUnavailableError) {
