@@ -4,7 +4,8 @@ import { getChatResponse } from '@/lib/ai-engine';
 import { checkUsageAllowed, recordUsage } from '@/lib/usage-guard';
 import { generatePastValidationQuestions } from '@/lib/past-validation';
 import { buildTransitReport } from '@/lib/transit';
-import { getPendingFollowUp, markFollowUpAsked, recordOutcome, detectOutcomeAnswer, buildFollowUpQuestion, getUserAccuracy } from '@/lib/outcome-tracking';
+import { getPendingFollowUp, markFollowUpAsked, recordOutcome, detectOutcomeAnswer, buildFollowUpQuestion, getUserAccuracy, getDashaAccuracyStat } from '@/lib/outcome-tracking';
+import { logRemedyPlan } from '@/lib/remedy-tracking';
 import { formatYogasForPrompt } from '@/lib/yogas';
 import { formatAVForPrompt } from '@/lib/ashtakavarga';
 import { formatNakshatraForPrompt } from '@/lib/nakshatra';
@@ -1029,6 +1030,40 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
       const focusedCtx = buildFocusedContext(lifeArea, kundliContext, lastMsg);
       if (focusedCtx) {
         systemPrompt += focusedCtx;
+      }
+
+      // ── Remedy tracking: user explicitly asked for an upaay this turn ──
+      // Log the deterministic remedy plan (already computed at kundli-save
+      // time, sitting in kundliContext.factSheet) so they can check it off
+      // later. No AI parsing needed — logRemedyPlan dedupes against
+      // anything already pending for this kundli, so this is safe to call
+      // on every 'remedy'-intent message without piling up duplicates.
+      if (lifeArea === 'remedy' && kundliId && kundliContext.factSheet?.remedyPlan) {
+        logRemedyPlan(supabase, {
+          userId:     userId,
+          kundliId:   kundliId,
+          sessionId:  sessionId || null,
+          source:     'chat',
+          remedyPlan: kundliContext.factSheet.remedyPlan,
+          yogas:      kundliContext.yogas,
+        }).catch(e => console.warn('[Chat] Remedy logging failed (non-fatal):', e.message));
+      }
+
+      // ── Site-wide dasha-accuracy pattern — see migration_014 ──────
+      // Closes migration_006's stated long-term goal: feeding real
+      // outcome data back into predictions. Gated by a minimum sample
+      // size and always framed as a general pattern, never a personal
+      // guarantee — same honesty rule as the personal track-record block.
+      const dashaCtx = kundliContext.factSheet?.currentDashaLordHint;
+      if (['career','marriage','health'].includes(lifeArea) && dashaCtx) {
+        try {
+          const stat = await getDashaAccuracyStat(supabase, lifeArea, dashaCtx);
+          if (stat) {
+            systemPrompt += `\n\n[SITE-WIDE PATTERN DATA — real aggregate, use ONLY if it fits naturally, never as a guarantee]\nHumare data mein isi dasha combination (${dashaCtx}) wale ${stat.responded} tracked predictions me se ${stat.positive} confirm hui hain (~${stat.positivePct}%). Yeh ek general pattern hai across users, is user ki individual guarantee nahi — agar naturally fit baithe tabhi ek line mein mention karo (e.g. "is dasha combination mein aksar dekha gaya hai ki..."), zabardasti mat thopo.`;
+          }
+        } catch (e) {
+          console.warn('[Chat] getDashaAccuracyStat failed (non-fatal):', e.message);
+        }
       }
     }
 

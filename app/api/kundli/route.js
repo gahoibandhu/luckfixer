@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase-server';
 import { EphemerisUnavailableError, runFullReAnalysis } from '@/lib/kundli-reanalysis';
 import { scheduleOutcomeFollowUps } from '@/lib/outcome-tracking';
+import { logRemedyPlan } from '@/lib/remedy-tracking';
 
 
 // GET — fetch all kundlis for logged-in user
@@ -127,6 +128,16 @@ export async function POST(req) {
     factSheet,
     aiResult.content
   );
+
+  // ── Remedy tracking: log the deterministic remedy plan so the user ──
+  // can revisit and check off remedies later (see lib/remedy-tracking.js)
+  await logRemedyPlan(supabase, {
+    userId:     user.id,
+    kundliId:   kundli.id,
+    source:     'kundli_analysis',
+    remedyPlan: factSheet.remedyPlan,
+    yogas:      result.planet_data.yogas,
+  });
 
   return Response.json({ kundli, analysis: aiResult.content, model: aiResult.model });
 }
@@ -257,6 +268,17 @@ export async function PATCH(req) {
     factSheet,
     aiResult.content
   );
+
+  // ── Remedy tracking: birth data changed, so the remedy plan may ──
+  // have changed too — log the (possibly new) deterministic remedies.
+  // Dedup inside logRemedyPlan means unchanged remedies aren't duplicated.
+  await logRemedyPlan(supabase, {
+    userId:     user.id,
+    kundliId:   kundli.id,
+    source:     'kundli_analysis',
+    remedyPlan: factSheet.remedyPlan,
+    yogas:      result.planet_data.yogas,
+  });
 
   return Response.json({ kundli, analysis: aiResult.content, model: aiResult.model, reanalyzed: true });
 }

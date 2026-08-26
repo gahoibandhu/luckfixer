@@ -132,13 +132,18 @@ export async function GET() {
   });
   const weekTrend = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
 
+  // Same honesty gate as the personal track-record shown in chat
+  // (MIN_TRACKED_FOR_DISPLAY in app/api/chat/route.js) — a handful of
+  // early responses would otherwise show a falsely precise 0%/100%.
+  const MIN_RESPONDED_FOR_ADMIN_ACCURACY = 5;
+  const respondedRows = (outcomeRows || []).filter(r => r.outcome && r.outcome !== 'skipped');
   const outcomeStats = outcomeRows ? {
     total_tracked: outcomeRows.length,
     confirmed:  outcomeRows.filter(r => r.outcome === 'confirmed').length,
     denied:     outcomeRows.filter(r => r.outcome === 'denied').length,
     partial:    outcomeRows.filter(r => r.outcome === 'partial').length,
-    accuracy_pct: outcomeRows.length > 0
-      ? Math.round(outcomeRows.filter(r => ['confirmed','partial'].includes(r.outcome)).length / outcomeRows.length * 100)
+    accuracy_pct: respondedRows.length >= MIN_RESPONDED_FOR_ADMIN_ACCURACY
+      ? Math.round(respondedRows.filter(r => ['confirmed','partial'].includes(r.outcome)).length / respondedRows.length * 100)
       : null,
   } : null;
 
