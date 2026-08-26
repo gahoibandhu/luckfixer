@@ -486,6 +486,11 @@ export default function AdminPage() {
               <MetricCard label="Tracked Predictions" value={stats.outcomeStats.total_tracked || 0} />
               <MetricCard label="Accuracy %" value={stats.outcomeStats.accuracy_pct != null ? `${stats.outcomeStats.accuracy_pct}%` : '—'} />
             </>}
+            {stats.remedyStats && <>
+              <MetricCard label="कुल Remedies दिए गए" value={stats.remedyStats.total_given || 0} />
+              <MetricCard label="Remedies पूरे हुए" value={stats.remedyStats.done || 0} />
+              <MetricCard label="Remedy Completion %" value={stats.remedyStats.completion_pct != null ? `${stats.remedyStats.completion_pct}%` : '—'} />
+            </>}
           </div>
           <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'-10px 0 1.5rem' }}>
             Visitors = आज login किया (भले chat ना किया हो) · Active (Chat) = आज कम से कम एक chat message भेजा

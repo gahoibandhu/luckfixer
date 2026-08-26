@@ -8,6 +8,7 @@ import DateOfBirthInput from '@/components/DateOfBirthInput';
 import EditKundliModal from '@/components/EditKundliModal';
 import MissingKundliFieldsModal from '@/components/MissingKundliFieldsModal';
 import { getMissingKundliFields } from '@/lib/kundli-form-validation';
+import { getHindiWeekday } from '@/lib/date-format';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +38,9 @@ export default function ProfilePage() {
   const [missingFields, setMissingFields] = useState(null); // array from getMissingKundliFields(), or null when modal is closed
   const [wizardStep, setWizardStep] = useState(1); // 1=naam+dob, 2=time, 3=place
   const [analyzingStepIdx, setAnalyzingStepIdx] = useState(0);
+  const [remedies, setRemedies] = useState([]);
+  const [showDoneRemedies, setShowDoneRemedies] = useState(false);
+  const [collapsedRemedyGroups, setCollapsedRemedyGroups] = useState({});
 
   useEffect(() => {
     if (!analyzing) { setAnalyzingStepIdx(0); return; }
@@ -88,6 +92,81 @@ export default function ProfilePage() {
     setForm({ full_name: prof?.full_name || '', mobile: prof?.mobile || '' });
     setKundlis(kundlisData || []);
     setUsage(usageData || { chat_count: 0, free_mins_used: 0 });
+    loadRemedies();
+  }
+
+  // ── Remedy tracking — "मेरे उपाय" ────────────────────────────
+  async function loadRemedies() {
+    try {
+      const res = await fetch('/api/remedies');
+      const data = await res.json();
+      setRemedies(data.remedies || []);
+    } catch (e) {
+      console.error('[Profile] loadRemedies error:', e);
+    }
+  }
+
+  async function updateRemedyStatus(id, status) {
+    // Optimistic update — feels instant, matches the feedback thumbs pattern
+    setRemedies(list => list.map(r => r.id === id ? { ...r, status, completed_at: status === 'done' ? new Date().toISOString() : null } : r));
+    await fetch('/api/remedies', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status }),
+    });
+  }
+
+  // Human-readable one-line summary for a remedy row — each remedy_type
+  // uses different structured fields (see migration_013).
+  function remedyLabel(r) {
+    if (r.remedy_type === 'lal_kitab') {
+      return `${r.day_of_week || ''} — ${r.donate || 'दान'} करें${r.avoid ? ` (सावधानी: ${r.avoid})` : ''}`.trim();
+    }
+    if (r.remedy_type === 'vedic_mantra') {
+      return `"${r.mantra}"${r.mantra_count ? ` — ${r.mantra_count} बार जाप` : ''}`;
+    }
+    if (r.remedy_type === 'gemstone') {
+      return `${r.gem_name}${r.gem_reason ? ` — ${r.gem_reason}` : ''}`;
+    }
+    if (r.remedy_type === 'dosha_remedy') {
+      return r.remedy_text || r.yoga_name || 'उपाय';
+    }
+    return 'उपाय';
+  }
+
+  const remedyTypeIcon = { lal_kitab: '🪔', vedic_mantra: '🕉️', gemstone: '💎', dosha_remedy: '⚠️' };
+  const pendingRemedies = remedies.filter(r => r.status === 'pending');
+  const doneRemedies    = remedies.filter(r => r.status === 'done');
+
+  // ── Ordering: today's day-matched remedy first, then by type ──
+  // priority (dosha > lal_kitab > mantra > gemstone — see discussion:
+  // classical afflictions first, then low-cost daily-actionable items,
+  // gemstone last since it's optional/no urgency).
+  const REMEDY_TYPE_PRIORITY = { dosha_remedy: 0, lal_kitab: 1, vedic_mantra: 2, gemstone: 3 };
+  const todayWeekday = getHindiWeekday();
+
+  function sortRemedies(list) {
+    return [...list].sort((a, b) => {
+      const aToday = a.day_of_week === todayWeekday ? 0 : 1;
+      const bToday = b.day_of_week === todayWeekday ? 0 : 1;
+      if (aToday !== bToday) return aToday - bToday;
+      return (REMEDY_TYPE_PRIORITY[a.remedy_type] ?? 9) - (REMEDY_TYPE_PRIORITY[b.remedy_type] ?? 9);
+    });
+  }
+
+  function groupByKundli(list) {
+    const groups = {};
+    list.forEach(r => {
+      if (!groups[r.kundli_id]) groups[r.kundli_id] = [];
+      groups[r.kundli_id].push(r);
+    });
+    return groups;
+  }
+
+  async function toggleEmailReminders() {
+    const next = !profile.email_remedy_reminders;
+    setProfile(p => ({ ...p, email_remedy_reminders: next }));
+    await supabase.from('user_profiles').update({ email_remedy_reminders: next }).eq('id', profile.id);
   }
 
   async function saveProfile(e) {
@@ -147,6 +226,7 @@ export default function ProfilePage() {
     const data = await res.json();
     if (data.success) {
       setKundlis(prev => prev.filter(k => k.id !== id));
+      setRemedies(prev => prev.filter(r => r.kundli_id !== id)); // cascade-deleted server-side too
     } else {
       alert('Delete नहीं हो पाया: ' + (data.error || 'unknown error'));
     }
@@ -247,6 +327,86 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Remedy tracking — every Lal Kitab / mantra / gemstone / dosha
+          remedy ever given (at kundli-save time, in chat, or from
+          Milan) shows up here as a checklist. Moved above the kundli
+          list — this is today's actionable to-do, not archival data,
+          so it should be the first thing a returning user sees.
+          Deterministic data only — see lib/remedy-tracking.js. */}
+      {remedies.length > 0 && (
+        <div style={{ marginBottom:'1.5rem' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
+            <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:0 }}>मेरे उपाय ({pendingRemedies.length} बाकी)</p>
+            {doneRemedies.length > 0 && (
+              <button onClick={() => setShowDoneRemedies(s => !s)} style={{ fontSize:'12px', color:'var(--color-text-tertiary)', background:'none', border:'none', cursor:'pointer', padding:0 }}>
+                {showDoneRemedies ? 'पूरे हुए छुपाएं' : `${doneRemedies.length} पूरे हुए देखें`}
+              </button>
+            )}
+          </div>
+
+          {/* Email reminder opt-in — default is in-app only (this list
+              itself, sorted with today's remedy first); email is an
+              explicit additional channel, off by default. */}
+          <label style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 12px', cursor:'pointer' }}>
+            <input type="checkbox" checked={!!profile.email_remedy_reminders} onChange={toggleEmailReminders} style={{ width:'auto', padding:0 }} />
+            रोज़ email से भी याद दिलाएं (जिस दिन जो उपाय है, उस दिन सुबह)
+          </label>
+
+          {pendingRemedies.length === 0 && !showDoneRemedies && (
+            <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>सभी उपाय पूरे हो गए हैं 🎉</p>
+          )}
+
+          {Object.entries(groupByKundli(showDoneRemedies ? [...pendingRemedies, ...doneRemedies] : pendingRemedies)).map(([kundliId, list]) => {
+            const kundliLabel = kundlis.find(k => k.id === kundliId)?.label || kundlis.find(k => k.id === kundliId)?.full_name || 'कुंडली';
+            const collapsed = collapsedRemedyGroups[kundliId];
+            const sorted = sortRemedies(list);
+            return (
+              <div key={kundliId} style={{ marginBottom:'12px' }}>
+                {/* Group header only shown when the user has more than one
+                    kundli — with a single kundli it's just noise. */}
+                {kundlis.length > 1 && (
+                  <button onClick={() => setCollapsedRemedyGroups(g => ({ ...g, [kundliId]: !g[kundliId] }))} style={{ display:'flex', alignItems:'center', gap:'6px', background:'none', border:'none', cursor:'pointer', padding:'4px 0', fontSize:'12px', fontWeight:'500', color:'var(--color-text-secondary)' }}>
+                    <span style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', display:'inline-block', fontSize:'10px' }}>▾</span>
+                    {kundliLabel} ({list.length})
+                  </button>
+                )}
+                {!collapsed && sorted.map(r => {
+                  const isToday = r.day_of_week === todayWeekday;
+                  return (
+                    <div key={r.id} style={{ background:'var(--color-background-primary)', border: isToday && r.status === 'pending' ? '1px solid var(--color-text-warning)' : '0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', marginBottom:'8px', padding:'12px 14px', display:'flex', alignItems:'flex-start', gap:'10px', opacity: r.status === 'done' ? 0.6 : 1 }}>
+                      <span style={{ fontSize:'18px', flexShrink:0 }}>{remedyTypeIcon[r.remedy_type] || '✨'}</span>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        {isToday && r.status === 'pending' && (
+                          <span style={{ display:'inline-block', fontSize:'10px', fontWeight:'600', letterSpacing:'0.5px', color:'var(--color-text-warning)', background:'var(--color-background-warning)', borderRadius:'4px', padding:'2px 6px', marginBottom:'4px' }}>आज करें · {todayWeekday}</span>
+                        )}
+                        <p style={{ fontSize:'13px', color:'var(--color-text-primary)', margin:'0 0 3px', lineHeight:'1.5', textDecoration: r.status === 'done' ? 'line-through' : 'none' }}>{remedyLabel(r)}</p>
+                        <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>
+                          {(r.planet_hi || r.planet) && `${r.planet_hi || r.planet} · `}{kundlis.length === 1 ? kundliLabel : ''}
+                        </p>
+                      </div>
+                      {r.status === 'pending' ? (
+                        <div style={{ display:'flex', gap:'6px', flexShrink:0 }}>
+                          <button onClick={() => updateRemedyStatus(r.id, 'done')} title="किया" style={{ background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'6px 10px', cursor:'pointer', fontSize:'12px', color:'var(--color-text-success)' }}>
+                            ✓ किया
+                          </button>
+                          <button onClick={() => updateRemedyStatus(r.id, 'skipped')} title="छोड़ें" style={{ background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'6px 10px', cursor:'pointer', fontSize:'12px', color:'var(--color-text-tertiary)' }}>
+                            छोड़ें
+                          </button>
+                        </div>
+                      ) : (
+                        <button onClick={() => updateRemedyStatus(r.id, 'pending')} title="वापस pending करें" style={{ background:'none', border:'none', cursor:'pointer', fontSize:'11px', color:'var(--color-text-tertiary)', flexShrink:0 }}>
+                          पूर्ववत करें
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Saved Kundlis */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
@@ -414,6 +574,14 @@ export default function ProfilePage() {
           <div style={{ flex:1, minWidth:0 }}>
             <p style={{ fontWeight:'500', fontSize:'15px', margin:'0 0 2px', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.label || k.full_name}</p>
             <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>{k.dob} · {k.birth_time} · {k.birth_place}</p>
+            {/* Multi-system agreement badge — only shown when Jaimini and
+                Parashari genuinely converge (see lib/jaimini.js:crossValidate).
+                Real computed agreement, not a decorative label. */}
+            {k.planet_data?.crossValidation?.length > 0 && (
+              <span title={k.planet_data.crossValidation[0].textHi || k.planet_data.crossValidation[0].text} style={{ display:'inline-block', marginTop:'4px', fontSize:'10px', fontWeight:'600', color:'var(--color-text-success)', background:'var(--color-background-secondary)', borderRadius:'4px', padding:'2px 6px' }}>
+                ✓ {k.planet_data.crossValidation.length > 1 ? `${k.planet_data.crossValidation.length} systems agree` : 'systems agree'}
+              </span>
+            )}
           </div>
           <button onClick={() => router.push(`/chat?kundliId=${k.id}`)} style={{ padding:'7px 14px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500', flexShrink:0 }}>
             Chat
@@ -437,7 +605,6 @@ export default function ProfilePage() {
           }}
         />
       )}
-
 
       {profile.email === 'dendthdel@gmail.com' && (
         <button onClick={() => router.push('/admin')} style={{ width:'100%', marginTop:'1.5rem', padding:'10px', fontSize:'14px', color:'var(--color-text-primary)', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontWeight:'500' }}>

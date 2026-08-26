@@ -4,7 +4,7 @@ import { getChatResponse } from '@/lib/ai-engine';
 import { checkUsageAllowed, recordUsage } from '@/lib/usage-guard';
 import { generatePastValidationQuestions } from '@/lib/past-validation';
 import { buildTransitReport } from '@/lib/transit';
-import { getPendingFollowUp, markFollowUpAsked, recordOutcome, detectOutcomeAnswer, buildFollowUpQuestion, getUserAccuracy, getDashaAccuracyStat } from '@/lib/outcome-tracking';
+import { getPendingFollowUp, markFollowUpAsked, recordOutcome, detectOutcomeAnswer, buildFollowUpQuestion, getUserAccuracy, getDashaAccuracyStat, getRemedyOutcomeCorrelation } from '@/lib/outcome-tracking';
 import { logRemedyPlan } from '@/lib/remedy-tracking';
 import { formatYogasForPrompt } from '@/lib/yogas';
 import { formatAVForPrompt } from '@/lib/ashtakavarga';
@@ -1047,6 +1047,18 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
           remedyPlan: kundliContext.factSheet.remedyPlan,
           yogas:      kundliContext.yogas,
         }).catch(e => console.warn('[Chat] Remedy logging failed (non-fatal):', e.message));
+
+        // ── Remedy-completion vs outcome correlation (see migration_015) ──
+        // Only fetched when the user is actually asking about a remedy —
+        // no reason to spend a query on every unrelated message.
+        try {
+          const corr = await getRemedyOutcomeCorrelation(supabase);
+          if (corr) {
+            systemPrompt += `\n\n[SITE-WIDE REMEDY-OUTCOME PATTERN — real aggregate, use ONLY if naturally relevant, never as a guarantee]\nHumare data mein jin logo ne apna suggested upaay poora kiya, unme se ${corr.tookRemedy.positivePct}% (${corr.tookRemedy.responded} logo mein se) ka predicted outcome confirm hua — jabki jinhone upaay nahi kiya unme ${corr.noRemedy.positivePct}% (${corr.noRemedy.responded} logo mein se). Yeh causation prove nahi karta, ek observed pattern hai — agar user pooche ki upaay se fark padta hai kya, to ye honestly bata sakte ho, lekin kabhi ise medical/guaranteed claim ki tarah mat pesh karo.`;
+          }
+        } catch (e) {
+          console.warn('[Chat] getRemedyOutcomeCorrelation failed (non-fatal):', e.message);
+        }
       }
 
       // ── Site-wide dasha-accuracy pattern — see migration_014 ──────

@@ -4,6 +4,7 @@
 
 import { createClient } from '@/lib/supabase-server';
 import { calcKundliMilan } from '@/lib/kundli-milan';
+import { logMilanRemedies } from '@/lib/remedy-tracking';
 
 export async function POST(req) {
   const supabase = await createClient();
@@ -47,6 +48,16 @@ export async function POST(req) {
     });
   } catch (e) {
     console.error('[Milan] usage log error (non-fatal):', e.message);
+  }
+
+  // ── Remedy tracking: any doshas found get logged against both ──
+  // kundlis (both belong to this user — see the ownership check above)
+  // so they show up in the same "मेरे उपाय" checklist as everything else.
+  if (result.doshas?.length) {
+    await Promise.all([
+      logMilanRemedies(supabase, { userId: user.id, kundliId: k1.id, doshas: result.doshas }),
+      logMilanRemedies(supabase, { userId: user.id, kundliId: k2.id, doshas: result.doshas }),
+    ]);
   }
 
   return Response.json({

@@ -11,8 +11,9 @@
 // Protected by CRON_SECRET header so it can't be triggered externally.
 
 import { createClient } from '@supabase/supabase-js';
-import { sendOutcomeFollowUpEmail, sendTransitAlertEmail, isNotableTransitChange } from '@/lib/notifications';
+import { sendOutcomeFollowUpEmail, sendTransitAlertEmail, sendRemedyReminderEmail, isNotableTransitChange } from '@/lib/notifications';
 import { buildTransitReport } from '@/lib/transit';
+import { getHindiWeekday } from '@/lib/date-format';
 
 export async function GET(req) {
   // ── Auth check — only Vercel Cron (or manual admin trigger) can hit this ──
@@ -26,7 +27,7 @@ export async function GET(req) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
-  const results = { outcomeEmails: 0, transitEmails: 0, errors: [] };
+  const results = { outcomeEmails: 0, transitEmails: 0, remedyEmails: 0, errors: [] };
 
   // ── Job 1: Outcome follow-up emails ──────────────────────────
   try {
@@ -87,6 +88,41 @@ export async function GET(req) {
     }
   } catch (e) {
     results.errors.push('transit-job:' + e.message);
+  }
+
+  // ── Job 3: Remedy reminder emails — opt-in only (migration_016) ──
+  // One email per opted-in user, listing all their pending Lal Kitab
+  // remedies whose day_of_week matches today. Default reminder path
+  // is in-app (profile page) — this is purely the additional,
+  // explicitly-requested email channel.
+  try {
+    const weekday = getHindiWeekday(new Date());
+    const { data: optedInUsers } = await supabase
+      .from('user_profiles')
+      .select('id, email, full_name')
+      .eq('email_remedy_reminders', true);
+
+    for (const u of optedInUsers || []) {
+      if (!u.email) continue;
+      try {
+        const { data: todaysRemedies } = await supabase
+          .from('user_remedies')
+          .select('planet, planet_hi, donate, avoid')
+          .eq('user_id', u.id)
+          .eq('status', 'pending')
+          .eq('remedy_type', 'lal_kitab')
+          .eq('day_of_week', weekday);
+
+        if (todaysRemedies?.length) {
+          await sendRemedyReminderEmail(u.email, u.full_name, todaysRemedies, weekday);
+          results.remedyEmails++;
+        }
+      } catch (e) {
+        results.errors.push(`remedy:${u.id}:${e.message}`);
+      }
+    }
+  } catch (e) {
+    results.errors.push('remedy-job:' + e.message);
   }
 
   return Response.json(results);

@@ -38,6 +38,7 @@ export async function GET() {
     { data: recentUsers },
     { data: outcomeRows },
     { data: modelRows },
+    { data: remedyRows },
   ] = await Promise.all([
     adminSupabase.from('user_profiles').select('*', { count: 'exact', head: true }),
     adminSupabase.from('saved_kundlis').select('*', { count: 'exact', head: true }),
@@ -54,6 +55,9 @@ export async function GET() {
     // back to a weaker model that doesn't follow the system prompt as
     // reliably — rather than guessing from anecdotal chat transcripts.
     adminSupabase.from('chat_messages').select('model_used').eq('role', 'assistant').gte('created_at', sevenDaysAgo.toISOString()).not('model_used', 'is', null),
+    // ── Remedy engagement — see migration_013. Surfaces whether the
+    // remedy-tracking feature is actually being used/completed.
+    adminSupabase.from('user_remedies').select('status'),
   ]);
 
   const modelBreakdown = {};
@@ -147,6 +151,16 @@ export async function GET() {
       : null,
   } : null;
 
+  const remedyStats = remedyRows ? {
+    total_given:   remedyRows.length,
+    done:          remedyRows.filter(r => r.status === 'done').length,
+    pending:       remedyRows.filter(r => r.status === 'pending').length,
+    skipped:       remedyRows.filter(r => r.status === 'skipped').length,
+    completion_pct: remedyRows.length > 0
+      ? Math.round(remedyRows.filter(r => r.status === 'done').length / remedyRows.length * 100)
+      : null,
+  } : null;
+
   return Response.json({
     totalUsers: totalUsers || 0,
     totalAuthUsers,
@@ -159,6 +173,7 @@ export async function GET() {
     plan,
     recentUsers: recentUsers || [],
     outcomeStats,
+    remedyStats,
     modelBreakdown: modelBreakdownList,
   });
 }
