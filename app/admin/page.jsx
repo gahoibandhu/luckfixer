@@ -59,6 +59,9 @@ export default function AdminPage() {
   const [lifeDomainsAutoRunning, setLifeDomainsAutoRunning] = useState(false);
   const [lifeDomainsLastBatch, setLifeDomainsLastBatch] = useState(null);
   const [migrating, setMigrating] = useState(false);
+  const [supportChainStatus, setSupportChainStatus] = useState(null);
+  const [supportChainMigrating, setSupportChainMigrating] = useState(false);
+  const [supportChainLastRun, setSupportChainLastRun] = useState(null);
 
   // ── Feedback tab state ──────────────────────────────────────
   const [feedbackData, setFeedbackData] = useState(null);
@@ -85,6 +88,7 @@ export default function AdminPage() {
     loadStats();
     checkMigrationStatus();
     checkLifeDomainsStatus();
+    checkSupportChainStatus();
   }
 
   async function loadStats() {
@@ -196,6 +200,27 @@ export default function AdminPage() {
       await new Promise(r => setTimeout(r, 1500)); // brief pause between batches
     }
     setLifeDomainsAutoRunning(false);
+  }
+
+  // ── supportChain/remedyPlan backfill — pure offline computation on ──
+  // data already stored in factSheet (no ephemeris, no AI call), so
+  // unlike the life_domains backfill this can run against the whole
+  // table in a single click. Fixes the "remedy discussed in chat but
+  // never showed up in मेरे उपाय" gap for kundlis saved before the
+  // remedy-plan / support-chain features existed.
+  async function checkSupportChainStatus() {
+    const res = await fetch('/api/admin/migrate-support-chain');
+    const data = await res.json();
+    setSupportChainStatus(data);
+  }
+
+  async function runSupportChainMigration() {
+    setSupportChainMigrating(true);
+    const res = await fetch('/api/admin/migrate-support-chain', { method: 'POST' });
+    const data = await res.json();
+    setSupportChainLastRun(data);
+    setSupportChainMigrating(false);
+    checkSupportChainStatus();
   }
 
   async function loadDemoUsers() {
@@ -545,6 +570,34 @@ export default function AdminPage() {
           )}
           {migrationStatus && migrationStatus.needsMigration === 0 && (
             <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'0 0 1.5rem' }}>✓ सभी कुंडलियां up-to-date हैं (lagna/houses/event-scores सहित)</p>
+          )}
+
+          {/* Support-Chain / Remedy-Plan Migration — offline, whole table
+              in one click. Backfills factSheet.remedyPlan for kundlis
+              saved before this feature existed, which is what let chat
+              actually LOG a remedy into user_remedies ("मेरे उपाय") when
+              the AI discusses one — without this, the remedy gets said
+              in chat but never gets tracked. */}
+          {supportChainStatus && supportChainStatus.needsMigration > 0 && (
+            <div style={{ background:'var(--color-background-warning)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1rem 1.25rem', marginBottom:'1.5rem' }}>
+              <p style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-warning)', margin:'0 0 6px' }}>
+                ⚠️ {supportChainStatus.needsMigration} पुरानी कुंडलियां support-chain / remedy-plan डेटा के बिना हैं
+              </p>
+              <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 10px' }}>
+                इनके लिए chat में upaay discuss होने पर भी वो "मेरे उपाय" में track नहीं होगा — जब तक यह migrate ना हो। पूरी तरह offline है (कोई ephemeris/AI call नहीं), पूरी table एक click में migrate हो सकती है।
+              </p>
+              <button onClick={runSupportChainMigration} disabled={supportChainMigrating} style={{ padding:'8px 16px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500' }}>
+                {supportChainMigrating ? 'Migrate हो रहा है...' : `सभी ${supportChainStatus.needsMigration} कुंडली Migrate करें`}
+              </button>
+              {supportChainLastRun && (
+                <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'8px 0 0' }}>
+                  ✓ Migrated: {supportChainLastRun.migrated} · Skipped: {supportChainLastRun.skipped} · Failed: {supportChainLastRun.failed}
+                </p>
+              )}
+            </div>
+          )}
+          {supportChainStatus && supportChainStatus.needsMigration === 0 && (
+            <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'0 0 1.5rem' }}>✓ सभी कुंडलियां support-chain / remedy-plan डेटा के साथ up-to-date हैं</p>
           )}
 
           {/* Backfill for BOTH life_domains AND annual_timeline (new
