@@ -30,19 +30,18 @@ export async function GET(req) {
   return Response.json({ remedies: data });
 }
 
-// PATCH — mark a remedy done / skipped / pending again.
-// Body: { id, status }
+// PATCH — mark a remedy done / skipped / pending again, OR start it
+// (set start_date + duration_days so it shows in the "active now" view).
+// Body: { id, status? , action: 'start', duration_days? }
 export async function PATCH(req) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { id, status } = body;
+  const { id, status, action, duration_days } = body;
 
-  if (!id || !['pending', 'done', 'skipped'].includes(status)) {
-    return Response.json({ error: 'id and a valid status are required' }, { status: 400 });
-  }
+  if (!id) return Response.json({ error: 'id is required' }, { status: 400 });
 
   // Ownership check — never trust the client, always verify server-side
   const { data: existing } = await supabase
@@ -55,12 +54,35 @@ export async function PATCH(req) {
     return Response.json({ error: 'Not found or not yours' }, { status: 403 });
   }
 
-  const { data: remedy, error } = await supabase
-    .from('user_remedies')
-    .update({
+  let updatePayload;
+
+  if (action === 'start') {
+    // duration_days is user-editable — the caller (UI) sends the
+    // default (43 for ongoing remedies, 1 for one-time daan) or
+    // whatever the user changed it to. See migration_017.
+    updatePayload = {
+      start_date:    new Date().toISOString().slice(0, 10),
+      duration_days: duration_days || null,
+    };
+  } else {
+    if (!['pending', 'done', 'skipped'].includes(status)) {
+      return Response.json({ error: 'a valid status is required' }, { status: 400 });
+    }
+    updatePayload = {
       status,
       completed_at: status === 'done' ? new Date().toISOString() : null,
-    })
+    };
+    // Restarting a remedy (pending again) clears the old time window
+    // so it goes back to "not started" rather than showing as expired.
+    if (status === 'pending') {
+      updatePayload.start_date = null;
+      updatePayload.duration_days = null;
+    }
+  }
+
+  const { data: remedy, error } = await supabase
+    .from('user_remedies')
+    .update(updatePayload)
     .eq('id', id)
     .select()
     .single();

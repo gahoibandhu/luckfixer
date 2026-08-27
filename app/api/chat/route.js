@@ -1024,6 +1024,7 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
     // ── Smart life-area context injection ────────────────────────
     // Detects what the user is really asking about and pre-formats
     // the exact relevant data so even weak fallback models answer correctly.
+    let remedyPlanForLogging = null; // set below if this kundli has a remedy plan; used AFTER the AI responds
     if (kundliContext) {
       const lastMsg = messages[messages.length - 1]?.content || '';
       const lifeArea = detectLifeArea(lastMsg);
@@ -1032,22 +1033,18 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
         systemPrompt += focusedCtx;
       }
 
-      // ── Remedy tracking: user explicitly asked for an upaay this turn ──
-      // Log the deterministic remedy plan (already computed at kundli-save
-      // time, sitting in kundliContext.factSheet) so they can check it off
-      // later. No AI parsing needed — logRemedyPlan dedupes against
-      // anything already pending for this kundli, so this is safe to call
-      // on every 'remedy'-intent message without piling up duplicates.
-      if (lifeArea === 'remedy' && kundliId && kundliContext.factSheet?.remedyPlan) {
-        logRemedyPlan(supabase, {
-          userId:     userId,
-          kundliId:   kundliId,
-          sessionId:  sessionId || null,
-          source:     'chat',
-          remedyPlan: kundliContext.factSheet.remedyPlan,
-          yogas:      kundliContext.yogas,
-        }).catch(e => console.warn('[Chat] Remedy logging failed (non-fatal):', e.message));
+      // ── Remedy tracking: capture availability now, but the actual ──
+      // logRemedyPlan call happens AFTER the AI responds (see below,
+      // near aiResponse.content) — checking the user's question alone
+      // misses the common case where the AI proactively OFFERS a remedy
+      // ("chaho to upaay bata sakta hoon") and the user just replies
+      // "haan" / "bata do", which doesn't match any remedy keyword itself.
+      // Checking what the AI actually SAID catches both cases.
+      if (kundliId && kundliContext.factSheet?.remedyPlan) {
+        remedyPlanForLogging = { remedyPlan: kundliContext.factSheet.remedyPlan, yogas: kundliContext.yogas };
+      }
 
+      if (lifeArea === 'remedy') {
         // ── Remedy-completion vs outcome correlation (see migration_015) ──
         // Only fetched when the user is actually asking about a remedy —
         // no reason to spend a query on every unrelated message.
@@ -1135,6 +1132,20 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
     // regardless of which provider answered or how well it followed the
     // prompt's length/format instructions.
     aiResponse.content = cleanupAiResponse(aiResponse.content, dynamicWordLimit);
+
+    // ── Remedy tracking: log based on what the AI ACTUALLY said, ──
+    // not just what the user asked — catches the proactive-offer case
+    // too (AI offers an upaay, user just says "haan"/"bata do", which
+    // has no remedy keyword itself but the response now contains one).
+    if (remedyPlanForLogging && kundliId && /उपाय|remedy|दान|मंत्र|जाप|mantra|daan/i.test(aiResponse.content || '')) {
+      logRemedyPlan(supabase, {
+        userId, kundliId,
+        sessionId:  sessionId || null,
+        source:     'chat',
+        remedyPlan: remedyPlanForLogging.remedyPlan,
+        yogas:      remedyPlanForLogging.yogas,
+      }).catch(e => console.warn('[Chat] Remedy logging failed (non-fatal):', e.message));
+    }
 
     const durationMs   = Date.now() - startTime;
     const durationMins = parseFloat((durationMs / 60000).toFixed(4));
