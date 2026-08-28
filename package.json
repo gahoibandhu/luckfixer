@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@google/generative-ai": "latest",
+    "@google/genai": ">=1.0.0 <3.0.0",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
     "astronomy-engine": "latest",
