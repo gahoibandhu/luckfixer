@@ -961,23 +961,49 @@ Remedy plan (use ONLY when remedy is explicitly asked — see REMEDY RULE above)
       }
 
       // ── Yogas — classical combinations detected at save time ──
+      // CRITICAL FIX: these four formatXForPrompt calls were previously
+      // unguarded. If a kundli's stored planet_data is malformed/partial
+      // (e.g. missing nakSheet.planets or varsh.areas), the formatter
+      // throws, execution jumps straight to the outer catch-all at the
+      // bottom of POST() — which returns a friendly error BEFORE the
+      // getChatResponse() fallback chain ever runs and BEFORE the
+      // chat_messages insert — so the user sees no fallback attempt at
+      // all and the session is left with zero saved messages. Each call
+      // is now isolated exactly like the transit/remedy/dasha blocks
+      // below, so one bad section only skips itself.
       if (kundliContext.yogas?.length > 0) {
-        systemPrompt += `\n\n${formatYogasForPrompt(kundliContext.yogas)}`;
+        try {
+          systemPrompt += `\n\n${formatYogasForPrompt(kundliContext.yogas)}`;
+        } catch (e) {
+          console.warn('[Chat] formatYogasForPrompt failed (non-fatal):', e.message);
+        }
       }
 
       // ── Ashtakavarga — transit strength per sign ──────────────
       if (kundliContext.ashtakavarga) {
-        systemPrompt += `\n\n${formatAVForPrompt(kundliContext.ashtakavarga, null)}`;
+        try {
+          systemPrompt += `\n\n${formatAVForPrompt(kundliContext.ashtakavarga, null)}`;
+        } catch (e) {
+          console.warn('[Chat] formatAVForPrompt failed (non-fatal):', e.message);
+        }
       }
 
       // ── Nakshatra-level analysis ──────────────────────────────
       if (kundliContext.nakshatra) {
-        systemPrompt += `\n\n${formatNakshatraForPrompt(kundliContext.nakshatra)}`;
+        try {
+          systemPrompt += `\n\n${formatNakshatraForPrompt(kundliContext.nakshatra)}`;
+        } catch (e) {
+          console.warn('[Chat] formatNakshatraForPrompt failed (non-fatal):', e.message);
+        }
       }
 
       // ── Varshaphal — annual chart ─────────────────────────────
       if (kundliContext.varshaphal) {
-        systemPrompt += `\n\n${formatVarshaphalForPrompt(kundliContext.varshaphal)}`;
+        try {
+          systemPrompt += `\n\n${formatVarshaphalForPrompt(kundliContext.varshaphal)}`;
+        } catch (e) {
+          console.warn('[Chat] formatVarshaphalForPrompt failed (non-fatal):', e.message);
+        }
       }
 
       // ── Transit (Gochar) — computed fresh every request, never cached ──
@@ -1034,9 +1060,13 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
     if (kundliContext) {
       const lastMsg = messages[messages.length - 1]?.content || '';
       const lifeArea = detectLifeArea(lastMsg);
-      const focusedCtx = buildFocusedContext(lifeArea, kundliContext, lastMsg);
-      if (focusedCtx) {
-        systemPrompt += focusedCtx;
+      try {
+        const focusedCtx = buildFocusedContext(lifeArea, kundliContext, lastMsg);
+        if (focusedCtx) {
+          systemPrompt += focusedCtx;
+        }
+      } catch (e) {
+        console.warn('[Chat] buildFocusedContext failed (non-fatal):', e.message);
       }
 
       // ── Remedy tracking: capture availability now, but the actual ──
