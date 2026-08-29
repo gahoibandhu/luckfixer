@@ -941,7 +941,9 @@ D9 Navamsa (key placements): ${fs?.d9Chart ? JSON.stringify(fs.d9Chart) : '—'}
 Weakest planet: ${fs?.weakestPlanet?.planet || fs?.weakestPlanet?.name || '—'} (${fs?.weakestPlanet?.dignity || ''}, ${fs?.weakestPlanet?.sign || ''})
 Gemstone-eligible planet (STRICT — see GEMSTONE GATING rule above): ${fs?.gemstoneGuidance?.planet || 'कोई नहीं — केवल मंत्र/दान'}${fs?.neechaBhanga?.some(nb => nb.isNeechaBhanga) ? `\nNeecha Bhanga active for: ${fs.neechaBhanga.filter(nb => nb.isNeechaBhanga).map(nb => nb.planet).join(', ')} (see यह ग्रह-specific detail ऊपर detected yogas में)` : ''}
 Support-Chain verdict for weakest planet (STRICT — see SUPPORT-CHAIN FOCUS rule above): ${fs?.remedyPlan ? `${fs.remedyPlan.verdict}${fs.remedyPlan.supportPlanet ? `, support planet: ${fs.remedyPlan.supportPlanet}` : ''}, focus planets for remedy: ${fs.remedyPlan.focusPlanets?.join(', ')}` : 'N/A'}
-Remedy plan (use ONLY when remedy is explicitly asked — see REMEDY RULE above): ${fs?.remedyPlan ? JSON.stringify(fs.remedyPlan) : 'N/A'}`;
+${/upay|remedy|solution|mantra|daan|puja|totka|उपाय/i.test(messages[messages.length - 1]?.content || '') && fs?.remedyPlan
+  ? `Remedy plan (full detail — user is asking about remedy): ${JSON.stringify(fs.remedyPlan)}`
+  : ''}`;
 
       // Inject specialist patterns if available
       if (kundliContext.specialist?.matchedYogas?.length > 0) {
