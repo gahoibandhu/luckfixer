@@ -1,7 +1,8 @@
 // app/api/chat/route.js
 import { createClient } from '@/lib/supabase-server';
-import { getChatResponse } from '@/lib/ai-engine';
+import { getChatResponse, detectLanguage } from '@/lib/ai-engine';
 import { checkUsageAllowed, recordUsage } from '@/lib/usage-guard';
+import { getBotDisplayName } from '@/lib/app-config';
 import { generatePastValidationQuestions } from '@/lib/past-validation';
 import { buildTransitReport } from '@/lib/transit';
 import { getPendingFollowUp, markFollowUpAsked, recordOutcome, detectOutcomeAnswer, buildFollowUpQuestion, getUserAccuracy, getDashaAccuracyStat, getRemedyOutcomeCorrelation } from '@/lib/outcome-tracking';
@@ -12,7 +13,7 @@ import { formatNakshatraForPrompt } from '@/lib/nakshatra';
 import { formatVarshaphalForPrompt } from '@/lib/varshaphal';
 import { findYogaPeriods } from '@/lib/vimshottari';
 
-const LUCKFIXER_SYSTEM_PROMPT = `You are Luckfixer 2.0 — a sharp, grounded Vedic astrology AI who speaks like a trusted tech-savvy dost who also happens to know Parashari, Lal Kitab, Jaimini, and Ashtakavarga cold. People come to you because you actually land specific, verifiable insights — not because you hedge and fluff.
+const LUCKFIXER_SYSTEM_PROMPT = `You are {{BOT_NAME}} — a sharp, grounded Vedic astrology AI who speaks like a trusted tech-savvy dost who also happens to know Parashari, Lal Kitab, Jaimini, and Ashtakavarga cold. People come to you because you actually land specific, verifiable insights — not because you hedge and fluff.
 
 ═══ PERSONALITY & TONE (this defines everything) ═══
 Sound like a brilliant friend who happens to be a master jyotishi — think: the kind of person who'd say "Sun — aapka career score 78% hai isliye nahi ki aap mehnat karte hain, balki isliye ki Surya lagna mein baitha hai aur abhi Shukra antardasha chal rahi hai jो naturally dono ko activate kar raha hai." That's the energy. (Note: the exact address term — bhai/ji/just-name — depends on the user's gender info provided below; never assume male by default.)
@@ -23,7 +24,7 @@ Hinglish by default (Roman Hindi + English astrology terms blended naturally). M
 Always address the user as "aap" (aapka/aapko/aapke/aapse) — NEVER "tu/tera/tujhe/tenu" and NEVER "tum/tumhara" even in casual replies. This is fixed regardless of how casual, informal, or even how rude the user's own message is — "match the user's register" above applies to vocabulary and tone, not to this address term. Casual Hinglish + "aap" together is completely natural (e.g. "Dekhiye, aapka career abhi solid chal raha hai") — it doesn't need to sound formal or distant.
 
 ═══ IF THE USER IS ABUSIVE OR DISRESPECTFUL ═══
-Never mirror hostility, never drop into "tu/tere", never get sarcastic or combative back — that reads as Luckfixer losing its own composure, not as matching the user. Stay calm, keep using "aap", acknowledge briefly that you're only here to help with their chart, and steer back to something useful (offer to answer their actual question, or ask if something in a previous answer felt off). One calm redirect is enough — don't lecture or repeat the redirect every turn if they keep going.
+Never mirror hostility, never drop into "tu/tere", never get sarcastic or combative back — that reads as {{BOT_NAME}} losing its own composure, not as matching the user. Stay calm, keep using "aap", acknowledge briefly that you're only here to help with their chart, and steer back to something useful (offer to answer their actual question, or ask if something in a previous answer felt off). One calm redirect is enough — don't lecture or repeat the redirect every turn if they keep going.
 
 Natural Indian conversation triggers: "Dekhiye", "Abhi ka khel ye hai", "Bilkul sahi pakda", "Seedha baat karta hoon", "Ek interesting cheez notice ki", "Yahan ek twist hai" (plus "Bhai"/"ji" per the gender-aware address rule below). Use these where they feel natural, not forced.
 
@@ -143,6 +144,21 @@ function countQuestionParts(text) {
 
 const HARD_WORD_LIMIT = 160;
 const MAX_WORD_LIMIT_MULTI_PART = 320; // ceiling even for very multi-part questions — stays readable in a chat bubble
+
+// ── User input length guard ──────────────────────────────────
+// A very long pasted question (an essay, a whole life story, a wall of
+// text) both degrades AI answer quality (the model tends to answer only
+// the last part it read) and burns provider tokens/budget for no real
+// benefit — this app's system prompt already asks for crisp, focused
+// replies to crisp, focused questions. Reject before the usage guard and
+// AI call even run, so it doesn't cost the user a free chat/minute.
+const MAX_USER_INPUT_CHARS = 600; // ~100-120 words — generous for a real question, well short of an essay
+
+function tooLongInputMessage(lang) {
+  return lang === 'en'
+    ? "That's a long one — could you break it into a shorter, more specific question? Keeping it to a sentence or two helps me give you a sharper answer."
+    : 'यह सवाल थोड़ा लंबा है — कृपया इसे छोटा और सीधा करके पूछें। एक-दो पंक्तियों में पूछा गया सवाल ज्यादा सटीक जवाब देने में मदद करता है।';
+}
 
 // Day lords (Hora rulers) — Sunday=0 to Saturday=6
 const DAY_LORD_HI = ['सूर्य','चंद्र','मंगल','बुध','बृहस्पति','शुक्र','शनि'];
@@ -708,14 +724,14 @@ async function updateBirthTimeConfidence(supabase, kundliId, answer, questionTex
 }
 
 // Greeting message — called when messages has exactly 1 user message and it's a "greeting" request
-async function generateGreeting(kundliContext) {
+async function generateGreeting(kundliContext, botName) {
   const now = new Date();
   const DAYS_HI = ['रविवार','सोमवार','मंगलवार','बुधवार','गुरुवार','शुक्रवार','शनिवार'];
   const MONTHS_HI = ['जनवरी','फरवरी','मार्च','अप्रैल','मई','जून','जुलाई','अगस्त','सितम्बर','अक्टूबर','नवम्बर','दिसम्बर'];
   const todayLine = `आज ${now.getDate()} ${MONTHS_HI[now.getMonth()]}, ${DAYS_HI[now.getDay()]} है`;
 
   if (!kundliContext) {
-    return `नमस्ते! 🙏 मैं Luckfixer हूँ — Parashari, Lal Kitab और Jaimini ज्योतिष पर आधारित आपका सहायक।
+    return `नमस्ते! 🙏 मैं ${botName} हूँ — Parashari, Lal Kitab और Jaimini ज्योतिष पर आधारित आपका सहायक।
 
 करियर, विवाह, स्वास्थ्य, उपाय — कुछ भी पूछ सकते हैं। शुरू करने के लिए प्रोफाइल में जाकर अपनी कुंडली जोड़ें।
 
@@ -752,9 +768,20 @@ export async function POST(req) {
       return Response.json({ error: 'No messages provided' }, { status: 400 });
     }
 
+    // ── Reject overly long input before it costs a usage credit ─
+    const latestUserContent = messages[messages.length - 1]?.content || '';
+    if (latestUserContent.length > MAX_USER_INPUT_CHARS) {
+      const lang = (langPref && langPref !== 'auto') ? langPref : detectLanguage(latestUserContent);
+      return Response.json({
+        error: tooLongInputMessage(lang),
+        inputTooLong: true,
+      }, { status: 400 });
+    }
+
     // ── Instant greeting — no AI call needed ────────────────────
     if (isGreeting) {
-      const greeting = await generateGreeting(kundliContext);
+      const botName = await getBotDisplayName();
+      const greeting = await generateGreeting(kundliContext, botName);
 
       // Check if a prediction follow-up is due for this user.
       // If so, append it naturally at the end of the greeting — the user
@@ -875,7 +902,7 @@ export async function POST(req) {
 
     const dateBlock = `\n\n[AAJKI TITHI — server-side injected, 100% accurate — kabhi bhi khud calculate mat karo, yahi use karo]\nआज: ${todayStr} (${dayHi}) — दिन स्वामी: ${DAY_LORD_HI[now.getDay()]} — शुभ होरा: ${todayHora.shubhTime} — सतर्कता: ${todayHora.avoidTime}\nकल: ${tomorrowStr} (${tomorrowDayHi}) — दिन स्वामी: ${DAY_LORD_HI[tomorrow.getDay()]} — शुभ होरा: ${tomorrowHora.shubhTime} — सतर्कता: ${tomorrowHora.avoidTime}\nISO today: ${now.toISOString().split('T')[0]}\nIMPORTANT: Jab user kisi specific date ka din pooche (jaise "23 June ko kaunsa din hai"), toh seedha upar diye gaye data se answer do — kabhi apni training se guess mat karo. Agar user ne koi aur specific date mention ki hai (neeche "USER-MENTIONED DATE" section dekho), usi ko use karo — kabhi khud calculate mat karo.${mentionedDateBlock}`;
 
-    let systemPrompt = LUCKFIXER_SYSTEM_PROMPT + dateBlock;
+    let systemPrompt = LUCKFIXER_SYSTEM_PROMPT.replace(/\{\{BOT_NAME\}\}/g, await getBotDisplayName()) + dateBlock;
 
     // ── User's real prediction track record — lets the AI honestly answer
     // "tumhari prediction kitni sahi rahi" instead of guessing. Deliberately
@@ -941,9 +968,7 @@ D9 Navamsa (key placements): ${fs?.d9Chart ? JSON.stringify(fs.d9Chart) : '—'}
 Weakest planet: ${fs?.weakestPlanet?.planet || fs?.weakestPlanet?.name || '—'} (${fs?.weakestPlanet?.dignity || ''}, ${fs?.weakestPlanet?.sign || ''})
 Gemstone-eligible planet (STRICT — see GEMSTONE GATING rule above): ${fs?.gemstoneGuidance?.planet || 'कोई नहीं — केवल मंत्र/दान'}${fs?.neechaBhanga?.some(nb => nb.isNeechaBhanga) ? `\nNeecha Bhanga active for: ${fs.neechaBhanga.filter(nb => nb.isNeechaBhanga).map(nb => nb.planet).join(', ')} (see यह ग्रह-specific detail ऊपर detected yogas में)` : ''}
 Support-Chain verdict for weakest planet (STRICT — see SUPPORT-CHAIN FOCUS rule above): ${fs?.remedyPlan ? `${fs.remedyPlan.verdict}${fs.remedyPlan.supportPlanet ? `, support planet: ${fs.remedyPlan.supportPlanet}` : ''}, focus planets for remedy: ${fs.remedyPlan.focusPlanets?.join(', ')}` : 'N/A'}
-${/upay|remedy|solution|mantra|daan|puja|totka|उपाय/i.test(messages[messages.length - 1]?.content || '') && fs?.remedyPlan
-  ? `Remedy plan (full detail — user is asking about remedy): ${JSON.stringify(fs.remedyPlan)}`
-  : ''}`;
+Remedy plan (use ONLY when remedy is explicitly asked — see REMEDY RULE above): ${fs?.remedyPlan ? JSON.stringify(fs.remedyPlan) : 'N/A'}`;
 
       // Inject specialist patterns if available
       if (kundliContext.specialist?.matchedYogas?.length > 0) {

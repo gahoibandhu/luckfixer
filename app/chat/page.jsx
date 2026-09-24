@@ -167,6 +167,7 @@ export default function ChatPage() {
   const utteranceRef   = useRef(null);
 
   const [userId,           setUserId]           = useState(null);
+  const [botName,          setBotName]          = useState('Luckfixer 2.0');
   const [kundlis,          setKundlis]          = useState([]);
   const [kundli,           setKundli]           = useState(null);
   const [dailyCard,        setDailyCard]        = useState(null); // today's proactive gochar insight, dismissible
@@ -206,6 +207,13 @@ export default function ChatPage() {
   const [speakingIndex,        setSpeakingIndex]         = useState(null);
 
   useEffect(() => { init(); }, []);
+
+  // ── Bot display name (admin-configurable) ────────────────────
+  useEffect(() => {
+    fetch('/api/config').then(r => r.json()).then(d => {
+      if (d.botName) setBotName(d.botName);
+    }).catch(() => {}); // keep default on failure — not worth a UI error for a display name
+  }, []);
 
   // ── Voice feature detection (client-side only, browser APIs) ────
   useEffect(() => {
@@ -585,6 +593,10 @@ export default function ChatPage() {
       if (res.status === 429) {
         setLimitErr(data.error);
         setMessages(m => m.slice(0, -1)); // remove the unanswered user message
+      } else if (res.status === 400 && data.inputTooLong) {
+        setLimitErr(data.error);
+        setMessages(m => m.slice(0, -1)); // remove the unanswered user message
+        setInput(text); // give it back so they can trim it instead of retyping
       } else {
         setMessages(m => [...m, { role:'assistant', content: data.content || 'माफ़ करें, जवाब नहीं मिल पाया। कृपया दोबारा कोशिश करें।', _animate: true }]);
         if (data.usage) setUsage(data.usage);
@@ -631,7 +643,7 @@ export default function ChatPage() {
           <div style={{ display:'flex', alignItems:'center', gap:'9px', marginBottom:'10px' }}>
             <img src={LOGO_URL} alt="LF" style={{ width:'32px', height:'32px', borderRadius:'18%', objectFit:'cover', flexShrink:0 }} />
             <div>
-              <p style={{ fontSize:'13px', fontWeight:'600', color:'var(--color-text-primary)', margin:0 }}>Luckfixer 2.0</p>
+              <p style={{ fontSize:'13px', fontWeight:'600', color:'var(--color-text-primary)', margin:0 }}>{botName}</p>
               <p style={{ fontSize:'10px', color:'var(--color-brand)', margin:0 }}>✦ Vedic AI</p>
             </div>
           </div>

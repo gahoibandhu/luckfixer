@@ -26,6 +26,20 @@ export default function AdminPage() {
 
   const [planForm, setPlanForm] = useState({ free_mins_day: '', free_chats_day: '', charge_per_min: '', plan_type: 'chat' });
 
+  // ── Branding config (app_config table) ────────────────────
+  const [botNameForm, setBotNameForm] = useState('');
+  const [botNameLoaded, setBotNameLoaded] = useState(false);
+  const [botNameSaving, setBotNameSaving] = useState(false);
+  const [botNameMsg, setBotNameMsg] = useState('');
+
+  // ── Support/Feedback messages (support_messages table) ────
+  const [supportMessages, setSupportMessages] = useState([]);
+  const [supportLoaded, setSupportLoaded] = useState(false);
+  const [supportFilter, setSupportFilter] = useState('support'); // 'support' | 'feedback' | 'all'
+  const [expandedSupport, setExpandedSupport] = useState(null);
+  const [replyDrafts, setReplyDrafts] = useState({}); // { [id]: text }
+  const [replySending, setReplySending] = useState(null); // id currently sending, or null
+
   const [broadcastForm, setBroadcastForm] = useState({
     subject: '', headline: 'नमस्ते! 🙏', bodyText: '', ctaLabel: 'Login करें →', ctaUrl: '',
     audience: 'all', userIds: [],
@@ -35,6 +49,7 @@ export default function AdminPage() {
   const [broadcastConfirm, setBroadcastConfirm] = useState(false);
   const [broadcastHistory, setBroadcastHistory] = useState([]);
   const [broadcastHistoryLoaded, setBroadcastHistoryLoaded] = useState(false);
+  const [expandedBroadcast, setExpandedBroadcast] = useState(null);
   const [userSearch, setUserSearch] = useState('');
   const [userResults, setUserResults] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]); // [{id, email, full_name}]
@@ -347,6 +362,66 @@ export default function AdminPage() {
     setPlanSaving(false);
   }
 
+  async function loadBotName() {
+    const res = await fetch('/api/admin/config');
+    const data = await res.json();
+    const row = data.config?.find(c => c.key === 'bot_display_name');
+    setBotNameForm(row?.value || 'Luckfixer');
+    setBotNameLoaded(true);
+  }
+
+  async function loadSupportMessages() {
+    const res = await fetch('/api/admin/support');
+    const data = await res.json();
+    setSupportMessages(data.messages || []);
+    setSupportLoaded(true);
+  }
+
+  async function sendReply(id) {
+    const text = (replyDrafts[id] || '').trim();
+    if (!text) return;
+    setReplySending(id);
+    const res = await fetch('/api/admin/support', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, adminReply: text }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setSupportMessages(list => list.map(m => m.id === id ? data.item : m));
+      setReplyDrafts(d => ({ ...d, [id]: '' }));
+    }
+    setReplySending(null);
+  }
+
+  async function closeMessage(id) {
+    const res = await fetch('/api/admin/support', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: 'closed' }),
+    });
+    const data = await res.json();
+    if (data.success) setSupportMessages(list => list.map(m => m.id === id ? data.item : m));
+  }
+
+  async function saveBotName(e) {
+    e.preventDefault();
+    setBotNameSaving(true);
+    setBotNameMsg('');
+    const res = await fetch('/api/admin/config', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bot_display_name: botNameForm.trim() }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setBotNameMsg('✓ सेव हो गया — 60 सेकंड में लागू होगा');
+    } else {
+      setBotNameMsg('Error: ' + (data.error || 'unknown'));
+    }
+    setBotNameSaving(false);
+  }
+
   function switchTab(t) {
     setTab(t);
     if (t === 'chats' && sessions.length === 0) loadSessions();
@@ -355,6 +430,8 @@ export default function AdminPage() {
     if (t === 'migrations' && !kundliListLoaded) loadKundliList();
     if (t === 'feedback' && !feedbackLoaded) loadFeedback();
     if (t === 'users' && !usersLoaded) loadUsers();
+    if (t === 'plan' && !botNameLoaded) loadBotName();
+    if (t === 'support' && !supportLoaded) loadSupportMessages();
   }
 
   async function loadUsers(search = '') {
@@ -474,21 +551,23 @@ export default function AdminPage() {
       <p style={{ fontSize:'11px', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 4px' }}>Luckfixer Admin</p>
       <h1 style={{ fontSize:'22px', fontWeight:'500', margin:'0 0 1.5rem', color:'var(--color-text-primary)' }}>एडमिन पैनल</h1>
 
-      {/* Tabs */}
-      <div style={{ display:'flex', gap:'4px', marginBottom:'1.5rem', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
+      {/* Tabs — horizontally scrollable on mobile so 10 tabs don't
+          wrap into an unreadable multi-row mess on a narrow screen */}
+      <div className="lf-admin-tabs" style={{ display:'flex', gap:'4px', marginBottom:'1.5rem', borderBottom:'0.5px solid var(--color-border-tertiary)', overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
         {[
           { id:'overview', label:'Overview' },
           { id:'users',    label:'👥 Users' },
           { id:'usage',    label:'📊 Usage' },
           { id:'chats',    label:'Chat Audit' },
           { id:'feedback', label:'⭐ Feedback' },
+          { id:'support',  label:'📩 Support' },
           { id:'plan',     label:'Plan Config' },
           { id:'demo',     label:'Demo Users' },
           { id:'broadcast',label:'📢 Broadcast' },
           { id:'migrations',label:'🔄 Migrations' },
         ].map(t => (
           <button key={t.id} onClick={() => switchTab(t.id)} style={{
-            padding:'8px 16px', fontSize:'14px', border:'none', background:'none', cursor:'pointer',
+            padding:'8px 16px', fontSize:'14px', border:'none', background:'none', cursor:'pointer', flexShrink:0, whiteSpace:'nowrap',
             color: tab===t.id ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
             borderBottom: tab===t.id ? '2px solid var(--color-text-primary)' : '2px solid transparent',
             fontWeight: tab===t.id ? '500' : '400',
@@ -951,9 +1030,88 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* SUPPORT / FEEDBACK TAB */}
+      {tab === 'support' && (
+        <div style={{ maxWidth:'720px' }}>
+          <div style={{ display:'flex', gap:'6px', marginBottom:'1rem' }}>
+            {[['support','सहायता'],['feedback','राय/सुझाव'],['all','सभी']].map(([val,label]) => (
+              <button key={val} onClick={() => setSupportFilter(val)} style={{
+                padding:'6px 14px', fontSize:'13px', borderRadius:'var(--border-radius-md)', cursor:'pointer',
+                border: `1px solid ${supportFilter===val ? 'var(--color-text-primary)' : 'var(--color-border-tertiary)'}`,
+                background: supportFilter===val ? 'var(--color-text-primary)' : 'var(--color-background-primary)',
+                color: supportFilter===val ? 'var(--color-background-primary)' : 'var(--color-text-secondary)',
+              }}>{label}</button>
+            ))}
+          </div>
+
+          {!supportLoaded ? (
+            <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)' }}>लोड हो रहा है...</p>
+          ) : (() => {
+            const filtered = supportMessages.filter(m => supportFilter === 'all' || m.type === supportFilter);
+            if (filtered.length === 0) return <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)' }}>कोई संदेश नहीं।</p>;
+            return filtered.map(m => {
+              const expanded = expandedSupport === m.id;
+              return (
+                <div key={m.id} style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', marginBottom:'8px', overflow:'hidden' }}>
+                  <div onClick={() => setExpandedSupport(expanded ? null : m.id)} style={{ padding:'12px 14px', cursor:'pointer' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', gap:'8px', alignItems:'flex-start' }}>
+                      <div style={{ minWidth:0, flex:1 }}>
+                        <p style={{ margin:'0 0 2px', fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>
+                          {m.type === 'support' ? '📩' : '⭐'} {m.subject || (m.type === 'support' ? 'बिना विषय' : 'फीडबैक')}
+                        </p>
+                        <p style={{ margin:0, fontSize:'11px', color:'var(--color-text-tertiary)' }}>{m.email} · {new Date(m.created_at).toLocaleDateString('hi-IN')}</p>
+                      </div>
+                      {m.type === 'support' && (
+                        <span style={{ fontSize:'11px', flexShrink:0, padding:'2px 8px', borderRadius:'10px', fontWeight:'500',
+                          color: m.status === 'answered' ? 'var(--color-text-success)' : m.status === 'closed' ? 'var(--color-text-tertiary)' : 'var(--color-text-warning)',
+                          background: 'var(--color-background-secondary)' }}>
+                          {m.status === 'answered' ? '✓ जवाब दिया' : m.status === 'closed' ? 'बंद' : '⏳ खुला'}
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ margin:'6px 0 0', fontSize:'13px', color:'var(--color-text-secondary)', overflow: expanded ? 'visible' : 'hidden', textOverflow: expanded ? 'clip' : 'ellipsis', whiteSpace: expanded ? 'pre-line' : 'nowrap' }}>{m.message}</p>
+                  </div>
+
+                  {expanded && m.type === 'support' && (
+                    <div style={{ borderTop:'0.5px solid var(--color-border-tertiary)', padding:'12px 14px' }}>
+                      {m.admin_reply && (
+                        <div style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'10px 12px', marginBottom:'10px' }}>
+                          <p style={{ margin:'0 0 3px', fontSize:'11px', fontWeight:'500', color:'var(--color-text-tertiary)' }}>भेजा गया जवाब:</p>
+                          <p style={{ margin:0, fontSize:'13px', color:'var(--color-text-primary)', whiteSpace:'pre-line' }}>{m.admin_reply}</p>
+                        </div>
+                      )}
+                      {m.status !== 'closed' && (
+                        <div style={{ display:'flex', gap:'8px' }}>
+                          <textarea
+                            value={replyDrafts[m.id] || ''}
+                            onChange={e => setReplyDrafts(d => ({ ...d, [m.id]: e.target.value }))}
+                            placeholder="जवाब लिखें..."
+                            rows={2}
+                            style={{ flex:1, fontSize:'13px', fontFamily:'inherit', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'8px', resize:'vertical' }}
+                          />
+                          <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
+                            <button onClick={() => sendReply(m.id)} disabled={replySending === m.id || !(replyDrafts[m.id] || '').trim()} style={{ padding:'8px 12px', fontSize:'12px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', whiteSpace:'nowrap' }}>
+                              {replySending === m.id ? '...' : 'जवाब भेजें'}
+                            </button>
+                            <button onClick={() => closeMessage(m.id)} style={{ padding:'8px 12px', fontSize:'12px', background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-tertiary)' }}>
+                              बंद करें
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            });
+          })()}
+        </div>
+      )}
+
       {/* PLAN CONFIG TAB */}
       {tab === 'plan' && (
-        <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1.25rem', maxWidth:'420px' }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:'1rem', maxWidth:'420px' }}>
+        <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1.25rem' }}>
           <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 1rem' }}>Free Tier Settings</p>
           <form onSubmit={savePlan} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
 
@@ -997,6 +1155,21 @@ export default function AdminPage() {
               {planSaving ? 'Save हो रहा है...' : 'Save करें'}
             </button>
           </form>
+        </div>
+
+        <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1.25rem' }}>
+          <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 1rem' }}>Bot Branding</p>
+          <form onSubmit={saveBotName} style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
+            <div>
+              <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', fontWeight:'500', display:'block', marginBottom:'4px' }}>Bot Name — चैट, कुंडली विश्लेषण और साइट पर हर जगह दिखेगा</label>
+              <input type="text" value={botNameForm} onChange={e => setBotNameForm(e.target.value)} placeholder="Luckfixer" required />
+            </div>
+            {botNameMsg && <p style={{ fontSize:'12px', color: botNameMsg.startsWith('✓') ? 'var(--color-text-success)' : 'var(--color-text-danger)', margin:0 }}>{botNameMsg}</p>}
+            <button type="submit" disabled={botNameSaving || !botNameForm.trim()} style={{ padding:'10px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>
+              {botNameSaving ? 'Save हो रहा है...' : 'Save करें'}
+            </button>
+          </form>
+        </div>
         </div>
       )}
 
@@ -1180,19 +1353,40 @@ export default function AdminPage() {
             </div>
             {broadcastHistory.length === 0 ? (
               <p style={{ padding:'1rem', fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>अभी तक कोई broadcast नहीं भेजा गया।</p>
-            ) : broadcastHistory.map((b, i) => (
-              <div key={b.id} style={{ padding:'10px 14px', borderBottom: i < broadcastHistory.length-1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'8px' }}>
-                  <p style={{ margin:'0 0 3px', fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>{b.subject}</p>
-                  <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)', whiteSpace:'nowrap', flexShrink:0 }}>{new Date(b.created_at).toLocaleDateString('hi-IN')}</span>
+            ) : broadcastHistory.map((b, i) => {
+              const expanded = expandedBroadcast === b.id;
+              const stuck = b.status === 'sending' && (Date.now() - new Date(b.created_at).getTime()) > 5 * 60 * 1000;
+              return (
+              <div key={b.id} style={{ borderBottom: i < broadcastHistory.length-1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
+                <div onClick={() => setExpandedBroadcast(expanded ? null : b.id)} style={{ padding:'10px 14px', cursor:'pointer' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'8px' }}>
+                    <p style={{ margin:'0 0 3px', fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>{b.subject}</p>
+                    <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)', whiteSpace:'nowrap', flexShrink:0 }}>{new Date(b.created_at).toLocaleDateString('hi-IN')}</span>
+                  </div>
+                  <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)' }}>
+                    {b.audience === 'all' ? 'सभी Users' : b.audience === 'active_30d' ? 'Active (30 din)' : 'चुने हुए Users'} · <span style={{ color:'var(--color-text-success)' }}>{b.sent_count} sent</span>
+                    {b.failed_count > 0 && <span style={{ color:'var(--color-text-danger)' }}> · {b.failed_count} failed</span>}
+                    {' '}· कुल {b.total_recipients}
+                    {b.status === 'sending' && (
+                      <span style={{ color: stuck ? 'var(--color-text-danger)' : 'var(--color-text-warning)', marginLeft:'4px' }}>
+                        · {stuck ? '⚠ अटका हुआ लगता है (timeout?)' : '⏳ भेजा जा रहा है...'}
+                      </span>
+                    )}
+                  </p>
                 </div>
-                <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)' }}>
-                  {b.audience === 'all' ? 'सभी Users' : b.audience === 'active_30d' ? 'Active (30 din)' : 'चुने हुए Users'} · <span style={{ color:'var(--color-text-success)' }}>{b.sent_count} sent</span>
-                  {b.failed_count > 0 && <span style={{ color:'var(--color-text-danger)' }}> · {b.failed_count} failed</span>}
-                  {' '}· कुल {b.total_recipients}
-                </p>
+                {expanded && (
+                  <div style={{ padding:'0 14px 14px', fontSize:'13px' }}>
+                    {b.headline && <p style={{ margin:'0 0 6px', fontWeight:'500', color:'var(--color-text-primary)' }}>{b.headline}</p>}
+                    <p style={{ margin:'0 0 8px', color:'var(--color-text-primary)', whiteSpace:'pre-line', lineHeight:'1.6', background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'10px 12px' }}>{b.body_text}</p>
+                    {b.cta_url && (
+                      <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-tertiary)' }}>CTA: "{b.cta_label || 'Login करें →'}" → {b.cta_url}</p>
+                    )}
+                    <p style={{ margin:'6px 0 0', fontSize:'11px', color:'var(--color-text-tertiary)' }}>भेजा: {b.sent_by || 'admin'}</p>
+                  </div>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

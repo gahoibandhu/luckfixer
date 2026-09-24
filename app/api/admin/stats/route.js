@@ -83,22 +83,29 @@ export async function GET() {
   // message — it misses someone who logged in, browsed their kundli
   // or profile, and left without chatting. Supabase Auth's
   // last_sign_in_at is the ground-truth signal for "opened the app
-  // today" regardless of what they did once inside. Paginated (and
-  // capped) so this stays cheap even as the user base grows.
+  // today" regardless of what they did once inside.
+  //
+  // PERFORMANCE FIX: this used to page through listUsers sequentially
+  // (await one page, decide whether to fetch the next, repeat) — on
+  // an account with a few thousand users that's several sequential
+  // round-trips to the slowest API in this whole route, all on the
+  // critical path of the tab that loads by default. totalUsers is
+  // already known from the Promise.all above, so the exact page count
+  // needed can be computed upfront and every page fetched in parallel
+  // instead of one at a time.
   let todayVisitors = 0;
   let totalAuthUsers = 0;
   try {
-    let page = 1;
     const perPage = 1000;
     const maxPages = 10; // safety cap — 10,000 users
-    let keepGoing = true;
-    while (keepGoing && page <= maxPages) {
-      const { data: pageData, error: pageErr } = await adminSupabase.auth.admin.listUsers({ page, perPage });
-      if (pageErr || !pageData?.users?.length) { keepGoing = false; break; }
+    const pagesNeeded = Math.min(Math.max(Math.ceil((totalUsers || 0) / perPage), 1), maxPages);
+    const pageResults = await Promise.all(
+      Array.from({ length: pagesNeeded }, (_, i) => adminSupabase.auth.admin.listUsers({ page: i + 1, perPage }))
+    );
+    for (const { data: pageData, error: pageErr } of pageResults) {
+      if (pageErr || !pageData?.users?.length) continue;
       totalAuthUsers += pageData.users.length;
       todayVisitors += pageData.users.filter(u => u.last_sign_in_at && u.last_sign_in_at.slice(0, 10) === today).length;
-      keepGoing = pageData.users.length === perPage;
-      page += 1;
     }
   } catch (e) {
     console.error('[Admin stats] listUsers error (non-fatal):', e.message);

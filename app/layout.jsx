@@ -1,6 +1,7 @@
 // app/layout.jsx
 import './globals.css';
 import PwaRegister from '@/components/PwaRegister';
+import BottomNav from '@/components/BottomNav';
 
 const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
 const SITE_URL = 'https://luckfixer.jaigahoi.in';
@@ -60,6 +61,7 @@ export default function RootLayout({ children }) {
       <body style={{ margin: 0 }}>
         <PwaRegister />
         {children}
+        <BottomNav />
       </body>
     </html>
   );

@@ -26,6 +26,7 @@ import { buildVarshaphal } from '@/lib/varshaphal';
 import { buildGocharPhalTimeline, buildAnnualTransitPeriods } from '@/lib/gochar-phal';
 import { buildSaptahikPhal } from '@/lib/saptahik-phal';
 import { getLuckfixerResponse } from '@/lib/ai-engine';
+import { getBotDisplayName } from '@/lib/app-config';
 import { RAM_SHALAKA_ANSWERS } from '@/lib/ram-shalaka';
 import { buildAnalysisSystemPrompt, buildAnalysisUserPrompt } from '@/lib/kundli-analysis-prompt';
 
@@ -102,7 +103,7 @@ export async function POST() {
       const annualTransitPeriods = buildAnnualTransitPeriods(moon?.sign, ayanamsa, varshaphal?.solarReturnDate);
       const saptahikPhal = buildSaptahikPhal(ayanamsa, factSheet?.weakestPlanet?.planet);
 
-      const systemPrompt = buildAnalysisSystemPrompt();
+      const systemPrompt = buildAnalysisSystemPrompt(await getBotDisplayName());
       const userPrompt = buildAnalysisUserPrompt({ full_name, dob, birth_time, birth_place, ayanamsa, factSheet, numerology, vimshottari, specialist, jaimini, crossVal, yogas, ashtakavarga, nakshatra, varshaphal, gocharPhal, annualTransitPeriods, transit, gender });
 
       const aiResult = await getLuckfixerResponse(systemPrompt, userPrompt, true);
