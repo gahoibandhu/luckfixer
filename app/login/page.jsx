@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
+import { t, getSavedUiLang, setSavedUiLang } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,27 @@ export default function LoginPage() {
   const [error,   setError]   = useState('');
   const [msg,     setMsg]     = useState('');
   const [animated, setAnimated] = useState(false);
+  const [uiLang, setUiLang] = useState('hi');
+
+  useEffect(() => {
+    // First-time visitor (no saved preference yet) — take a best guess
+    // from the browser's own language instead of always defaulting to
+    // Hindi, since this is the very first thing an international
+    // visitor sees. Anyone who already has a saved preference (from a
+    // previous visit, or set via the Header toggle) keeps that instead.
+    const hasSaved = typeof window !== 'undefined' && window.localStorage.getItem('lf_ui_lang');
+    if (hasSaved) {
+      setUiLang(getSavedUiLang());
+    } else if (typeof navigator !== 'undefined' && !navigator.language?.toLowerCase().startsWith('hi')) {
+      setUiLang('en');
+    }
+  }, []);
+
+  function toggleLang() {
+    const next = uiLang === 'en' ? 'hi' : 'en';
+    setUiLang(next);
+    setSavedUiLang(next);
+  }
 
   useEffect(() => {
     // Trigger assembly animation after a brief pause
@@ -50,21 +72,21 @@ export default function LoginPage() {
 
   async function sendOtp(e) {
     e.preventDefault();
-    if (!email) return setError('Email डालें');
+    if (!email) return setError(t('emailRequired', uiLang));
     setLoading(true); setError('');
     const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
     if (error) { setError(error.message); setLoading(false); return; }
-    setMsg(`OTP भेजा गया: ${email}`);
+    setMsg(`${t('otpSentTo', uiLang)}: ${email}`);
     setStep('verify');
     setLoading(false);
   }
 
   async function verifyOtp(e) {
     e.preventDefault();
-    if (!otp) return setError('OTP डालें');
+    if (!otp) return setError(t('otpRequired', uiLang));
     setLoading(true); setError('');
     const { data, error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'email' });
-    if (error) { setError('गलत OTP। दोबारा कोशिश करें।'); setLoading(false); return; }
+    if (error) { setError(t('wrongOtp', uiLang)); setLoading(false); return; }
     await supabase.from('user_profiles').upsert({ id: data.user.id, email: data.user.email }, { onConflict: 'id' });
     router.push('/chat');
   }
@@ -95,6 +117,11 @@ export default function LoginPage() {
         pointerEvents: 'none',
         zIndex: 0,
       }} />
+
+      {/* Language toggle — top-right, no Header on this page */}
+      <button onClick={toggleLang} style={{ position:'absolute', top:'16px', right:'16px', zIndex:2, padding:'6px 12px', fontSize:'12px', fontWeight:'600', background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'20px', cursor:'pointer', color:'rgba(255,255,255,0.7)' }}>
+        {uiLang === 'en' ? 'हि' : 'EN'}
+      </button>
 
       {/* ── HERO: Logo 52vh — fits screen without scroll ── */}
       <div style={{
@@ -170,13 +197,13 @@ export default function LoginPage() {
             margin: '0 0 4px',
             textAlign: 'center',
             letterSpacing: '-0.3px',
-          }}>स्वागत है</h1>
+          }}>{t('welcomeHeading', uiLang)}</h1>
           <p style={{
             fontSize: '11px',
             color: 'rgba(255,255,255,0.35)',
             margin: '0 0 16px',
             textAlign: 'center',
-          }}>सभी के लिए खुला · Vedic ज्योतिष · Parashari · Lal Kitab · Jaimini</p>
+          }}>{t('loginSubtitle', uiLang)}</p>
 
           {/* Google — GOLD PRIMARY, most prominent */}
           <button
@@ -211,7 +238,7 @@ export default function LoginPage() {
               <path fill="rgba(255,255,255,0.8)" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
               <path fill="rgba(255,255,255,0.7)" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            Google से जारी रखें
+            {t('continueWithGoogle', uiLang)}
           </button>
 
           {/* Email — subtle secondary */}
@@ -234,19 +261,19 @@ export default function LoginPage() {
             onMouseEnter={e => { e.currentTarget.style.color='rgba(255,255,255,0.7)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.25)'; }}
             onMouseLeave={e => { e.currentTarget.style.color='rgba(255,255,255,0.4)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.12)'; }}
           >
-            Email से Login करें
+            {t('loginWithEmail', uiLang)}
           </button>
 
           <p style={{ fontSize:'10px', color:'rgba(255,255,255,0.2)', marginTop:'20px', letterSpacing:'0.5px' }}>
-            luckfixer.jaigahoi.in · सभी के लिए खुला
+            luckfixer.jaigahoi.in · {t('footerTagline', uiLang)}
           </p>
         </>}
 
         {/* Email OTP flow */}
         {mode === 'email' && step === 'enter' && (
           <div style={{ width:'100%', maxWidth:'360px' }}>
-            <button type="button" onClick={() => setMode('choice')} style={{ fontSize:'13px', color:'rgba(255,255,255,0.45)', background:'none', border:'none', cursor:'pointer', padding:'0 0 16px', display:'block' }}>← वापस</button>
-            <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.5)', marginBottom:'16px' }}>अपना Email डालें — हम एक OTP भेजेंगे</p>
+            <button type="button" onClick={() => setMode('choice')} style={{ fontSize:'13px', color:'rgba(255,255,255,0.45)', background:'none', border:'none', cursor:'pointer', padding:'0 0 16px', display:'block' }}>{t('backBtn', uiLang)}</button>
+            <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.5)', marginBottom:'16px' }}>{t('enterEmailPrompt', uiLang)}</p>
             <input
               type="email"
               value={email}
@@ -261,7 +288,7 @@ export default function LoginPage() {
               disabled={loading}
               style={{ width:'100%', padding:'14px', fontSize:'15px', fontWeight:'600', background:'linear-gradient(135deg, #c8831a, #e8a030)', border:'none', borderRadius:'12px', cursor:'pointer', color:'#0d0d0f' }}
             >
-              {loading ? 'भेज रहे हैं...' : 'OTP भेजें'}
+              {loading ? t('sendingOtp', uiLang) : t('sendOtpBtn', uiLang)}
             </button>
           </div>
         )}
@@ -283,9 +310,9 @@ export default function LoginPage() {
               disabled={loading}
               style={{ width:'100%', padding:'14px', fontSize:'15px', fontWeight:'600', background:'linear-gradient(135deg, #c8831a, #e8a030)', border:'none', borderRadius:'12px', cursor:'pointer', color:'#0d0d0f', marginBottom:'10px' }}
             >
-              {loading ? 'Verify हो रहा है...' : 'Verify करें →'}
+              {loading ? t('verifyingOtp', uiLang) : t('verifyBtn', uiLang)}
             </button>
-            <button type="button" onClick={() => setStep('enter')} style={{ display:'block', width:'100%', textAlign:'center', fontSize:'12px', color:'rgba(255,255,255,0.35)', background:'none', border:'none', cursor:'pointer' }}>दूसरा Email डालें</button>
+            <button type="button" onClick={() => setStep('enter')} style={{ display:'block', width:'100%', textAlign:'center', fontSize:'12px', color:'rgba(255,255,255,0.35)', background:'none', border:'none', cursor:'pointer' }}>{t('anotherEmail', uiLang)}</button>
           </div>
         )}
       </div>

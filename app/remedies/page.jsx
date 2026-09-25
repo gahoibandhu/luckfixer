@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import { getHindiWeekday, getRemedyTimeStatus } from '@/lib/date-format';
+import { t, getSavedUiLang } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,9 +39,9 @@ function remedyLabel(r) {
 }
 
 const TABS = [
-  { id: 'active',      label: 'अभी चल रहे' },
-  { id: 'not_started', label: 'शुरू करने के लिए तैयार' },
-  { id: 'done',         label: 'पूरे हुए' },
+  { id: 'active',      key: 'tabActive' },
+  { id: 'not_started', key: 'tabNotStarted' },
+  { id: 'done',        key: 'tabDone' },
 ];
 
 export default function RemediesPage() {
@@ -56,6 +57,9 @@ export default function RemediesPage() {
   // { [remedyId]: durationDays } — while the user is adjusting the
   // suggested duration before confirming "शुरू करें"
   const [startDraft, setStartDraft] = useState({});
+  const [uiLang, setUiLang] = useState('hi');
+
+  useEffect(() => { setUiLang(getSavedUiLang()); }, []);
 
   const todayWeekday = getHindiWeekday();
 
@@ -128,7 +132,7 @@ export default function RemediesPage() {
   }
 
   if (loading) {
-    return <div style={{ padding:'2rem', textAlign:'center', color:'var(--color-text-secondary)', fontSize:'14px' }}>लोड हो रहा है...</div>;
+    return <div style={{ padding:'2rem', textAlign:'center', color:'var(--color-text-secondary)', fontSize:'14px' }}>{t('remediesLoading', uiLang)}</div>;
   }
 
   // ── Bucket remedies by tab ────────────────────────────────────
@@ -143,14 +147,14 @@ export default function RemediesPage() {
 
   return (
     <div style={{ maxWidth:'680px', margin:'0 auto', padding:'1.5rem 1rem' }}>
-      <button onClick={() => router.push('/profile')} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-secondary)', fontSize:'14px', padding:0, marginBottom:'1rem' }}>← वापस</button>
+      <button onClick={() => router.push('/profile')} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-secondary)', fontSize:'14px', padding:0, marginBottom:'1rem' }}>{t('backBtn', uiLang)}</button>
 
       <p style={{ fontSize:'11px', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 4px' }}>Luckfixer</p>
-      <h1 style={{ fontSize:'22px', fontWeight:'500', margin:'0 0 1rem', color:'var(--color-text-primary)' }}>मेरे उपाय</h1>
+      <h1 style={{ fontSize:'22px', fontWeight:'500', margin:'0 0 1rem', color:'var(--color-text-primary)' }}>{t('remediesTitle', uiLang)}</h1>
 
       {remedies.length === 0 ? (
         <div style={{ textAlign:'center', padding:'2rem', color:'var(--color-text-tertiary)', fontSize:'13px', border:'0.5px dashed var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)' }}>
-          अभी तक कोई उपाय नहीं दिया गया। किसी कुंडली पर चैट में "उपाय बताओ" पूछें, या नई कुंडली बनाएं।
+          {t('noRemediesYet', uiLang)}
         </div>
       ) : (
         <>
@@ -158,24 +162,24 @@ export default function RemediesPage() {
               explicit additional channel, off by default. */}
           <label style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 14px', cursor:'pointer' }}>
             <input type="checkbox" checked={!!profile.email_remedy_reminders} onChange={toggleEmailReminders} style={{ width:'auto', padding:0 }} />
-            रोज़ email से भी याद दिलाएं (जिस दिन जो उपाय है, उस दिन सुबह)
+            {t('emailReminderLabel', uiLang)}
           </label>
 
           {/* Tabs */}
           <div style={{ display:'flex', gap:'4px', marginBottom:'1.25rem', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
-            {TABS.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)} style={{
+            {TABS.map(tb => (
+              <button key={tb.id} onClick={() => setTab(tb.id)} style={{
                 padding:'8px 12px', fontSize:'13px', border:'none', background:'none', cursor:'pointer',
-                color: tab===t.id ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
-                borderBottom: tab===t.id ? '2px solid var(--color-text-primary)' : '2px solid transparent',
-                fontWeight: tab===t.id ? '500' : '400',
-              }}>{t.label} ({tabCounts[t.id]})</button>
+                color: tab===tb.id ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
+                borderBottom: tab===tb.id ? '2px solid var(--color-text-primary)' : '2px solid transparent',
+                fontWeight: tab===tb.id ? '500' : '400',
+              }}>{t(tb.key, uiLang)} ({tabCounts[tb.id]})</button>
             ))}
           </div>
 
           {visibleList.length === 0 && (
             <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)', textAlign:'center', padding:'1.5rem 0' }}>
-              {tab === 'done' ? 'अभी तक कोई उपाय पूरा नहीं हुआ।' : tab === 'active' ? 'अभी कोई उपाय चालू नहीं है — "शुरू करने के लिए तैयार" टैब देखें।' : 'सब उपाय या तो चालू हैं या पूरे हो गए हैं 🎉'}
+              {tab === 'done' ? t('noneDoneYet', uiLang) : tab === 'active' ? t('noneActiveNow', uiLang) : t('allDoneOrActive', uiLang)}
             </p>
           )}
 
@@ -201,18 +205,18 @@ export default function RemediesPage() {
                         <span style={{ fontSize:'18px', flexShrink:0 }}>{REMEDY_TYPE_ICON[r.remedy_type] || '✨'}</span>
                         <div style={{ flex:1, minWidth:0 }}>
                           {isExpired && (
-                            <span style={{ display:'inline-block', fontSize:'10px', fontWeight:'600', color:'var(--color-text-danger)', background:'var(--color-background-warning)', borderRadius:'4px', padding:'2px 6px', marginBottom:'4px' }}>अवधि पूरी हो गई — पूरा हुआ या फिर से शुरू करें?</span>
+                            <span style={{ display:'inline-block', fontSize:'10px', fontWeight:'600', color:'var(--color-text-danger)', background:'var(--color-background-warning)', borderRadius:'4px', padding:'2px 6px', marginBottom:'4px' }}>{t('expiredBadge', uiLang)}</span>
                           )}
                           {!isExpired && isToday && r.status === 'pending' && r.remedy_type === 'lal_kitab' && (
-                            <span style={{ display:'inline-block', fontSize:'10px', fontWeight:'600', color:'var(--color-text-warning)', background:'var(--color-background-warning)', borderRadius:'4px', padding:'2px 6px', marginBottom:'4px' }}>आज करें · {todayWeekday}</span>
+                            <span style={{ display:'inline-block', fontSize:'10px', fontWeight:'600', color:'var(--color-text-warning)', background:'var(--color-background-warning)', borderRadius:'4px', padding:'2px 6px', marginBottom:'4px' }}>{t('doTodayBadge', uiLang)} · {todayWeekday}</span>
                           )}
                           {!isExpired && timeStatus.phase === 'active' && timeStatus.daysRemaining != null && (
-                            <span style={{ display:'inline-block', fontSize:'10px', fontWeight:'600', color:'var(--color-text-success)', background:'var(--color-background-secondary)', borderRadius:'4px', padding:'2px 6px', marginBottom:'4px' }}>{timeStatus.daysRemaining} दिन बाकी</span>
+                            <span style={{ display:'inline-block', fontSize:'10px', fontWeight:'600', color:'var(--color-text-success)', background:'var(--color-background-secondary)', borderRadius:'4px', padding:'2px 6px', marginBottom:'4px' }}>{timeStatus.daysRemaining} {t('daysRemainingSuffix', uiLang)}</span>
                           )}
                           <p style={{ fontSize:'13px', color:'var(--color-text-primary)', margin:'0 0 3px', lineHeight:'1.5', textDecoration: r.status === 'done' ? 'line-through' : 'none' }}>{remedyLabel(r)}</p>
                           <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>
                             {(r.planet_hi || r.planet) && `${r.planet_hi || r.planet} · `}{kundlis.length === 1 ? kundliLabel : ''}
-                            {r.start_date && ` · शुरू: ${r.start_date.slice(8,10)}-${r.start_date.slice(5,7)}-${r.start_date.slice(0,4)}`}
+                            {r.start_date && ` · ${t('startedOnPrefix', uiLang)} ${r.start_date.slice(8,10)}-${r.start_date.slice(5,7)}-${r.start_date.slice(0,4)}`}
                           </p>
                         </div>
                       </div>
@@ -223,14 +227,14 @@ export default function RemediesPage() {
                         <div style={{ display:'flex', alignItems:'center', gap:'8px', marginTop:'10px', flexWrap:'wrap' }}>
                           {DEFAULT_DURATION_DAYS[r.remedy_type] !== null && (
                             <label style={{ display:'flex', alignItems:'center', gap:'6px', fontSize:'12px', color:'var(--color-text-secondary)' }}>
-                              कितने दिन:
+                              {t('howManyDays', uiLang)}
                               <input type="number" min="1" style={{ width:'56px', padding:'4px 6px', fontSize:'12px' }}
                                 value={startDraft[r.id] !== undefined ? startDraft[r.id] : DEFAULT_DURATION_DAYS[r.remedy_type]}
                                 onChange={e => setStartDraft(d => ({ ...d, [r.id]: parseInt(e.target.value) || 1 }))} />
                             </label>
                           )}
                           <button onClick={() => startRemedy(r)} style={{ background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', padding:'6px 12px', cursor:'pointer', fontSize:'12px', fontWeight:'500' }}>
-                            ▶ शुरू करें
+                            {t('startRemedyBtn', uiLang)}
                           </button>
                         </div>
                       )}
@@ -239,15 +243,15 @@ export default function RemediesPage() {
                       {r.status === 'pending' && r.start_date && (
                         <div style={{ display:'flex', gap:'6px', marginTop:'10px', flexWrap:'wrap' }}>
                           <button onClick={() => updateStatus(r.id, 'done')} style={{ background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'6px 10px', cursor:'pointer', fontSize:'12px', color:'var(--color-text-success)' }}>
-                            ✓ पूरा किया
+                            {t('markDoneBtn', uiLang)}
                           </button>
                           {isExpired && (
                             <button onClick={() => startRemedy(r)} style={{ background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'6px 10px', cursor:'pointer', fontSize:'12px', color:'var(--color-text-primary)' }}>
-                              ↻ फिर से शुरू करें
+                              {t('restartBtn', uiLang)}
                             </button>
                           )}
                           <button onClick={() => updateStatus(r.id, 'skipped')} style={{ background:'none', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'6px 10px', cursor:'pointer', fontSize:'12px', color:'var(--color-text-tertiary)' }}>
-                            छोड़ें
+                            {t('skipBtn', uiLang)}
                           </button>
                         </div>
                       )}
@@ -255,7 +259,7 @@ export default function RemediesPage() {
                       {/* Done — allow reopening */}
                       {r.status === 'done' && (
                         <button onClick={() => updateStatus(r.id, 'pending')} style={{ marginTop:'8px', background:'none', border:'none', cursor:'pointer', fontSize:'11px', color:'var(--color-text-tertiary)' }}>
-                          पूर्ववत करें
+                          {t('undoBtn', uiLang)}
                         </button>
                       )}
                     </div>

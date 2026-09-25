@@ -11,8 +11,9 @@
 // unchanged), and a spin-wheel (components/RamShalakaWheel.jsx) for
 // people who want the more playful mechanic — kept as a toggle, not a
 // replacement, so the traditional method never goes away.
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { t, getSavedUiLang } from '@/lib/i18n';
 import { RAM_SHALAKA_GRID, getAnswerForCell } from '@/lib/ram-shalaka';
 import RamShalakaWheel from '@/components/RamShalakaWheel';
 
@@ -33,6 +34,9 @@ export default function RamShalakaPage() {
   const [revealing, setRevealing] = useState(false);
   const [showFullChaupai, setShowFullChaupai] = useState(false);
   const [wheelKey, setWheelKey] = useState(0); // bump to force a fresh wheel instance
+  const [uiLang, setUiLang] = useState('hi');
+
+  useEffect(() => { setUiLang(getSavedUiLang()); }, []);
 
   function logUsage(answer, mode) {
     // Fire-and-forget — never blocks or interrupts the reading itself.
@@ -71,14 +75,14 @@ export default function RamShalakaPage() {
   return (
     <div style={{ maxWidth: '720px', margin: '0 auto', padding: '1.5rem 1rem 3rem' }}>
       <button onClick={() => router.push('/chat')} style={{ fontSize: '13px', color: 'var(--color-text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: '1rem' }}>
-        ← वापस चैट पर
+        {t('backToChat', uiLang)}
       </button>
 
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-        <p style={{ fontSize: '11px', letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>श्री राम शलाका प्रश्नावली</p>
-        <h1 style={{ fontSize: '22px', fontWeight: '500', color: 'var(--color-text-primary)', marginBottom: '6px' }}>रामचरितमानस से मार्गदर्शन</h1>
+        <p style={{ fontSize: '11px', letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>{t('ramShalakaSubtitle', uiLang)}</p>
+        <h1 style={{ fontSize: '22px', fontWeight: '500', color: 'var(--color-text-primary)', marginBottom: '6px' }}>{t('ramShalakaTitle', uiLang)}</h1>
         <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: '1.6', maxWidth: '480px', margin: '0 auto' }}>
-          मन में अपना प्रश्न स्थिर करें, श्रीराम का स्मरण करें, और {mode === 'wheel' ? 'पहिया घुमाकर रोकें' : 'आंखें बंद करके नीचे दी सारणी में किसी भी अक्षर पर उंगली रखें'}।
+          {mode === 'wheel' ? t('ramShalakaInstrWheel', uiLang) : t('ramShalakaInstrGrid', uiLang)}
         </p>
       </div>
 
@@ -88,17 +92,17 @@ export default function RamShalakaPage() {
             <input
               value={question}
               onChange={e => setQuestion(e.target.value)}
-              placeholder="अपना प्रश्न लिखें (वैकल्पिक)"
+              placeholder={t('questionPlaceholder', uiLang)}
               style={{ width: '100%', fontSize: '14px', textAlign: 'center' }}
             />
           </div>
 
           <div style={{ display: 'flex', gap: '6px', marginBottom: '1.25rem', background: 'var(--color-background-secondary)', padding: '4px', borderRadius: '10px', maxWidth: '320px', margin: '0 auto 1.25rem' }}>
             <button onClick={() => setMode('wheel')} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '7px', fontSize: '12px', fontWeight: 500, cursor: 'pointer', background: mode === 'wheel' ? '#7a2020' : 'transparent', color: mode === 'wheel' ? '#fff' : 'var(--color-text-secondary)' }}>
-              🎡 स्पिन व्हील
+              {t('spinWheelTab', uiLang)}
             </button>
             <button onClick={() => setMode('grid')} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '7px', fontSize: '12px', fontWeight: 500, cursor: 'pointer', background: mode === 'grid' ? '#7a2020' : 'transparent', color: mode === 'grid' ? '#fff' : 'var(--color-text-secondary)' }}>
-              📜 परंपरागत ग्रिड
+              {t('traditionalGridTab', uiLang)}
             </button>
           </div>
 
@@ -148,12 +152,12 @@ export default function RamShalakaPage() {
 
               {revealing && (
                 <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--color-text-tertiary)', marginTop: '1rem' }}>
-                  ग्रंथ खुल रहा है...
+                  {t('bookOpening', uiLang)}
                 </p>
               )}
 
               <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', textAlign: 'center', marginTop: '10px' }}>
-                15×15 = 225 अक्षरों की पारंपरिक सारणी — जैसी रामचरितमानस के प्रचलित संस्करणों में छपती है।
+                {t('gridCaption', uiLang)}
               </p>
             </>
           )}
@@ -193,18 +197,18 @@ export default function RamShalakaPage() {
             )}
 
             <button onClick={() => setShowFullChaupai(s => !s)} style={{ background: 'none', border: 'none', color: 'var(--color-text-info)', fontSize: '12px', cursor: 'pointer', margin: '6px 0 1.25rem', padding: 0 }}>
-              {showFullChaupai ? 'कम दिखाएं' : 'पूरी चौपाई देखें →'}
+              {showFullChaupai ? t('showLess', uiLang) : t('showFullChaupaiBtn', uiLang)}
             </button>
 
             <div style={{ textAlign: 'left' }}>
-              <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 4px' }}>प्रसंग</p>
+              <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 4px' }}>{t('prasangLabel', uiLang)}</p>
               <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: '1.7', margin: '0 0 14px' }}>{result.prasang}</p>
 
-              <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 4px' }}>भावार्थ</p>
+              <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 4px' }}>{t('bhavarthLabel', uiLang)}</p>
               <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: '1.7', margin: '0 0 14px' }}>{result.bhavarth}</p>
 
               <div style={{ background: 'var(--color-background-secondary)', borderRadius: '10px', padding: '12px' }}>
-                <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 4px' }}>शलाका उत्तर का भाव</p>
+                <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 4px' }}>{t('shalakaBhavLabel', uiLang)}</p>
                 <p style={{ fontSize: '13px', color: 'var(--color-text-primary)', lineHeight: '1.7', margin: 0 }}>{result.shalakaBhav}</p>
               </div>
             </div>
@@ -212,15 +216,15 @@ export default function RamShalakaPage() {
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '1.25rem' }}>
             <button onClick={reset} style={{ flex: 1, padding: '11px', fontSize: '14px', background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 'var(--border-radius-md)', cursor: 'pointer', color: 'var(--color-text-primary)' }}>
-              फिर से पूछें
+              {t('askAgain', uiLang)}
             </button>
             <button onClick={() => router.push('/chat')} style={{ flex: 1, padding: '11px', fontSize: '14px', background: 'var(--color-text-primary)', color: 'var(--color-background-primary)', border: 'none', borderRadius: 'var(--border-radius-md)', cursor: 'pointer', fontWeight: '500' }}>
-              इस पर और बात करें
+              {t('discussFurther', uiLang)}
             </button>
           </div>
 
           <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', textAlign: 'center', marginTop: '1rem' }}>
-            राम शलाका एक श्रद्धा-आधारित पारंपरिक अभ्यास है, भविष्यवाणी नहीं — एक ही प्रश्न बार-बार न पूछें।
+            {t('ramShalakaDisclaimer', uiLang)}
           </p>
         </div>
       )}

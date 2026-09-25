@@ -98,15 +98,13 @@ export default function SiteRatingWidget({ feature = 'overall', title = 'Rating 
         </div>
       )}
 
-      <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 6px' }}>आपकी rating (सबको दिखेगी):</p>
       <Stars value={myStars} onChange={setMyStars} />
-      <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'12px 0 6px' }}>आपकी प्रतिक्रिया (सिर्फ हमारी टीम पढ़ेगी):</p>
       <textarea
         value={myComment}
         onChange={e => setMyComment(e.target.value)}
         placeholder="कोई सुझाव या समस्या बताएं? (वैकल्पिक, निजी)"
         rows={2}
-        style={{ width:'100%', fontSize:'13px', resize:'vertical' }}
+        style={{ width:'100%', fontSize:'13px', resize:'vertical', marginTop:'12px' }}
       />
       {msg && <p style={{ fontSize:'12px', color: msg.startsWith('✓') ? 'var(--color-text-success)' : 'var(--color-text-danger)', margin:'6px 0 0' }}>{msg}</p>}
       <button onClick={submit} disabled={saving} style={{ marginTop:'10px', padding:'8px 16px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500' }}>

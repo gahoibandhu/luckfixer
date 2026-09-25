@@ -1,12 +1,12 @@
 'use client';
 // components/BottomNav.jsx
 //
-// Mobile-only bottom tab strip. Deliberately NOT shown on /chat, /admin,
-// or /login — /chat and the auth pages get their own full-screen or
-// dedicated navigation, and a chat conversation's composer already owns
-// the bottom of the screen (standard pattern: tap into a focused flow,
-// the tab bar steps aside). See app/globals.css for the mobile-only
-// display + fixed positioning + safe-area handling.
+// Mobile-only bottom tab strip — always visible, on every page,
+// per explicit request (helps users jump between sections from
+// anywhere, including mid-chat). /chat manages its own fixed-height
+// shell (see .lf-chat-shell in globals.css) so it doesn't need the
+// in-flow spacer below — every other page does. See globals.css for
+// the mobile-only display + fixed positioning + safe-area handling.
 
 import { usePathname, useRouter } from 'next/navigation';
 import { MessageCircle, LayoutGrid, Hash, Disc3, User } from 'lucide-react';
@@ -19,20 +19,17 @@ const TABS = [
   { href: '/profile',     label: 'Profile',     icon: User },
 ];
 
-const HIDDEN_ON = ['/chat', '/admin', '/login', '/'];
+// Only /chat sizes its own shell to leave room for the bar — everywhere
+// else needs the spacer so trailing content clears it.
+const OWNS_ITS_OWN_SPACE = ['/chat'];
 
 export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
 
-  if (HIDDEN_ON.includes(pathname)) return null;
-
   return (
     <>
-      {/* In-flow spacer so the last bit of real page content clears the
-          fixed bar below it — see the CSS comment for why this can't
-          just be a blanket `body` padding rule. */}
-      <div className="lf-bottom-nav-spacer" />
+      {!OWNS_ITS_OWN_SPACE.includes(pathname) && <div className="lf-bottom-nav-spacer" />}
       <nav className="lf-bottom-nav">
       {TABS.map(({ href, label, icon: Icon }) => {
         // /kundli covers /kundli and /milan (matchmaking lives under it)

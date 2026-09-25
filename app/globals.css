@@ -399,6 +399,7 @@ button:active { transform: scale(0.98); }
 
 /* ── Mobile sidebar ───────────────────────────────────────── */
 .lf-sidebar-overlay { display: none; }
+.lf-chat-shell { height: 100dvh; }
 
 /* ── Kundli Detail Panel — desktop: right-docked side panel;
    mobile: bottom sheet. Same component, different layout via CSS. ── */
@@ -466,15 +467,20 @@ button:active { transform: scale(0.98); }
   .lf-sidebar {
     position: fixed;
     top: 0; left: 0;
-    height: 100dvh;
+    height: calc(100dvh - 64px) !important; /* leave room for the bottom nav below it (overrides the inline 100dvh) */
     z-index: 30;
     transform: translateX(-100%);
     transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
     box-shadow: 2px 0 20px rgba(0,0,0,0.18);
   }
   .lf-sidebar-open { transform: translateX(0); }
-  .lf-sidebar-overlay { display: block; }
+  .lf-sidebar-overlay { display: block; bottom: 64px; }
   .lf-msg-bubble { max-width: 88% !important; font-size: 14px; }
+
+  /* Chat's own shell now shares the screen with the always-visible
+     bottom nav (64px incl. safe area) instead of claiming the full
+     100dvh — otherwise the composer would sit underneath the nav. */
+  .lf-chat-shell { height: calc(100dvh - 64px) !important; }
 }
 
 /* ── Bottom tab bar (mobile only) ─────────────────────────── */

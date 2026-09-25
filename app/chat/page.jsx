@@ -630,7 +630,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div style={{ display:'flex', height:'100dvh', overflow:'hidden', background:'var(--color-background-tertiary)' }}>
+    <div className="lf-chat-shell" style={{ display:'flex', overflow:'hidden', background:'var(--color-background-tertiary)' }}>
 
       {/* Mobile overlay */}
       {sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:20 }} />}
