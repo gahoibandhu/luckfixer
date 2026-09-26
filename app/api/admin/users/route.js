@@ -62,6 +62,13 @@ export async function GET(req) {
   const userIds = (profiles || []).map(p => p.id);
   if (userIds.length === 0) return Response.json({ users: [] });
 
+  // Explicit generous limits on all of these — same class of bug just
+  // fixed in the Chat Audit route: Supabase/PostgREST's default
+  // 1000-row cap can silently truncate a batched .in() query once
+  // enough history has accumulated (usage_log has one row per user per
+  // day; chat_sessions can be dozens per active user), undercounting
+  // totals for whichever users' rows fall after the cutoff — with no
+  // error, just quietly wrong numbers.
   const [
     { data: kundliRows },
     { data: usageRows },
@@ -69,11 +76,11 @@ export async function GET(req) {
     { data: featureRows },
     { data: sessionRows },
   ] = await Promise.all([
-    adminSupabase.from('saved_kundlis').select('user_id').in('user_id', userIds),
-    adminSupabase.from('usage_log').select('user_id, chat_count, free_mins_used, total_tokens, log_date').in('user_id', userIds),
-    adminSupabase.from('numerology_queries').select('user_id').in('user_id', userIds),
-    adminSupabase.from('feature_usage_log').select('user_id, feature').in('user_id', userIds),
-    adminSupabase.from('chat_sessions').select('user_id, updated_at').in('user_id', userIds),
+    adminSupabase.from('saved_kundlis').select('user_id').in('user_id', userIds).limit(20000),
+    adminSupabase.from('usage_log').select('user_id, chat_count, free_mins_used, total_tokens, log_date').in('user_id', userIds).limit(20000),
+    adminSupabase.from('numerology_queries').select('user_id').in('user_id', userIds).limit(20000),
+    adminSupabase.from('feature_usage_log').select('user_id, feature').in('user_id', userIds).limit(20000),
+    adminSupabase.from('chat_sessions').select('user_id, updated_at').in('user_id', userIds).limit(20000),
   ]);
 
   // ── Aggregate everything in JS (a handful of batched queries above,

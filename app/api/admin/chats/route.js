@@ -107,7 +107,18 @@ export async function GET(req) {
       ? adminSupabase.from('user_profiles').select('id, email, full_name').in('id', userIds)
       : Promise.resolve({ data: [] }),
     sessionIds.length > 0
-      ? adminSupabase.from('chat_messages').select('session_id').in('session_id', sessionIds)
+      // Bug this fixes: with no explicit limit here, this query was
+      // subject to Supabase/PostgREST's default 1000-row response cap.
+      // Once the total message count across a page of ~200 sessions
+      // passed 1000, later sessions' messages silently got left out of
+      // this result — their computed message_count fell to 0, and the
+      // "hide empty sessions" filter below then dropped them entirely.
+      // That's exactly why a session searched by its exact date (a
+      // small query, safely under 1000) would show up fine while the
+      // same session vanished from the default undated list. Only
+      // session_id is selected (a few bytes/row), so a generous
+      // explicit limit here is cheap.
+      ? adminSupabase.from('chat_messages').select('session_id').in('session_id', sessionIds).limit(20000)
       : Promise.resolve({ data: [] }),
     kundliIds.length > 0
       ? adminSupabase.from('saved_kundlis').select('id, full_name, dob, birth_place, luck_score').in('id', kundliIds)

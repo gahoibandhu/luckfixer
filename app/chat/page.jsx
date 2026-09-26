@@ -181,7 +181,7 @@ export default function ChatPage() {
   const [loading,          setLoading]          = useState(false);
   const [usage,            setUsage]            = useState({ freeChatsLeft:5, freeMinsLeft:10 });
   const [limitErr,         setLimitErr]         = useState('');
-  const [langPref,         setLangPref]         = useState('hinglish'); // app default — see LANG_OPTIONS below; pure Hindi/English only on explicit request
+  const [langPref,         setLangPref]         = useState('auto'); // auto-detect per message by default — see LANG_OPTIONS below; explicit Hinglish/Hindi/English only once the user picks it themselves
   const [uiLang,           setUiLang]           = useState('hi'); // app's own UI chrome language — kept in sync with langPref by changeLanguage()
   const [langMenuOpen,     setLangMenuOpen]      = useState(false);
   const [sidebarOpen,      setSidebarOpen]      = useState(false);
