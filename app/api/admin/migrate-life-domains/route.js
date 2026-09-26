@@ -108,6 +108,22 @@ export async function POST() {
 
       const aiResult = await getLuckfixerResponse(systemPrompt, userPrompt, true);
 
+      // Bug this fixes: when every AI provider fails, getLuckfixerResponse
+      // doesn't throw — it returns a generic "sab busy hain" placeholder
+      // object (by design, so kundli CREATION still saves the good
+      // deterministic factSheet data rather than blocking the user
+      // entirely). That placeholder has no life_domains/annual_timeline
+      // fields at all, so writing it here would both destroy whatever
+      // real analysis this kundli already had AND leave it looking
+      // "processed" while the next remaining-count check still finds it
+      // missing those fields — an infinite loop on the same kundlis.
+      // Treat an all-providers-failed result as a real failure here:
+      // skip the write, report it as an error, let the next batch retry it.
+      if (aiResult.model === 'fallback') {
+        results.push({ id: existing.id, name: full_name, status: 'error', error: 'All AI providers failed — will retry next batch' });
+        continue;
+      }
+
       const score = aiResult.content.metric_score || 50;
       const matchingTone = score >= 60 ? 'shubh' : score >= 40 ? 'dhairya' : 'saavdhani';
       const allAnswers = Object.values(RAM_SHALAKA_ANSWERS);

@@ -88,6 +88,7 @@ export default function AdminPage() {
   // ── Users tab state ──────────────────────────────────────────
   const [usersData, setUsersData] = useState(null);
   const [usersLoaded, setUsersLoaded] = useState(false);
+  const [usersLoadingMore, setUsersLoadingMore] = useState(false);
   const [userListSearch, setUserListSearch] = useState('');
   const [expandedUserId, setExpandedUserId] = useState(null);
   const [userDetail, setUserDetail] = useState(null); // detail payload for expandedUserId, or 'loading'
@@ -458,11 +459,20 @@ export default function AdminPage() {
     if (t === 'support' && !supportLoaded) loadSupportMessages();
   }
 
-  async function loadUsers(search = '') {
-    const res = await fetch(`/api/admin/users${search ? `?search=${encodeURIComponent(search)}` : ''}`);
+  async function loadUsers(search = '', page = 0) {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (page) params.set('page', String(page));
+    const res = await fetch(`/api/admin/users?${params.toString()}`);
     const data = await res.json();
-    setUsersData(data);
+    setUsersData(prev => (page > 0 && prev) ? { ...data, users: [...prev.users, ...data.users] } : data);
     setUsersLoaded(true);
+    setUsersLoadingMore(false);
+  }
+
+  async function loadMoreUsers() {
+    setUsersLoadingMore(true);
+    loadUsers(userListSearch, (usersData?.page || 0) + 1);
   }
 
   async function loadFeatures() {
@@ -839,6 +849,11 @@ export default function AdminPage() {
                   </div>
                 ))}
               </div>
+              {usersData.hasMore && (
+                <button onClick={loadMoreUsers} disabled={usersLoadingMore} style={{ width:'100%', marginTop:'10px', padding:'10px', fontSize:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', color:'var(--color-text-secondary)' }}>
+                  {usersLoadingMore ? 'लोड हो रहा है...' : '↓ और users लोड करें'}
+                </button>
+              )}
             </>
           )}
         </div>

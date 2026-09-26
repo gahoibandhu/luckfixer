@@ -28,18 +28,32 @@ export async function GET(req) {
   const adminSupabase = getSupabaseAdmin();
   const { searchParams } = new URL(req.url);
   const search = (searchParams.get('search') || '').trim().toLowerCase();
+  const page = Math.max(0, parseInt(searchParams.get('page') || '0', 10) || 0);
+
+  // PAGE_SIZE fix: this used to pull up to 500 profiles AND run all 5
+  // per-user aggregate queries (kundlis, usage_log, numerology,
+  // feature_usage_log, chat_sessions — that last one especially can
+  // have hundreds of rows per active user) against every one of them
+  // on every single Users-tab load, whether the admin wants to look at
+  // 500 users or just the top 20. That's the actual "admin panel slow"
+  // cost — real pagination means only PAGE_SIZE users' history gets
+  // aggregated per request. A search still runs against everyone
+  // matching the query (search results are already a small, bounded
+  // set in practice), but the default unfiltered list now pages.
+  const PAGE_SIZE = 50;
 
   let profileQuery = adminSupabase
     .from('user_profiles')
     .select('id, full_name, email, mobile, created_at')
-    .order('created_at', { ascending: false })
-    .limit(500); // safety cap — see note in features route about scaling further if needed
+    .order('created_at', { ascending: false });
 
   if (search) {
     // Simple ilike search across name + email — good enough at this
     // user-base scale; move to a proper search index if this ever
     // needs to scale past a few thousand users.
-    profileQuery = profileQuery.or(`email.ilike.%${search}%,full_name.ilike.%${search}%`);
+    profileQuery = profileQuery.or(`email.ilike.%${search}%,full_name.ilike.%${search}%`).limit(500);
+  } else {
+    profileQuery = profileQuery.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
   }
 
   const { data: profiles, error } = await profileQuery;
@@ -112,5 +126,5 @@ export async function GET(req) {
   // signup-date list.
   users.sort((a, b) => b.total_tokens - a.total_tokens);
 
-  return Response.json({ users, count: users.length });
+  return Response.json({ users, count: users.length, hasMore: !search && (profiles || []).length === PAGE_SIZE, page });
 }
