@@ -54,12 +54,15 @@ export async function GET(req) {
 
   const showDeleted = searchParams.get('deleted') === 'true';
   const dateFilter = searchParams.get('date'); // 'YYYY-MM-DD', filters by updated_at day
+  const before = searchParams.get('before'); // ISO timestamp cursor — "load older" pagination
+
+  const PAGE_SIZE = 200;
 
   let query = adminSupabase
     .from('chat_sessions')
     .select('id, title, created_at, updated_at, user_id, kundli_id, deleted_by_user, deleted_at')
     .order('updated_at', { ascending: false })
-    .limit(200);
+    .limit(PAGE_SIZE);
 
   if (showDeleted) {
     query = query.eq('deleted_by_user', true);
@@ -71,6 +74,17 @@ export async function GET(req) {
     const dayStart = `${dateFilter}T00:00:00.000Z`;
     const dayEnd = `${dateFilter}T23:59:59.999Z`;
     query = query.gte('updated_at', dayStart).lte('updated_at', dayEnd);
+  } else if (before) {
+    // Bug this fixes: the undated "default" view used to be a hard
+    // cutoff at the 200 most-recently-updated sessions across ALL of
+    // history — a session that actually saved fine would silently
+    // vanish from view the moment 200 other sessions got a newer
+    // updated_at, with no error and no indication it still existed.
+    // It only ever "reappeared" if you happened to narrow by its
+    // exact date. This turns that cutoff into a real page boundary
+    // instead: the frontend can ask for the next page with `before`
+    // set to the oldest updated_at it already has.
+    query = query.lt('updated_at', before);
   }
 
   const { data: sessions, error } = await query;
@@ -123,5 +137,11 @@ export async function GET(req) {
   // Default view: hide empty sessions (legacy safety net)
   const filtered = showDeleted ? enriched : enriched.filter(s => s.message_count > 0);
 
-  return Response.json({ sessions: filtered });
+  return Response.json({
+    sessions: filtered,
+    // If a full page came back, there may be more — the frontend can
+    // request the next page with ?before=<oldest updated_at here>.
+    hasMore: (sessions || []).length === PAGE_SIZE,
+    oldestUpdatedAt: sessions?.length ? sessions[sessions.length - 1].updated_at : null,
+  });
 }

@@ -22,6 +22,9 @@ export default function AdminPage() {
   const [messages, setMessages] = useState([]);
   const [showDeleted, setShowDeleted] = useState(false);
   const [dateFilter, setDateFilter] = useState('');
+  const [sessionsHasMore, setSessionsHasMore] = useState(false);
+  const [sessionsOldestTs, setSessionsOldestTs] = useState(null);
+  const [sessionsLoadingMore, setSessionsLoadingMore] = useState(false);
   const [activeKundli, setActiveKundli] = useState(null);
 
   const [planForm, setPlanForm] = useState({ free_mins_day: '', free_chats_day: '', charge_per_min: '', plan_type: 'chat' });
@@ -128,9 +131,30 @@ export default function AdminPage() {
     const res = await fetch(`/api/admin/chats${params.toString() ? '?' + params.toString() : ''}`);
     const data = await res.json();
     setSessions(data.sessions || []);
+    setSessionsHasMore(!!data.hasMore);
+    setSessionsOldestTs(data.oldestUpdatedAt || null);
     setActiveSession(null);
     setMessages([]);
     setActiveKundli(null);
+  }
+
+  // "Load older" — the undated default view used to hard-cut at 200
+  // sessions total; a session past that point would silently vanish
+  // from view (while still safely in the DB) unless you happened to
+  // narrow by its exact date. This pages backward instead.
+  async function loadMoreSessions() {
+    if (!sessionsOldestTs) return;
+    setSessionsLoadingMore(true);
+    const params = new URLSearchParams();
+    if (showDeleted) params.set('deleted', 'true');
+    if (dateFilter) params.set('date', dateFilter);
+    params.set('before', sessionsOldestTs);
+    const res = await fetch(`/api/admin/chats?${params.toString()}`);
+    const data = await res.json();
+    setSessions(prev => [...prev, ...(data.sessions || [])]);
+    setSessionsHasMore(!!data.hasMore);
+    setSessionsOldestTs(data.oldestUpdatedAt || null);
+    setSessionsLoadingMore(false);
   }
 
   async function toggleDeletedView() {
@@ -1000,6 +1024,11 @@ export default function AdminPage() {
                 )}
               </div>
             ))}
+            {sessionsHasMore && (
+              <button onClick={loadMoreSessions} disabled={sessionsLoadingMore} style={{ width:'100%', padding:'10px', fontSize:'12px', background:'var(--color-background-secondary)', border:'none', cursor:'pointer', color:'var(--color-text-secondary)' }}>
+                {sessionsLoadingMore ? 'लोड हो रहा है...' : '↓ पुराने sessions और लोड करें'}
+              </button>
+            )}
           </div>
 
           <div className="lf-chat-audit-panel" style={{ flex:'1 1 380px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1rem', maxHeight:'500px', overflowY:'auto' }}>
