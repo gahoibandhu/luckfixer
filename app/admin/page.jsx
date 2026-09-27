@@ -73,6 +73,7 @@ export default function AdminPage() {
   const [demoMsg, setDemoMsg] = useState('');
   const [migrationStatus, setMigrationStatus] = useState(null);
   const [lifeDomainsStatus, setLifeDomainsStatus] = useState(null);
+  const [predictionBrain, setPredictionBrain] = useState(null);
   const [lifeDomainsMigrating, setLifeDomainsMigrating] = useState(false);
   const [lifeDomainsAutoRunning, setLifeDomainsAutoRunning] = useState(false);
   const [lifeDomainsLastBatch, setLifeDomainsLastBatch] = useState(null);
@@ -123,6 +124,17 @@ export default function AdminPage() {
       });
     }
     loadFeatures(); // feature-adoption cards render inside Overview, the default tab, so load immediately rather than waiting for a switchTab call
+    loadPredictionBrain();
+  }
+
+  async function loadPredictionBrain() {
+    try {
+      const res = await fetch('/api/admin/prediction-brain');
+      const data = await res.json();
+      setPredictionBrain(data);
+    } catch (e) {
+      console.error('[Admin] loadPredictionBrain error:', e);
+    }
   }
 
   async function loadSessions(deleted = false, date = dateFilter) {
@@ -767,6 +779,58 @@ export default function AdminPage() {
             ))}
           </div>
 
+          {/* Prediction Brain — visibility into the accuracy-feedback
+              loop (migration_014/015/021): real tracked-outcome data,
+              now feeding both follow-up chat AND the first reading at
+              kundli-creation time (see lib/kundli-reanalysis.js). This
+              card is what makes that "learning" visible instead of
+              invisible background plumbing. */}
+          {predictionBrain && (predictionBrain.dasha.length > 0 || predictionBrain.yoga.length > 0 || predictionBrain.remedy) && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>
+                🧠 Prediction Brain — tracked accuracy (min {predictionBrain.minSample} samples)
+              </p>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:'12px' }}>
+                {predictionBrain.yoga.length > 0 && (
+                  <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'1rem' }}>
+                    <p style={{ fontSize:'12px', fontWeight:'500', color:'var(--color-text-secondary)', margin:'0 0 8px' }}>योग accuracy</p>
+                    {predictionBrain.yoga.slice(0, 5).map(y => (
+                      <div key={y.key_yoga} style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', padding:'3px 0' }}>
+                        <span style={{ color:'var(--color-text-primary)' }}>{y.key_yoga}</span>
+                        <span style={{ color: y.positivePct >= 60 ? 'var(--color-text-success)' : y.positivePct >= 40 ? 'var(--color-text-warning)' : 'var(--color-text-danger)', fontWeight:'500' }}>{y.positivePct}% ({y.responded})</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {predictionBrain.dasha.length > 0 && (
+                  <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'1rem' }}>
+                    <p style={{ fontSize:'12px', fontWeight:'500', color:'var(--color-text-secondary)', margin:'0 0 8px' }}>Dasha accuracy</p>
+                    {predictionBrain.dasha.slice(0, 5).map(d => (
+                      <div key={`${d.prediction_type}-${d.dasha_context}`} style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', padding:'3px 0' }}>
+                        <span style={{ color:'var(--color-text-primary)' }}>{d.dasha_context} ({d.prediction_type})</span>
+                        <span style={{ color: d.positivePct >= 60 ? 'var(--color-text-success)' : d.positivePct >= 40 ? 'var(--color-text-warning)' : 'var(--color-text-danger)', fontWeight:'500' }}>{d.positivePct}% ({d.responded})</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {predictionBrain.remedy && (
+                  <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'1rem' }}>
+                    <p style={{ fontSize:'12px', fontWeight:'500', color:'var(--color-text-secondary)', margin:'0 0 8px' }}>Remedy follow-through</p>
+                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', padding:'3px 0' }}>
+                      <span style={{ color:'var(--color-text-primary)' }}>उपाय किया</span>
+                      <span style={{ color:'var(--color-text-success)', fontWeight:'500' }}>{predictionBrain.remedy.tookRemedy?.positive}/{predictionBrain.remedy.tookRemedy?.responded}</span>
+                    </div>
+                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', padding:'3px 0' }}>
+                      <span style={{ color:'var(--color-text-primary)' }}>नहीं किया</span>
+                      <span style={{ color:'var(--color-text-tertiary)', fontWeight:'500' }}>{predictionBrain.remedy.noRemedy?.positive}/{predictionBrain.remedy.noRemedy?.responded}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'8px 0 0' }}>इसी data se ab pehli reading aur chat follow-ups dono weight hote hain (see lib/kundli-reanalysis.js + app/api/chat/route.js).</p>
+            </div>
+          )}
+
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', margin:'0 0 10px' }}>
             <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:0 }}>हाल के Users</p>
             <button onClick={() => switchTab('users')} style={{ fontSize:'12px', color:'var(--color-text-info)', background:'none', border:'none', cursor:'pointer', padding:0 }}>पूरी सूची + पूरा data देखें →</button>
@@ -1033,6 +1097,11 @@ export default function AdminPage() {
                           {m.role} {m.model_used ? `· ${m.model_used}` : ''}
                         </p>
                         <p style={{ margin:0, fontSize:'13px', color:'var(--color-text-primary)', lineHeight:'1.6', whiteSpace:'pre-wrap' }}>{m.content}</p>
+                        {m.error_detail && (
+                          <p style={{ margin:'4px 0 0', fontSize:'11px', color:'var(--color-text-danger)', background:'var(--color-background-warning)', borderRadius:'6px', padding:'6px 8px', fontFamily:'monospace' }}>
+                            ⚠ {m.error_detail}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1065,6 +1134,11 @@ export default function AdminPage() {
                       {m.role} {m.model_used ? `· ${m.model_used}` : ''}
                     </p>
                     <p style={{ margin:0, fontSize:'13px', color:'var(--color-text-primary)', lineHeight:'1.6', whiteSpace:'pre-wrap' }}>{m.content}</p>
+                    {m.error_detail && (
+                      <p style={{ margin:'4px 0 0', fontSize:'11px', color:'var(--color-text-danger)', background:'var(--color-background-warning)', borderRadius:'6px', padding:'6px 8px', fontFamily:'monospace' }}>
+                        ⚠ {m.error_detail}
+                      </p>
+                    )}
                   </div>
                 ))}
               </>

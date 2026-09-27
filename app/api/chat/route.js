@@ -1220,7 +1220,7 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
         const userMsg = messages[messages.length - 1];
         await supabase.from('chat_messages').insert([
           { session_id: sessionId, user_id: userId, role: 'user', content: userMsg.content },
-          { session_id: sessionId, user_id: userId, role: 'assistant', content: aiResponse.content, model_used: aiResponse.model, tokens_used: tokensEst },
+          { session_id: sessionId, user_id: userId, role: 'assistant', content: aiResponse.content, model_used: aiResponse.model, tokens_used: tokensEst, error_detail: aiResponse.failureDetail || null },
         ]);
         await supabase.from('chat_sessions')
           .update({ updated_at: new Date().toISOString() })

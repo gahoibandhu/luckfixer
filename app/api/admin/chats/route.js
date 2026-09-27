@@ -24,7 +24,7 @@ export async function GET(req) {
   if (sessionId) {
     const { data: messages, error } = await adminSupabase
       .from('chat_messages')
-      .select('id, role, content, model_used, tokens_used, created_at')
+      .select('id, role, content, model_used, error_detail, tokens_used, created_at')
       .eq('session_id', sessionId)
       .order('id', { ascending: true });
 

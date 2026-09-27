@@ -120,7 +120,8 @@ export async function POST() {
       // Treat an all-providers-failed result as a real failure here:
       // skip the write, report it as an error, let the next batch retry it.
       if (aiResult.model === 'fallback') {
-        results.push({ id: existing.id, name: full_name, status: 'error', error: 'All AI providers failed — will retry next batch' });
+        const detail = (aiResult.errors || []).map(e => `${e.model}: ${e.error}`.slice(0, 100)).join(' | ');
+        results.push({ id: existing.id, name: full_name, status: 'error', error: `All AI providers failed — will retry next batch. ${detail}` });
         continue;
       }
 
