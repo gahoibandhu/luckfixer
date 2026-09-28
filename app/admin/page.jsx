@@ -231,12 +231,22 @@ export default function AdminPage() {
 
   async function runLifeDomainsBatch() {
     setLifeDomainsMigrating(true);
-    const res = await fetch('/api/admin/migrate-life-domains', { method: 'POST' });
-    const data = await res.json();
-    setLifeDomainsLastBatch(data);
-    setLifeDomainsMigrating(false);
-    checkLifeDomainsStatus();
-    return data;
+    // If the request errors or the function times out/gets killed mid-flight,
+    // res.json() throws — without this try/catch that exception was uncaught,
+    // so setLifeDomainsMigrating(false) never ran and the button stayed on
+    // "चल रहा है..." forever with no error shown (exactly the stuck-button bug).
+    try {
+      const res = await fetch('/api/admin/migrate-life-domains', { method: 'POST' });
+      const data = await res.json();
+      setLifeDomainsLastBatch(data);
+      checkLifeDomainsStatus();
+      return data;
+    } catch (e) {
+      setLifeDomainsLastBatch({ processed: 0, results: [{ id: 'network', name: 'Request', status: 'error', error: `Request failed or timed out: ${e.message}` }] });
+      return null;
+    } finally {
+      setLifeDomainsMigrating(false);
+    }
   }
 
   async function runAllLifeDomainBatches() {
@@ -749,12 +759,22 @@ export default function AdminPage() {
                 </button>
               </div>
               {lifeDomainsLastBatch && (
-                <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'8px 0 0' }}>
-                  ✓ पिछला batch: {lifeDomainsLastBatch.processed} processed
-                  {lifeDomainsLastBatch.results?.some(r => r.status === 'error') && (
-                    <span style={{ color:'var(--color-text-danger)' }}> · {lifeDomainsLastBatch.results.filter(r => r.status === 'error').length} failed</span>
-                  )}
-                </p>
+                <>
+                  <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'8px 0 0' }}>
+                    ✓ पिछला batch: {lifeDomainsLastBatch.processed} processed
+                    {lifeDomainsLastBatch.results?.some(r => r.status === 'error') && (
+                      <span style={{ color:'var(--color-text-danger)' }}> · {lifeDomainsLastBatch.results.filter(r => r.status === 'error').length} failed</span>
+                    )}
+                  </p>
+                  {/* Real per-kundli failure reasons — without this the admin
+                      panel only ever shows a count, never WHY, so a stuck
+                      kundli retries forever with no way to diagnose it. */}
+                  {lifeDomainsLastBatch.results?.filter(r => r.status === 'error').map(r => (
+                    <p key={r.id} style={{ fontSize:'11px', color:'var(--color-text-danger)', margin:'4px 0 0', wordBreak:'break-word' }}>
+                      ✗ {r.name || r.id}: {r.error}
+                    </p>
+                  ))}
+                </>
               )}
             </div>
           )}
