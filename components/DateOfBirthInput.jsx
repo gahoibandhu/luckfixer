@@ -74,6 +74,15 @@ export default function DateOfBirthInput({ value, onChange, required, style }) {
   }
 
   function openCalendar() {
+    // Some mobile browsers (seen on Android/Samsung Browser) open an
+    // EMPTY native date input on a far-past year like 1800. Seeding the
+    // hidden input with today's date (DOM only — parent state is not
+    // touched until the user actually picks) makes the picker open on
+    // the current year (2026) instead. min/max below also stop picking
+    // impossible years.
+    if (hiddenDateRef.current && !hiddenDateRef.current.value) {
+      hiddenDateRef.current.value = new Date().toISOString().slice(0, 10);
+    }
     if (hiddenDateRef.current?.showPicker) {
       try { hiddenDateRef.current.showPicker(); } catch { hiddenDateRef.current.click(); }
     } else {
@@ -109,6 +118,8 @@ export default function DateOfBirthInput({ value, onChange, required, style }) {
           ref={hiddenDateRef}
           type="date"
           value={value || ''}
+          min="1900-01-01"
+          max={new Date().toISOString().slice(0, 10)}
           onChange={e => { onChange(e.target.value); setError(''); }}
           style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0, pointerEvents: 'none' }}
           tabIndex={-1}
