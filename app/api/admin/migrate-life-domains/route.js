@@ -1,34 +1,24 @@
 // app/api/admin/migrate-life-domains/route.js
 //
-// Admin-triggered batch backfill: re-runs the AI analysis for existing
-// kundlis that predate either the life_domains schema OR the newer
+// Admin-triggered batch backfill: re-runs AI analysis for existing
+// kundlis missing either the life_domains schema OR the newer
 // annual_timeline (birthday-bound transit periods) schema — so users
-// never have to click anything themselves. A kundli is "remaining"
-// if it's missing life_domains, annual_timeline, or both; one re-run
-// of the AI call produces both fields together. Unlike
-// migrate-kundlis/route.js (deterministic-only, free), this DOES call
-// the AI, so it's rate-limited to a small batch per request (avoids
-// hammering the AI provider and avoids Vercel function timeouts) — the
-// admin panel calls this repeatedly ("अगला बैच") until GET reports zero
-// remaining.
+// never have to click anything themselves. A kundli is "remaining" if
+// it's missing life_domains, annual_timeline, or both.
+//
+// Regenerates ONLY the specific missing piece(s) per kundli (via
+// lib/kundli-reanalysis.js's runSelectiveAnalysis), not the whole
+// analysis — a kundli missing just life_domains no longer also
+// re-spends an AI call re-generating an annual_timeline it already
+// has. This also means a single-piece failure only ever needs that one
+// piece retried, not the whole kundli. Unlike migrate-kundlis/route.js
+// (deterministic-only, free), this DOES call the AI, so it's
+// rate-limited to a small batch per request — the admin panel calls
+// this repeatedly ("अगला बैच") until GET reports zero remaining.
 import { createClient } from '@/lib/supabase-server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { buildFactSheet } from '@/lib/astro-facts';
-import { calcVimshottari } from '@/lib/vimshottari';
-import { buildSpecialistInsights } from '@/lib/specialist-rules';
-import { buildTransitReport } from '@/lib/transit';
-import { buildJaiminiSheet, crossValidate } from '@/lib/jaimini';
-import { detectYogas } from '@/lib/yogas';
-import { buildAshtakavarga } from '@/lib/ashtakavarga';
-import { buildNakshatraSheet } from '@/lib/nakshatra';
-import { buildVarshaphal } from '@/lib/varshaphal';
-import { buildGocharPhalTimeline, buildAnnualTransitPeriods } from '@/lib/gochar-phal';
-import { buildSaptahikPhal } from '@/lib/saptahik-phal';
-import { getLuckfixerResponse } from '@/lib/ai-engine';
-import { getBotDisplayName } from '@/lib/app-config';
-import { RAM_SHALAKA_ANSWERS } from '@/lib/ram-shalaka';
-import { buildAnalysisSystemPrompt, buildAnalysisUserPrompt } from '@/lib/kundli-analysis-prompt';
+import { runSelectiveAnalysis } from '@/lib/kundli-reanalysis';
 
 export const dynamic = 'force-dynamic';
 const BATCH_SIZE = 5; // small on purpose — AI calls are the slow/costly part
@@ -38,6 +28,13 @@ function getSupabaseAdmin() {
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
+}
+
+function missingPieces(k) {
+  const missing = [];
+  if (!k.life_domains) missing.push('life_domains');
+  if (!k.annual_timeline) missing.push('annual_timeline');
+  return missing;
 }
 
 // GET — how many kundlis still need migrating
@@ -53,7 +50,7 @@ export async function GET() {
   const { data: kundlis } = await adminDb
     .from('saved_kundlis')
     .select('id, life_domains:planet_data->analysis->life_domains, annual_timeline:planet_data->analysis->annual_timeline');
-  const remaining = (kundlis || []).filter(k => !k.life_domains || !k.annual_timeline);
+  const remaining = (kundlis || []).filter(k => missingPieces(k).length > 0);
 
   return Response.json({ total: kundlis?.length || 0, remaining: remaining.length, migrated: (kundlis?.length || 0) - remaining.length });
 }
@@ -73,82 +70,61 @@ export async function POST() {
   const { data: idCheck } = await adminDb
     .from('saved_kundlis')
     .select('id, life_domains:planet_data->analysis->life_domains, annual_timeline:planet_data->analysis->annual_timeline');
-  const idsToMigrate = (idCheck || []).filter(k => !k.life_domains || !k.annual_timeline).slice(0, BATCH_SIZE).map(k => k.id);
+  const toMigrateIds = (idCheck || [])
+    .map(k => ({ id: k.id, pieces: missingPieces(k) }))
+    .filter(k => k.pieces.length > 0)
+    .slice(0, BATCH_SIZE);
 
-  if (idsToMigrate.length === 0) {
+  if (toMigrateIds.length === 0) {
     return Response.json({ processed: 0, results: [] });
   }
 
-  const { data: kundlis } = await adminDb.from('saved_kundlis').select('*').in('id', idsToMigrate);
-  const toMigrate = kundlis || [];
+  const { data: kundlis } = await adminDb.from('saved_kundlis').select('*').in('id', toMigrateIds.map(k => k.id));
+  const piecesById = Object.fromEntries(toMigrateIds.map(k => [k.id, k.pieces]));
 
-  const results = [];
-  for (const existing of toMigrate) {
+  // Processed CONCURRENTLY, not one-by-one. Serially, a batch of 5 where
+  // several kundlis exhaust all providers on their missing piece(s)
+  // could take 5× a single piece's worst case — past this route's
+  // function timeout, so Vercel kills the request mid-flight and the
+  // admin panel's "चल रहा है..." button never resolves (no error, no
+  // result — just stuck, since the fetch never returns). Running the
+  // batch in parallel caps worst case at ~1× regardless of batch size.
+  const results = await Promise.all((kundlis || []).map(async (existing) => {
     try {
-      const { full_name, dob, birth_time, latitude, longitude, ayanamsa, gender, birth_place } = existing;
+      const pieces = piecesById[existing.id];
+      const result = await runSelectiveAnalysis(existing, pieces);
 
-      const factSheet = await buildFactSheet(dob, birth_time, latitude, longitude, ayanamsa);
-      const numerology = (await import('@/lib/numerology')).buildNumerologySheet(full_name, dob);
-      const moon = factSheet.planets.find(p => p.name === 'Moon');
-      const vimshottari = moon ? calcVimshottari(moon.degree, dob) : null;
-      const specialist  = buildSpecialistInsights(factSheet, vimshottari);
-      const transit     = await buildTransitReport(factSheet, latitude, longitude).catch(() => null);
-      const jaimini     = buildJaiminiSheet(factSheet.planets, factSheet.lagna?.sign, factSheet.d9Chart, dob);
-      const crossVal    = crossValidate(jaimini, factSheet);
-      const yogas       = detectYogas(factSheet.planets, factSheet.lagna?.sign, factSheet.houseLords, factSheet.d9Chart);
-      const ashtakavarga = buildAshtakavarga(factSheet.planets, factSheet.lagna?.sign);
-      const nakshatra   = buildNakshatraSheet(factSheet.planets, factSheet.lagna?.sign);
-      const varshaphal  = buildVarshaphal(factSheet, dob);
-      const gocharPhal  = buildGocharPhalTimeline(moon?.sign, ayanamsa);
-      const annualTransitPeriods = buildAnnualTransitPeriods(moon?.sign, ayanamsa, varshaphal?.solarReturnDate);
-      const saptahikPhal = buildSaptahikPhal(ayanamsa, factSheet?.weakestPlanet?.planet);
-
-      const systemPrompt = buildAnalysisSystemPrompt(await getBotDisplayName());
-      const userPrompt = buildAnalysisUserPrompt({ full_name, dob, birth_time, birth_place, ayanamsa, factSheet, numerology, vimshottari, specialist, jaimini, crossVal, yogas, ashtakavarga, nakshatra, varshaphal, gocharPhal, annualTransitPeriods, transit, gender });
-
-      const aiResult = await getLuckfixerResponse(systemPrompt, userPrompt, true);
-
-      // Bug this fixes: when every AI provider fails, getLuckfixerResponse
-      // doesn't throw — it returns a generic "sab busy hain" placeholder
-      // object (by design, so kundli CREATION still saves the good
-      // deterministic factSheet data rather than blocking the user
-      // entirely). That placeholder has no life_domains/annual_timeline
-      // fields at all, so writing it here would both destroy whatever
-      // real analysis this kundli already had AND leave it looking
-      // "processed" while the next remaining-count check still finds it
-      // missing those fields — an infinite loop on the same kundlis.
-      // Treat an all-providers-failed result as a real failure here:
-      // skip the write, report it as an error, let the next batch retry it.
-      if (aiResult.model === 'fallback') {
-        const detail = (aiResult.errors || []).map(e => `${e.model}: ${e.error}`.slice(0, 100)).join(' | ');
-        results.push({ id: existing.id, name: full_name, status: 'error', error: `All AI providers failed — will retry next batch. ${detail}` });
-        continue;
+      // Bug this fixes (still applies per-piece now): when every AI
+      // provider fails for a piece, getLuckfixerResponse doesn't throw
+      // — runSelectiveAnalysis reports it in pieceErrors and, only if
+      // EVERY requested piece failed, returns success:false instead of
+      // writing anything. That avoids both destroying a kundli's
+      // existing good analysis AND leaving it looking "processed" while
+      // still missing the field — the original infinite-loop bug.
+      if (!result.success) {
+        const detail = Object.entries(result.pieceErrors).map(([k, v]) => `${k} — ${v}`).join(' | ');
+        return { id: existing.id, name: existing.full_name, status: 'error', error: `All AI providers failed for: ${pieces.join(', ')} — will retry next batch. ${detail}` };
       }
 
-      const score = aiResult.content.metric_score || 50;
-      const matchingTone = score >= 60 ? 'shubh' : score >= 40 ? 'dhairya' : 'saavdhani';
-      const allAnswers = Object.values(RAM_SHALAKA_ANSWERS);
-      const versePool = allAnswers.filter(v => v.tone === matchingTone);
-      const pool = versePool.length > 0 ? versePool : allAnswers;
-      const hashSeed = `${full_name}${dob}`.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-      const picked = pool[hashSeed % pool.length];
-      const closingVerse = { verse: picked.verse, source: `रामचरितमानस, ${picked.kand}` };
-
       await adminDb.from('saved_kundlis').update({
-        planet_data: {
-          planets: factSheet.planets, factSheet, numerology, vimshottari, specialist, jaimini,
-          crossValidation: crossVal, yogas, ashtakavarga, nakshatra, varshaphal, gocharPhal, annualTransitPeriods, saptahikPhal,
-          transitSnapshot: transit, analysis: aiResult.content, closingVerse,
-        },
-        luck_score: aiResult.content.metric_score || 50,
-        last_analysis: new Date().toISOString(),
+        planet_data: result.planet_data,
+        luck_score: result.luck_score,
+        last_analysis: result.last_analysis,
       }).eq('id', existing.id);
 
-      results.push({ id: existing.id, name: full_name, status: 'ok' });
+      // Partial success (e.g. life_domains landed, annual_timeline's
+      // provider chain failed) still counts as 'ok' for the piece(s)
+      // that DID save — the next GET's remaining-count will correctly
+      // still flag this kundli for just the piece that's still missing.
+      if (Object.keys(result.pieceErrors).length > 0) {
+        return { id: existing.id, name: existing.full_name, status: 'partial', error: `Saved ${pieces.filter(p => !result.pieceErrors[p]).join(', ')}; still missing ${Object.keys(result.pieceErrors).join(', ')} — will retry next batch.` };
+      }
+
+      return { id: existing.id, name: existing.full_name, status: 'ok' };
     } catch (e) {
-      results.push({ id: existing.id, name: existing.full_name, status: 'error', error: e.message });
+      return { id: existing.id, name: existing.full_name, status: 'error', error: e.message };
     }
-  }
+  }));
 
   return Response.json({ processed: results.length, results });
 }

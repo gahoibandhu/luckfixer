@@ -4,10 +4,13 @@
       "maxDuration": 60
     },
     "app/api/kundli/route.js": {
-      "maxDuration": 60
+      "maxDuration": 120
     },
     "app/api/admin/migrate-kundlis/route.js": {
       "maxDuration": 60
+    },
+    "app/api/admin/migrate-life-domains/route.js": {
+      "maxDuration": 300
     },
     "app/api/cron/daily-digest/route.js": {
       "maxDuration": 60

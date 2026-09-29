@@ -765,13 +765,24 @@ export default function AdminPage() {
                     {lifeDomainsLastBatch.results?.some(r => r.status === 'error') && (
                       <span style={{ color:'var(--color-text-danger)' }}> · {lifeDomainsLastBatch.results.filter(r => r.status === 'error').length} failed</span>
                     )}
+                    {lifeDomainsLastBatch.results?.some(r => r.status === 'partial') && (
+                      <span style={{ color:'var(--color-text-warning)' }}> · {lifeDomainsLastBatch.results.filter(r => r.status === 'partial').length} partial</span>
+                    )}
                   </p>
                   {/* Real per-kundli failure reasons — without this the admin
                       panel only ever shows a count, never WHY, so a stuck
-                      kundli retries forever with no way to diagnose it. */}
+                      kundli retries forever with no way to diagnose it.
+                      'partial' = one piece (e.g. life_domains) saved fine,
+                      the other (e.g. annual_timeline) didn't — shown in
+                      warning color since it's progress, not a full failure. */}
                   {lifeDomainsLastBatch.results?.filter(r => r.status === 'error').map(r => (
                     <p key={r.id} style={{ fontSize:'11px', color:'var(--color-text-danger)', margin:'4px 0 0', wordBreak:'break-word' }}>
                       ✗ {r.name || r.id}: {r.error}
+                    </p>
+                  ))}
+                  {lifeDomainsLastBatch.results?.filter(r => r.status === 'partial').map(r => (
+                    <p key={r.id} style={{ fontSize:'11px', color:'var(--color-text-warning)', margin:'4px 0 0', wordBreak:'break-word' }}>
+                      ⚠ {r.name || r.id}: {r.error}
                     </p>
                   ))}
                 </>

@@ -12,6 +12,34 @@ function getSupabaseAdmin() {
 
 export const dynamic = 'force-dynamic';
 
+// Counts messages per session by PAGING through results.
+// Why not a single .limit(20000)? Supabase enforces a project-level
+// "Max rows" cap (default 1000) on every API response, and that cap
+// silently overrides a larger client-side .limit(). With no ORDER BY,
+// the 1000 rows returned are the OLDEST ones — so the newest sessions'
+// messages were cut off, their count came out 0, and the "hide empty
+// sessions" filter dropped them from the default list (while a date
+// filter, being a small query, showed them fine). Paging with a stable
+// order and advancing by the number of rows actually returned works
+// whatever the cap is set to.
+async function fetchMessageCounts(adminSupabase, sessionIds) {
+  const countMap = {};
+  if (sessionIds.length === 0) return countMap;
+  let from = 0;
+  for (let page = 0; page < 200; page++) {
+    const { data, error } = await adminSupabase
+      .from('chat_messages')
+      .select('session_id')
+      .in('session_id', sessionIds)
+      .order('id', { ascending: true })
+      .range(from, from + 999);
+    if (error || !data || data.length === 0) break;
+    data.forEach(m => { countMap[m.session_id] = (countMap[m.session_id] || 0) + 1; });
+    from += data.length;
+  }
+  return countMap;
+}
+
 export async function GET(req) {
   const supabase = await createClient();
   const admin = await requireAdmin(supabase);
@@ -102,24 +130,11 @@ export async function GET(req) {
   const userIds = [...new Set((sessions || []).map(s => s.user_id).filter(Boolean))];
   const kundliIds = [...new Set((sessions || []).map(s => s.kundli_id).filter(Boolean))];
 
-  const [{ data: profiles }, { data: msgRows }, { data: kundlis }] = await Promise.all([
+  const [{ data: profiles }, countMap, { data: kundlis }] = await Promise.all([
     userIds.length > 0
       ? adminSupabase.from('user_profiles').select('id, email, full_name').in('id', userIds)
       : Promise.resolve({ data: [] }),
-    sessionIds.length > 0
-      // Bug this fixes: with no explicit limit here, this query was
-      // subject to Supabase/PostgREST's default 1000-row response cap.
-      // Once the total message count across a page of ~200 sessions
-      // passed 1000, later sessions' messages silently got left out of
-      // this result — their computed message_count fell to 0, and the
-      // "hide empty sessions" filter below then dropped them entirely.
-      // That's exactly why a session searched by its exact date (a
-      // small query, safely under 1000) would show up fine while the
-      // same session vanished from the default undated list. Only
-      // session_id is selected (a few bytes/row), so a generous
-      // explicit limit here is cheap.
-      ? adminSupabase.from('chat_messages').select('session_id').in('session_id', sessionIds).limit(20000)
-      : Promise.resolve({ data: [] }),
+    fetchMessageCounts(adminSupabase, sessionIds),
     kundliIds.length > 0
       ? adminSupabase.from('saved_kundlis').select('id, full_name, dob, birth_place, luck_score').in('id', kundliIds)
       : Promise.resolve({ data: [] }),
@@ -127,8 +142,6 @@ export async function GET(req) {
 
   const profileMap = new Map((profiles || []).map(p => [p.id, p]));
   const kundliMap = new Map((kundlis || []).map(k => [k.id, k]));
-  const countMap = {};
-  (msgRows || []).forEach(m => { countMap[m.session_id] = (countMap[m.session_id] || 0) + 1; });
 
   const enriched = (sessions || []).map(s => {
     const profile = profileMap.get(s.user_id);
