@@ -1,8 +1,11 @@
 // app/api/kundli/route.js
 import { createClient } from '@/lib/supabase-server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { after } from 'next/server';
 import { EphemerisUnavailableError, runFullReAnalysis } from '@/lib/kundli-reanalysis';
 import { scheduleOutcomeFollowUps } from '@/lib/outcome-tracking';
 import { logRemedyPlan } from '@/lib/remedy-tracking';
+import { missingPiecesFromFullRow, backfillOne } from '@/lib/life-domains-backfill';
 
 
 // GET — fetch all kundlis for logged-in user
@@ -18,6 +21,39 @@ export async function GET() {
     .order('created_at', { ascending: false });
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  // ── On-view auto-heal: if any of THIS user's own kundlis are missing
+  // life_domains/annual_timeline (most likely because they were created
+  // while a provider was having a bad moment — see lib/ai-engine.js),
+  // kick off a background backfill for them the moment the user looks
+  // at their profile, so it's often already fixed by their next visit
+  // instead of sitting incomplete until the daily cron sweep or an
+  // admin notices. after() runs once this response has already been
+  // sent, so it adds zero latency to this GET — the user never waits
+  // on it. Capped to 2 kundlis per page load (not all of them) so one
+  // profile view with several old incomplete kundlis doesn't fire a
+  // pile of concurrent AI calls at once; any leftover gets picked up
+  // on their next visit or by the cron either way.
+  const incomplete = (data || [])
+    .map(row => ({ row, pieces: missingPiecesFromFullRow(row) }))
+    .filter(k => k.pieces.length > 0)
+    .slice(0, 2);
+
+  if (incomplete.length > 0) {
+    after(async () => {
+      const adminDb = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+      );
+      for (const { row, pieces } of incomplete) {
+        const result = await backfillOne(adminDb, row, pieces);
+        if (result.status === 'error') {
+          console.warn(`[OnViewBackfill] ${result.name} (${result.id}) failed: ${result.error}`);
+        }
+      }
+    });
+  }
+
   return Response.json({ kundlis: data });
 }
 
