@@ -15,6 +15,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 import swisseph as swe
 
 app = FastAPI(title="Luckfixer Ephemeris Service")
@@ -56,6 +57,10 @@ class PositionsRequest(BaseModel):
     lat: float
     lng: float
     ayanamsa: str = "lahiri"
+    # Hours ahead of UTC at the birth place/date (e.g. 5.5 for IST).
+    # Sent by the main app so both ephemeris tiers use the same offset.
+    # If omitted, falls back to Local Mean Time (legacy behaviour).
+    tz_offset: Optional[float] = None
 
 
 def navamsa_sign_index(sidereal_deg: float) -> int:
@@ -96,10 +101,10 @@ def get_positions(req: PositionsRequest):
         time_parts = req.time.split(":")
         h, mi = int(time_parts[0]), int(time_parts[1])
 
-        # Local Mean Time -> UT approximation using longitude
-        # (matches the convention used by the other ephemeris tiers,
-        # since no explicit timezone is collected from the user)
-        ut_hour = (h + mi / 60.0) - (req.lng / 15.0)
+        # Clock time -> UT. Prefer the explicit offset (IST for India);
+        # otherwise fall back to Local Mean Time using longitude.
+        offset_hours = req.tz_offset if req.tz_offset is not None else (req.lng / 15.0)
+        ut_hour = (h + mi / 60.0) - offset_hours
 
         jd = swe.julday(y, m, d, ut_hour)
 
