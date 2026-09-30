@@ -38,6 +38,7 @@ export async function GET() {
     { data: recentUsers },
     { data: outcomeRows },
     { data: modelRows },
+    { data: predictionRows },
     { data: remedyRows },
   ] = await Promise.all([
     adminSupabase.from('user_profiles').select('*', { count: 'exact', head: true }),
@@ -49,12 +50,24 @@ export async function GET() {
     adminSupabase.from('outcome_tracking').select('outcome').not('outcome', 'is', null),
     // ── Model usage breakdown (last 7 days) — surfaces exactly how often
     // Gemini (primary) vs weaker fallback providers (SambaNova/OpenRouter/
-    // HuggingFace/Groq) are actually answering chats. If quality feels
-    // poor, this number tells you whether it's because most real traffic
-    // is landing on Gemini's free-tier rate limit and silently falling
-    // back to a weaker model that doesn't follow the system prompt as
-    // reliably — rather than guessing from anecdotal chat transcripts.
+    // HuggingFace/Groq) are actually answering, across BOTH chat replies
+    // and background AI calls (kundli creation/reanalysis/backfill — see
+    // predictions_log query below). If quality feels poor, this number
+    // tells you whether it's because most real traffic is landing on
+    // Gemini's free-tier rate limit and silently falling back to a
+    // weaker model that doesn't follow the system prompt as reliably —
+    // rather than guessing from anecdotal chat transcripts.
     adminSupabase.from('chat_messages').select('model_used').eq('role', 'assistant').gte('created_at', sevenDaysAgo.toISOString()).not('model_used', 'is', null),
+    // Background/non-chat AI calls (new kundli creation, re-analysis,
+    // and the life_domains/annual_timeline backfill — admin batch, the
+    // daily auto-heal cron, and the on-view trigger — see
+    // lib/life-domains-backfill.js) never went through chat_messages,
+    // so the block above alone made this dashboard blind to most of
+    // the app's actual AI usage. Each row's model_used is a
+    // "piece:model, piece:model" joined string (see
+    // lib/kundli-reanalysis.js) rather than one model per row like
+    // chat — split further below before merging into modelBreakdown.
+    adminSupabase.from('predictions_log').select('model_used').gte('created_at', sevenDaysAgo.toISOString()).not('model_used', 'is', null),
     // ── Remedy engagement — see migration_013. Surfaces whether the
     // remedy-tracking feature is actually being used/completed.
     adminSupabase.from('user_remedies').select('status'),
@@ -65,7 +78,22 @@ export async function GET() {
     const key = r.model_used || 'unknown';
     modelBreakdown[key] = (modelBreakdown[key] || 0) + 1;
   });
-  const modelBreakdownTotal = (modelRows || []).length;
+  // predictions_log rows are "piece:model, piece:model" (one kundli
+  // creation/reanalysis/backfill fires up to 3 separate provider calls
+  // — see lib/kundli-reanalysis.js) — split each row into its
+  // individual piece calls so e.g. "core:gemini/..., life_domains:
+  // groq/..." counts as ONE Gemini call and ONE Groq call, same as if
+  // they'd been two separate chat_messages rows, not one lumped entry.
+  (predictionRows || []).forEach(r => {
+    if (!r.model_used) return;
+    r.model_used.split(',').forEach(part => {
+      const idx = part.indexOf(':');
+      const modelName = (idx === -1 ? part : part.slice(idx + 1)).trim();
+      if (!modelName) return;
+      modelBreakdown[modelName] = (modelBreakdown[modelName] || 0) + 1;
+    });
+  });
+  const modelBreakdownTotal = Object.values(modelBreakdown).reduce((a, b) => a + b, 0);
   const modelBreakdownList = Object.entries(modelBreakdown)
     .map(([model, count]) => ({ model, count, pct: modelBreakdownTotal > 0 ? Math.round(count / modelBreakdownTotal * 100) : 0 }))
     .sort((a, b) => b.count - a.count);

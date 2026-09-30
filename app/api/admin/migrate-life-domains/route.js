@@ -37,5 +37,5 @@ export async function POST() {
   const admin = await requireAdmin(supabase);
   if (!admin) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
-  return Response.json(await runBackfillBatch(getSupabaseAdmin(), BATCH_SIZE));
+  return Response.json(await runBackfillBatch(getSupabaseAdmin(), BATCH_SIZE, 'admin_manual_batch'));
 }

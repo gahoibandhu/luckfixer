@@ -46,7 +46,7 @@ export async function GET() {
         process.env.SUPABASE_SERVICE_ROLE_KEY
       );
       for (const { row, pieces } of incomplete) {
-        const result = await backfillOne(adminDb, row, pieces);
+        const result = await backfillOne(adminDb, row, pieces, 'on_view_backfill');
         if (result.status === 'error') {
           console.warn(`[OnViewBackfill] ${result.name} (${result.id}) failed: ${result.error}`);
         }

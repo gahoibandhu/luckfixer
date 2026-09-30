@@ -34,7 +34,7 @@ export async function GET(req) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
-  const { processed, results } = await runBackfillBatch(adminDb, BATCH_SIZE);
+  const { processed, results } = await runBackfillBatch(adminDb, BATCH_SIZE, 'cron_auto_heal');
   const summary = {
     processed,
     ok: results.filter(r => r.status === 'ok').length,
