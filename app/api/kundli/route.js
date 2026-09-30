@@ -9,6 +9,12 @@ import { missingPiecesFromFullRow, backfillOne } from '@/lib/life-domains-backfi
 
 
 // GET — fetch all kundlis for logged-in user
+// How much the stored birth_time can be trusted — kept in step with the existing
+// birth_time_confidence column (migration_005) so the past-validation warning
+// logic and the new birth_time_source column never disagree.
+const TIME_SOURCES = ['exact', 'approx', 'unknown', 'rectified'];
+const TIME_SOURCE_CONFIDENCE = { exact: 100, rectified: 80, approx: 60, unknown: 30 };
+
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -92,6 +98,7 @@ export async function POST(req) {
 
   const body = await req.json();
   const { label, full_name, dob, birth_time, birth_place, latitude, longitude, ayanamsa, gender } = body;
+  const birth_time_source = TIME_SOURCES.includes(body.birth_time_source) && body.birth_time_source !== 'rectified' ? body.birth_time_source : 'exact';
 
   if (!full_name || !dob || !birth_time || !latitude || !longitude) {
     return Response.json({ error: 'Missing required fields' }, { status: 400 });
@@ -111,7 +118,7 @@ export async function POST(req) {
     result = await runFullReAnalysis({
       full_name, dob, birth_time, birth_place,
       latitude: parseFloat(latitude), longitude: parseFloat(longitude),
-      ayanamsa: ayanamsa || 'lahiri', gender,
+      ayanamsa: ayanamsa || 'lahiri', gender, birth_time_source,
     });
   } catch (e) {
     if (e instanceof EphemerisUnavailableError) {
@@ -135,6 +142,8 @@ export async function POST(req) {
     longitude:    parseFloat(longitude),
     ayanamsa:     ayanamsa || 'lahiri',
     gender:       gender || null,
+    birth_time_source,
+    birth_time_confidence: TIME_SOURCE_CONFIDENCE[birth_time_source],
     planet_data:  result.planet_data,
     luck_score:   result.luck_score,
     last_analysis: result.last_analysis,
@@ -203,8 +212,9 @@ export async function PATCH(req) {
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { id, label, full_name, dob, birth_time, birth_place, latitude, longitude, ayanamsa } = body;
+  const { id, label, full_name, dob, birth_time, birth_place, latitude, longitude, ayanamsa, rectification_choice } = body;
   if (!id) return Response.json({ error: 'id required' }, { status: 400 });
+  const newSource = TIME_SOURCES.includes(body.birth_time_source) ? body.birth_time_source : null;
 
   // Ownership check — never trust the client, always verify server-side
   const { data: existing } = await supabase
@@ -231,7 +241,10 @@ export async function PATCH(req) {
   if (!birthFieldsChanged) {
     const { data: kundli, error } = await supabase
       .from('saved_kundlis')
-      .update({ label: label ?? existing.label })
+      .update({
+        label: label ?? existing.label,
+        ...(newSource ? { birth_time_source: newSource, birth_time_confidence: TIME_SOURCE_CONFIDENCE[newSource] } : {}),
+      })
       .eq('id', id)
       .select()
       .single();
@@ -249,6 +262,7 @@ export async function PATCH(req) {
     longitude:   longitude !== undefined ? parseFloat(longitude) : existing.longitude,
     ayanamsa:    ayanamsa ?? existing.ayanamsa,
     gender:      existing.gender, // never changed via this route
+    birth_time_source: newSource ?? existing.birth_time_source ?? 'exact',
   };
 
   let result;
@@ -273,6 +287,9 @@ export async function PATCH(req) {
       latitude:      merged.latitude,
       longitude:     merged.longitude,
       ayanamsa:      merged.ayanamsa,
+      birth_time_source: merged.birth_time_source,
+      birth_time_confidence: TIME_SOURCE_CONFIDENCE[merged.birth_time_source] ?? 100,
+      ...(rectification_choice ? { rectification: { ...(existing.rectification || {}), chosen: { ...rectification_choice, applied_at: new Date().toISOString() } } } : {}),
       planet_data:   result.planet_data,
       luck_score:    result.luck_score,
       last_analysis: result.last_analysis,

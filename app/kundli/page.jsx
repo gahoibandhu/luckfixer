@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import DateOfBirthInput from '@/components/DateOfBirthInput';
 import EditKundliModal from '@/components/EditKundliModal';
+import RectifyModal from '@/components/RectifyModal';
 import MissingKundliFieldsModal from '@/components/MissingKundliFieldsModal';
 import { getMissingKundliFields } from '@/lib/kundli-form-validation';
 import { t, getSavedUiLang } from '@/lib/i18n';
@@ -32,7 +33,7 @@ export default function KundliPage() {
   const [kundlis,  setKundlis]  = useState([]);
   const [addOpen,  setAddOpen]  = useState(false);
   const [editingKundli, setEditingKundli] = useState(null);
-  const [newK,     setNewK]     = useState({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'' });
+  const [newK,     setNewK]     = useState({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'', birth_time_source:'exact' });
   const [analyzing,setAnalyzing]= useState(false);
   const [missingFields, setMissingFields] = useState(null);
   const [wizardStep, setWizardStep] = useState(1);
@@ -42,6 +43,7 @@ export default function KundliPage() {
   const [geoError,  setGeoError]  = useState('');
   const [geoResults, setGeoResults] = useState([]);
   const [uiLang, setUiLang] = useState('hi');
+  const [rectifyingKundli, setRectifyingKundli] = useState(null);
 
   useEffect(() => { setUiLang(getSavedUiLang()); }, []);
 
@@ -141,7 +143,7 @@ export default function KundliPage() {
       setKundlis(k => [data.kundli, ...k]);
       setAddOpen(false);
       setWizardStep(1);
-      setNewK({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'' });
+      setNewK({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'', birth_time_source:'exact' });
     } else if (data.error) {
       setGeoError(data.error);
     }
@@ -231,7 +233,19 @@ export default function KundliPage() {
                 </div>
                 <div>
                   <label className="lf-label">जन्म समय *</label>
-                  <input type="time" value={newK.birth_time} onChange={e => setNewK(k => ({...k, birth_time:e.target.value}))} autoFocus style={{ width:'100%', fontSize:'18px', textAlign:'center', padding:'14px' }}/>
+                  <input type="time" value={newK.birth_time_source === 'unknown' ? '' : newK.birth_time} disabled={newK.birth_time_source === 'unknown'} onChange={e => setNewK(k => ({...k, birth_time:e.target.value}))} autoFocus style={{ width:'100%', fontSize:'18px', textAlign:'center', padding:'14px', opacity: newK.birth_time_source === 'unknown' ? 0.5 : 1 }}/>
+                </div>
+                <div>
+                  <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 6px' }}>{uiLang === 'en' ? 'How sure are you about this time?' : 'यह समय कितना पक्का है?'}</p>
+                  <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
+                    {[['exact', uiLang === 'en' ? 'Exact (certificate/record)' : 'सटीक (प्रमाणपत्र/रिकॉर्ड)'], ['approx', uiLang === 'en' ? 'Approximate' : 'लगभग'], ['unknown', uiLang === 'en' ? "I don't know the time" : 'समय पता नहीं']].map(([v, text]) => (
+                      <button key={v} type="button" onClick={() => setNewK(k => ({ ...k, birth_time_source: v, birth_time: v === 'unknown' ? '12:00' : (k.birth_time === '12:00' && k.birth_time_source === 'unknown' ? '' : k.birth_time) }))}
+                        style={{ padding:'6px 10px', fontSize:'12px', cursor:'pointer', borderRadius:'var(--border-radius-md)', border:`0.5px solid ${newK.birth_time_source === v ? 'var(--color-text-primary)' : 'var(--color-border-tertiary)'}`, background: newK.birth_time_source === v ? 'var(--color-background-secondary)' : 'transparent', fontWeight: newK.birth_time_source === v ? 500 : 400, color:'var(--color-text-primary)' }}>{text}</button>
+                    ))}
+                  </div>
+                  {newK.birth_time_source === 'unknown' && (
+                    <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'8px 0 0', lineHeight:1.5 }}>{uiLang === 'en' ? "No problem — we'll build the chart provisionally, and you can confirm the birth time afterwards using your life events." : 'कोई बात नहीं — कुंडली अनुमानित बनेगी, और बाद में जीवन की घटनाओं से जन्म-समय की पुष्टि कर सकते हैं।'}</p>
+                  )}
                 </div>
                 <div style={{ display:'flex', gap:'8px' }}>
                   <button type="button" onClick={() => setWizardStep(1)} style={{ flex:'0 0 80px', padding:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'10px', cursor:'pointer', fontSize:'14px', color:'var(--color-text-secondary)' }}>← वापस</button>
@@ -295,7 +309,12 @@ export default function KundliPage() {
         <div key={k.id} style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', marginBottom:'8px', padding:'12px 14px', display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
           <div style={{ flex:1, minWidth:0 }}>
             <p style={{ fontWeight:'500', fontSize:'15px', margin:'0 0 2px', color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.label || k.full_name}</p>
-            <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>{k.dob} · {k.birth_time} · {k.birth_place}</p>
+            <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>{k.dob} · {k.birth_time_source === 'unknown' ? (uiLang === 'en' ? 'time unknown' : 'समय अज्ञात') : k.birth_time} · {k.birth_place}</p>
+            {k.birth_time_source && k.birth_time_source !== 'exact' && (
+              <button type="button" onClick={() => setRectifyingKundli(k)} style={{ display:'inline-block', marginTop:'4px', fontSize:'10px', fontWeight:'600', color: k.birth_time_source === 'rectified' ? 'var(--color-text-success)' : 'var(--color-text-warning)', background:'var(--color-background-secondary)', border:'none', borderRadius:'4px', padding:'2px 6px', cursor:'pointer' }}>
+                {k.birth_time_source === 'rectified' ? (uiLang === 'en' ? '✓ Time confirmed by events' : '✓ समय घटनाओं से पुष्ट') : (uiLang === 'en' ? 'Time approximate — confirm →' : 'समय अनुमानित — पुष्टि करें →')}
+              </button>
+            )}
             {k.planet_data?.crossValidation?.length > 0 && (
               <span title={k.planet_data.crossValidation[0].textHi || k.planet_data.crossValidation[0].text} style={{ display:'inline-block', marginTop:'4px', fontSize:'10px', fontWeight:'600', color:'var(--color-text-success)', background:'var(--color-background-secondary)', borderRadius:'4px', padding:'2px 6px' }}>
                 ✓ {k.planet_data.crossValidation.length > 1 ? `${k.planet_data.crossValidation.length} systems agree` : 'systems agree'}
@@ -304,6 +323,9 @@ export default function KundliPage() {
           </div>
           <button onClick={() => router.push(`/chat?kundliId=${k.id}`)} style={{ padding:'7px 14px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500', flexShrink:0 }}>
             {t('chatBtn', uiLang)}
+          </button>
+          <button onClick={() => setRectifyingKundli(k)} title={uiLang === 'en' ? 'Confirm birth time' : 'जन्म समय की पुष्टि'} style={{ background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', padding:'7px', color:'var(--color-text-secondary)', flexShrink:0, display:'flex' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           </button>
           <button onClick={() => setEditingKundli(k)} title="Edit" style={{ background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', padding:'7px', color:'var(--color-text-secondary)', flexShrink:0, display:'flex' }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -321,6 +343,18 @@ export default function KundliPage() {
           onSaved={(updated) => {
             setKundlis(list => list.map(x => x.id === updated.id ? updated : x));
             setEditingKundli(null);
+          }}
+        />
+      )}
+
+      {rectifyingKundli && (
+        <RectifyModal
+          kundli={rectifyingKundli}
+          uiLang={uiLang}
+          onClose={() => setRectifyingKundli(null)}
+          onApplied={(updated) => {
+            setKundlis(list => list.map(x => x.id === updated.id ? updated : x));
+            setRectifyingKundli(null);
           }}
         />
       )}

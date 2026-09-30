@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
+import AdminAiProviders from '@/components/AdminAiProviders';
 
 const ADMIN_EMAIL = 'dendthdel@gmail.com';
 
@@ -620,6 +621,7 @@ export default function AdminPage() {
           { id:'plan',     label:'Plan Config' },
           { id:'demo',     label:'Demo Users' },
           { id:'broadcast',label:'📢 Broadcast' },
+          { id:'aikeys',   label:'🤖 AI Keys' },
           { id:'migrations',label:'🔄 Migrations' },
         ].map(t => (
           <button key={t.id} onClick={() => switchTab(t.id)} style={{
@@ -1539,6 +1541,8 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {tab === 'aikeys' && <AdminAiProviders />}
 
       {tab === 'migrations' && (
         <div style={{ maxWidth:'760px' }}>

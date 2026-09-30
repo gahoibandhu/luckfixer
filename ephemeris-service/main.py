@@ -161,3 +161,64 @@ def get_positions(req: PositionsRequest):
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── Birth-time rectification scan ─────────────────────────────
+# One call returns Lagna + Moon for every N minutes inside a time window, so the
+# main app can score hundreds of candidate birth times without hundreds of HTTP
+# round-trips (Render cold starts make per-candidate calls impractical).
+# Only Lagna and Moon change meaningfully within a day; the other planets are
+# fetched once by the main app via /positions at the window midpoint.
+
+class RectifyScanRequest(BaseModel):
+    dob: str                       # "YYYY-MM-DD"
+    lat: float
+    lng: float
+    ayanamsa: str = "lahiri"
+    tz_offset: Optional[float] = None   # hours ahead of UTC; None -> Local Mean Time
+    start: str = "00:00"           # "HH:MM" inclusive, same calendar day
+    end: str = "23:59"             # "HH:MM" inclusive
+    step_min: int = 2
+
+
+def _hhmm_to_min(t: str) -> int:
+    h, m = t.split(":")[:2]
+    return int(h) * 60 + int(m)
+
+
+@app.post("/rectify-scan")
+def rectify_scan(req: RectifyScanRequest):
+    try:
+        y, m, d = map(int, req.dob.split("-")[:3])
+        start_min = max(0, _hhmm_to_min(req.start))
+        end_min = min(24 * 60 - 1, _hhmm_to_min(req.end))
+        if end_min < start_min:
+            raise ValueError("end must not be before start (scan one calendar day at a time)")
+        step = max(1, min(10, int(req.step_min)))
+        if (end_min - start_min) // step > 1500:
+            raise ValueError("window too large for this step size")
+
+        offset_hours = req.tz_offset if req.tz_offset is not None else (req.lng / 15.0)
+        ayanamsa_const = AYANAMSA_MODES.get(req.ayanamsa.lower(), swe.SIDM_LAHIRI)
+        swe.set_sid_mode(ayanamsa_const, 0, 0)
+
+        candidates = []
+        for minute in range(start_min, end_min + 1, step):
+            ut_hour = minute / 60.0 - offset_hours
+            jd = swe.julday(y, m, d, ut_hour)
+            try:
+                moon_pos, _ = swe.calc_ut(jd, swe.MOON, swe.FLG_SIDEREAL)
+                ay = swe.get_ayanamsa_ut(jd)
+                _, ascmc = swe.houses(jd, req.lat, req.lng, b'P')
+            except Exception:
+                continue  # skip an unusable candidate rather than fail the whole scan
+            candidates.append({
+                "t": f"{minute // 60:02d}:{minute % 60:02d}",
+                "lagna": round((ascmc[0] - ay) % 360, 4),
+                "moon": round(moon_pos[0] % 360, 4),
+            })
+
+        return {"engine": "pyswisseph", "step_min": step, "count": len(candidates), "candidates": candidates}
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

@@ -36,3 +36,39 @@ hai — AI call aur DB save dono normally chalte rehte hain.
 
 ### Verified
 - `node --check app/api/chat/route.js` — syntax clean
+
+## Session: IST fix, AI provider keys, birth-time rectification (Sep 30, 2026)
+
+### 1. Birth time is now IST (not Local Mean Time) for India
+`lib/astro-facts.js` `getBirthUtcOffsetHours()` (IST +5:30; war-time +6:30 for
+1941-42 and 1942-45; pre-1906 and non-India keep the old LMT approximation).
+The offset is sent to the pyswisseph service as `tz_offset` so both ephemeris
+tiers agree. `ephemeris-service/main.py` accepts optional `tz_offset`.
+**Existing saved kundlis are NOT recomputed automatically.**
+
+### 2. SambaNova key bug + admin-managed AI keys
+- `lib/ai-engine.js`: `callSambaNova` now reads `SAMBANOVA_API_KEY`, `_1`, `_2`
+  (previously only `_1`/`_2`, so a rotated `SAMBANOVA_API_KEY` was ignored).
+- New table `ai_provider_keys` (migration_023): keys stored AES-256-GCM encrypted
+  (`lib/ai-key-vault.js`, secret = `KEY_ENCRYPTION_SECRET` env var).
+- `lib/ai-providers.js`: loads admin-added providers (60s cache), generic
+  OpenAI-compatible caller, auto-disable on 401/403, 5-min cooldown on 429.
+- `lib/ai-engine.js`: env built-ins (priority Gemini 10, Groq 20, SambaNova 30,
+  OpenRouter 40, HuggingFace 50) merged with admin keys by priority; global time
+  budget so many providers can't cause a function timeout. Env chain still works
+  unchanged if the table is empty/missing.
+- `app/api/admin/ai-keys/route.js` (GET/POST/PATCH/DELETE/PUT-test, admin only,
+  never returns a full key) + Admin panel tab "🤖 AI Keys" (`components/AdminAiProviders.jsx`).
+
+### 3. Birth-time confirmation (rectification)
+- migration_024: `birth_time_source` (exact/approx/unknown/rectified), `life_events`, `rectification`.
+- `ephemeris-service/main.py`: new `POST /rectify-scan` (Lagna + Moon per N minutes).
+- `lib/birth-rectification.js`: deterministic scan + Vimshottari fit scoring per
+  life event, grouped into windows, honest confidence, IST-vs-LMT check.
+- `app/api/kundli/rectify/route.js` (scan, ownership-checked); applying a choice
+  goes through `PATCH /api/kundli` (`birth_time_source:'rectified'`) which re-runs
+  the full analysis. POST/PATCH now store `birth_time_source` + `birth_time_confidence`.
+- `lib/kundli-reanalysis.js`: when time isn't exact, the AI is told (factSheet.birthTimeReliability).
+- UI: `components/RectifyModal.jsx`; kundli page has a "how sure is this time"
+  selector (exact / approximate / don't know), a badge, and a confirm-time button.
+- `vercel.json`: maxDuration 120 for the rectify route.

@@ -20,6 +20,9 @@
     },
     "app/api/admin/broadcast/route.js": {
       "maxDuration": 60
+    },
+    "app/api/kundli/rectify/route.js": {
+      "maxDuration": 120
     }
   },
   "crons": [
