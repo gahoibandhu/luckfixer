@@ -26,6 +26,34 @@ const ANALYZING_STEPS = [
   'बस थोड़ी देर और',
 ];
 
+// Add-kundli wizard + related messages — Hindi / English (follows the app language).
+const KW = {
+  hi: {
+    steps: ANALYZING_STEPS,
+    placeFirst: 'कृपया पहले जन्म स्थान भरें',
+    notFound: 'स्थान नहीं मिला — Latitude/Longitude खुद डालें',
+    geoProblem: 'स्थान खोजने में समस्या — Latitude/Longitude खुद डालें',
+    fullName: 'पूरा नाम *', fullNamePh: 'अपना पूरा नाम लिखें', dob: 'जन्म तिथि *', gender: 'लिंग *',
+    male: 'पुरुष', female: 'महिला', other: 'अन्य', next: 'आगे बढ़ें →', back: '← वापस',
+    timeQ: 'जन्म का समय क्या था?', timeHint: 'जितना सटीक हो उतना अच्छा — जन्म प्रमाणपत्र या अस्पताल रिकॉर्ड से लें। 10-15 मिनट का अंतर भी असर डाल सकता है।',
+    tob: 'जन्म समय *', placeQ: 'जन्म कहाँ हुआ था?', placeHint: 'शहर का नाम लिखें, हम बाकी ढूंढ लेंगे',
+    pob: 'जन्म स्थान *', pobPh: 'शहर का नाम लिखें', search: 'खोजें', pickPlace: 'सही स्थान चुनें:', placeFound: '✓ स्थान मिल गया',
+    build: 'कुंडली बनाएं →',
+  },
+  en: {
+    steps: ['Building your kundli', 'Calculating planetary positions', 'Identifying yogas and dasha', 'Writing the AI analysis', 'Just a moment more'],
+    placeFirst: 'Please enter the birth place first',
+    notFound: 'Place not found — enter latitude/longitude manually',
+    geoProblem: 'Could not look up the place — enter latitude/longitude manually',
+    fullName: 'Full name *', fullNamePh: 'Enter your full name', dob: 'Date of birth *', gender: 'Gender *',
+    male: 'Male', female: 'Female', other: 'Other', next: 'Continue →', back: '← Back',
+    timeQ: 'What was the time of birth?', timeHint: 'The more exact the better — use the birth certificate or hospital record. Even a 10-15 minute difference can matter.',
+    tob: 'Time of birth *', placeQ: 'Where were you born?', placeHint: 'Type the city name, we will find the rest',
+    pob: 'Place of birth *', pobPh: 'Enter city name', search: 'Search', pickPlace: 'Choose the right place:', placeFound: '✓ Place found',
+    build: 'Build kundli →',
+  },
+};
+
 export default function KundliPage() {
   const supabase = createClient();
   const router   = useRouter();
@@ -47,6 +75,7 @@ export default function KundliPage() {
   const [rectifyingKundli, setRectifyingKundli] = useState(null);
 
   useEffect(() => { setUiLang(getSavedUiLang()); }, []);
+  const W = KW[uiLang === 'en' ? 'en' : 'hi'];
 
   useEffect(() => {
     if (!analyzing) { setAnalyzingStepIdx(0); return; }
@@ -86,7 +115,7 @@ export default function KundliPage() {
 
   async function geocodePlace() {
     if (!newK.birth_place.trim()) {
-      setGeoError('कृपया पहले जन्म स्थान भरें');
+      setGeoError(W.placeFirst);
       return;
     }
     setGeocoding(true);
@@ -99,10 +128,10 @@ export default function KundliPage() {
         if (data.results.length === 1) selectLocation(data.results[0]);
         else setGeoResults(data.results);
       } else {
-        setGeoError('स्थान नहीं मिला — Latitude/Longitude खुद डालें');
+        setGeoError(W.notFound);
       }
     } catch {
-      setGeoError('स्थान खोजने में समस्या — Latitude/Longitude खुद डालें');
+      setGeoError(W.geoProblem);
     }
     setGeocoding(false);
   }
@@ -133,13 +162,13 @@ export default function KundliPage() {
   }
 
   async function deleteKundli(id) {
-    if (!confirm('इस कुंडली को permanently delete करें? यह वापस नहीं आएगी।')) return;
+    if (!confirm(t('confirmDeleteKundli', uiLang))) return;
     const res = await fetch(`/api/kundli?id=${id}`, { method: 'DELETE' });
     const data = await res.json();
     if (data.success) {
       setKundlis(prev => prev.filter(k => k.id !== id));
     } else {
-      alert('Delete नहीं हो पाया: ' + (data.error || 'unknown error'));
+      alert(t('deleteFailed', uiLang) + ': ' + (data.error || 'unknown error'));
     }
   }
 
@@ -217,17 +246,17 @@ export default function KundliPage() {
             {wizardStep === 1 && (
               <div style={{ display:'flex', flexDirection:'column', gap:'14px' }}>
                 <div>
-                  <label className="lf-label">पूरा नाम *</label>
-                  <input value={newK.full_name} onChange={e => setNewK(k => ({...k, full_name:e.target.value}))} placeholder="अपना पूरा नाम लिखें" autoFocus style={{ width:'100%', fontSize:'15px' }}/>
+                  <label className="lf-label">{W.fullName}</label>
+                  <input value={newK.full_name} onChange={e => setNewK(k => ({...k, full_name:e.target.value}))} placeholder={W.fullNamePh} autoFocus style={{ width:'100%', fontSize:'15px' }}/>
                 </div>
                 <div>
-                  <label className="lf-label">जन्म तिथि *</label>
+                  <label className="lf-label">{W.dob}</label>
                   <DateOfBirthInput value={newK.dob} onChange={dob => setNewK(k => ({...k, dob}))} style={{ fontSize:'15px' }}/>
                 </div>
                 <div>
-                  <label className="lf-label">लिंग *</label>
+                  <label className="lf-label">{W.gender}</label>
                   <div style={{ display:'flex', gap:'8px' }}>
-                    {[['male','पुरुष'],['female','महिला'],['other','अन्य']].map(([val, label]) => (
+                    {[['male',W.male],['female',W.female],['other',W.other]].map(([val, label]) => (
                       <button key={val} type="button" onClick={() => setNewK(k => ({...k, gender: val}))}
                         style={{ flex:1, padding:'9px', fontSize:'13px', borderRadius:'8px', cursor:'pointer',
                           border: `1px solid ${newK.gender === val ? 'var(--color-brand)' : 'var(--color-border-tertiary)'}`,
@@ -240,7 +269,7 @@ export default function KundliPage() {
                 </div>
                 <button type="button" disabled={!newK.full_name.trim() || !newK.dob || !newK.gender} onClick={() => setWizardStep(2)}
                   style={{ padding:'12px', background: (!newK.full_name.trim() || !newK.dob || !newK.gender) ? 'var(--color-border-tertiary)' : 'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'10px', cursor: (!newK.full_name.trim() || !newK.dob || !newK.gender) ? 'default' : 'pointer', fontSize:'14px', fontWeight:'500', marginTop:'6px' }}>
-                  आगे बढ़ें →
+                  {W.next}
                 </button>
               </div>
             )}
@@ -248,11 +277,11 @@ export default function KundliPage() {
             {wizardStep === 2 && (
               <div style={{ display:'flex', flexDirection:'column', gap:'14px' }}>
                 <div style={{ textAlign:'center', marginBottom:'4px' }}>
-                  <p style={{ fontSize:'15px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 4px' }}>जन्म का समय क्या था?</p>
-                  <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0, lineHeight:'1.5' }}>जितना सटीक हो उतना अच्छा — जन्म प्रमाणपत्र या अस्पताल रिकॉर्ड से लें। 10-15 मिनट का अंतर भी असर डाल सकता है।</p>
+                  <p style={{ fontSize:'15px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 4px' }}>{W.timeQ}</p>
+                  <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0, lineHeight:'1.5' }}>{W.timeHint}</p>
                 </div>
                 <div>
-                  <label className="lf-label">जन्म समय *</label>
+                  <label className="lf-label">{W.tob}</label>
                   <input type="time" value={newK.birth_time_source === 'unknown' ? '' : newK.birth_time} disabled={newK.birth_time_source === 'unknown'} onChange={e => setNewK(k => ({...k, birth_time:e.target.value}))} autoFocus style={{ width:'100%', fontSize:'18px', textAlign:'center', padding:'14px', opacity: newK.birth_time_source === 'unknown' ? 0.5 : 1 }}/>
                 </div>
                 <div>
@@ -268,10 +297,10 @@ export default function KundliPage() {
                   )}
                 </div>
                 <div style={{ display:'flex', gap:'8px' }}>
-                  <button type="button" onClick={() => setWizardStep(1)} style={{ flex:'0 0 80px', padding:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'10px', cursor:'pointer', fontSize:'14px', color:'var(--color-text-secondary)' }}>← वापस</button>
+                  <button type="button" onClick={() => setWizardStep(1)} style={{ flex:'0 0 80px', padding:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'10px', cursor:'pointer', fontSize:'14px', color:'var(--color-text-secondary)' }}>{W.back}</button>
                   <button type="button" disabled={!newK.birth_time} onClick={() => setWizardStep(3)}
                     style={{ flex:1, padding:'12px', background: !newK.birth_time ? 'var(--color-border-tertiary)' : 'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'10px', cursor: !newK.birth_time ? 'default' : 'pointer', fontSize:'14px', fontWeight:'500' }}>
-                    आगे बढ़ें →
+                    {W.next}
                   </button>
                 </div>
               </div>
@@ -280,20 +309,20 @@ export default function KundliPage() {
             {wizardStep === 3 && (
               <div style={{ display:'flex', flexDirection:'column', gap:'14px' }}>
                 <div style={{ textAlign:'center', marginBottom:'4px' }}>
-                  <p style={{ fontSize:'15px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 4px' }}>जन्म कहाँ हुआ था?</p>
-                  <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>शहर का नाम लिखें, हम बाकी ढूंढ लेंगे</p>
+                  <p style={{ fontSize:'15px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 4px' }}>{W.placeQ}</p>
+                  <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>{W.placeHint}</p>
                 </div>
                 <div>
-                  <label className="lf-label">जन्म स्थान *</label>
+                  <label className="lf-label">{W.pob}</label>
                   <div style={{ display:'flex', gap:'8px' }}>
-                    <input value={newK.birth_place} onChange={e => { setNewK(k => ({...k, birth_place:e.target.value, latitude:'', longitude:''})); setGeoResults([]); }} placeholder="शहर का नाम लिखें" autoFocus style={{ flex:1, fontSize:'15px' }} onKeyDown={e => { if (e.key==='Enter') { e.preventDefault(); geocodePlace(); } }}/>
+                    <input value={newK.birth_place} onChange={e => { setNewK(k => ({...k, birth_place:e.target.value, latitude:'', longitude:''})); setGeoResults([]); }} placeholder={W.pobPh} autoFocus style={{ flex:1, fontSize:'15px' }} onKeyDown={e => { if (e.key==='Enter') { e.preventDefault(); geocodePlace(); } }}/>
                     <button type="button" onClick={geocodePlace} disabled={geocoding} style={{ padding:'10px 16px', fontSize:'13px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'10px', cursor:'pointer', whiteSpace:'nowrap', color:'var(--color-text-primary)', flexShrink:0 }}>
-                      {geocoding ? '...' : 'खोजें'}
+                      {geocoding ? '...' : W.search}
                     </button>
                   </div>
                   {geoResults.length > 0 && (
                     <div style={{ marginTop:'8px', border:'0.5px solid var(--color-border-secondary)', borderRadius:'10px', overflow:'hidden' }}>
-                      <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', padding:'6px 10px', margin:0, borderBottom:'0.5px solid var(--color-border-tertiary)' }}>सही स्थान चुनें:</p>
+                      <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', padding:'6px 10px', margin:0, borderBottom:'0.5px solid var(--color-border-tertiary)' }}>{W.pickPlace}</p>
                       {geoResults.map((r, i) => (
                         <div key={i} onClick={() => selectLocation(r)} style={{ padding:'10px', fontSize:'13px', cursor:'pointer', borderBottom: i < geoResults.length-1 ? '0.5px solid var(--color-border-tertiary)' : 'none', color:'var(--color-text-primary)' }}
                           onMouseEnter={e => e.currentTarget.style.background = 'var(--color-background-secondary)'}
@@ -303,16 +332,16 @@ export default function KundliPage() {
                       ))}
                     </div>
                   )}
-                  {newK.latitude && newK.longitude && <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'8px 0 0' }}>✓ स्थान मिल गया</p>}
+                  {newK.latitude && newK.longitude && <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'8px 0 0' }}>{W.placeFound}</p>}
                   {geoError && <p style={{ fontSize:'12px', color:'var(--color-text-danger)', margin:'8px 0 0' }}>{geoError}</p>}
                 </div>
                 <div style={{ display:'flex', gap:'8px' }}>
-                  <button type="button" onClick={() => setWizardStep(2)} style={{ flex:'0 0 80px', padding:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'10px', cursor:'pointer', fontSize:'14px', color:'var(--color-text-secondary)' }}>← वापस</button>
+                  <button type="button" onClick={() => setWizardStep(2)} style={{ flex:'0 0 80px', padding:'12px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'10px', cursor:'pointer', fontSize:'14px', color:'var(--color-text-secondary)' }}>{W.back}</button>
                   <button type="submit" disabled={analyzing || !newK.latitude || !newK.longitude}
                     className={analyzing ? 'lf-btn-analyzing' : ''}
                     style={{ flex:1, padding:'12px', borderRadius:'10px', fontSize:'14px', fontWeight:'500', border:'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
                       ...(analyzing ? {} : { background: !newK.latitude ? 'var(--color-border-tertiary)' : 'var(--color-text-primary)', color:'var(--color-background-primary)', cursor: !newK.latitude ? 'default' : 'pointer' }) }}>
-                    {analyzing ? <><span className="lf-spinner" /><span>{ANALYZING_STEPS[analyzingStepIdx]}...</span></> : 'कुंडली बनाएं →'}
+                    {analyzing ? <><span className="lf-spinner" /><span>{W.steps[analyzingStepIdx]}...</span></> : W.build}
                   </button>
                 </div>
               </div>
