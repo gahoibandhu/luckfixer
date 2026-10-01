@@ -33,6 +33,7 @@ export default function KundliPage() {
   const [kundlis,  setKundlis]  = useState([]);
   const [addOpen,  setAddOpen]  = useState(false);
   const [editingKundli, setEditingKundli] = useState(null);
+  const [regenId, setRegenId] = useState(null);   // kundli currently being re-written in another language
   const [newK,     setNewK]     = useState({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'', birth_time_source:'exact' });
   const [analyzing,setAnalyzing]= useState(false);
   const [missingFields, setMissingFields] = useState(null);
@@ -112,6 +113,25 @@ export default function KundliPage() {
     setGeoError('');
   }
 
+  // Re-writes ONLY the AI narrative in the app's current language (chart numbers unchanged).
+  async function regenerateInLang(k) {
+    if (!confirm(t('regenConfirm', uiLang))) return;
+    setRegenId(k.id);
+    try {
+      const res = await fetch('/api/kundli', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: k.id, lang: uiLang, regenerate_lang: true }),
+      });
+      const data = await res.json();
+      if (data.kundli) setKundlis(list => list.map(x => x.id === data.kundli.id ? data.kundli : x));
+      else alert(data.error || t('regenFailed', uiLang));
+    } catch {
+      alert(t('regenFailed', uiLang));
+    }
+    setRegenId(null);
+  }
+
   async function deleteKundli(id) {
     if (!confirm('इस कुंडली को permanently delete करें? यह वापस नहीं आएगी।')) return;
     const res = await fetch(`/api/kundli?id=${id}`, { method: 'DELETE' });
@@ -136,7 +156,7 @@ export default function KundliPage() {
     const res = await fetch('/api/kundli', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newK),
+      body: JSON.stringify({ ...newK, lang: uiLang }),
     });
     const data = await res.json();
     if (data.kundli) {
@@ -320,6 +340,11 @@ export default function KundliPage() {
                 ✓ {k.planet_data.crossValidation.length > 1 ? `${k.planet_data.crossValidation.length} systems agree` : 'systems agree'}
               </span>
             )}
+            {k.planet_data?.analysis && (k.planet_data.analysis_lang === 'en' ? 'en' : 'hi') !== uiLang && (
+              <button type="button" disabled={regenId === k.id} onClick={() => regenerateInLang(k)} style={{ display:'block', marginTop:'6px', background:'none', border:'none', padding:0, cursor: regenId === k.id ? 'default' : 'pointer', fontSize:'11px', color:'var(--color-text-info)', textDecoration:'underline' }}>
+                {regenId === k.id ? t('regenerating', uiLang) : t('regenerateLang', uiLang)}
+              </button>
+            )}
           </div>
           <button onClick={() => router.push(`/chat?kundliId=${k.id}`)} style={{ padding:'7px 14px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500', flexShrink:0 }}>
             {t('chatBtn', uiLang)}
@@ -339,6 +364,7 @@ export default function KundliPage() {
       {editingKundli && (
         <EditKundliModal
           kundli={editingKundli}
+          lang={uiLang}
           onClose={() => setEditingKundli(null)}
           onSaved={(updated) => {
             setKundlis(list => list.map(x => x.id === updated.id ? updated : x));

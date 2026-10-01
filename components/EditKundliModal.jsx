@@ -120,7 +120,7 @@ export default function EditKundliModal({ kundli, onClose, onSaved, lang = 'hi' 
       const res = await fetch('/api/kundli', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: kundli.id, ...form }),
+        body: JSON.stringify({ id: kundli.id, ...form, lang }),
       });
       const data = await res.json();
       if (data.kundli) {

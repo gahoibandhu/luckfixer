@@ -98,6 +98,7 @@ export async function POST(req) {
 
   const body = await req.json();
   const { label, full_name, dob, birth_time, birth_place, latitude, longitude, ayanamsa, gender } = body;
+  const lang = body.lang === 'en' ? 'en' : 'hi';   // app language -> language of the written analysis
   const birth_time_source = TIME_SOURCES.includes(body.birth_time_source) && body.birth_time_source !== 'rectified' ? body.birth_time_source : 'exact';
 
   if (!full_name || !dob || !birth_time || !latitude || !longitude) {
@@ -118,7 +119,7 @@ export async function POST(req) {
     result = await runFullReAnalysis({
       full_name, dob, birth_time, birth_place,
       latitude: parseFloat(latitude), longitude: parseFloat(longitude),
-      ayanamsa: ayanamsa || 'lahiri', gender, birth_time_source,
+      ayanamsa: ayanamsa || 'lahiri', gender, birth_time_source, lang,
     });
   } catch (e) {
     if (e instanceof EphemerisUnavailableError) {
@@ -213,6 +214,7 @@ export async function PATCH(req) {
 
   const body = await req.json();
   const { id, label, full_name, dob, birth_time, birth_place, latitude, longitude, ayanamsa, rectification_choice } = body;
+  const lang = body.lang === 'en' ? 'en' : 'hi';
   if (!id) return Response.json({ error: 'id required' }, { status: 400 });
   const newSource = TIME_SOURCES.includes(body.birth_time_source) ? body.birth_time_source : null;
 
@@ -236,6 +238,30 @@ export async function PATCH(req) {
     (longitude !== undefined && parseFloat(longitude) !== existing.longitude) ||
     (ayanamsa !== undefined && ayanamsa !== existing.ayanamsa)
   );
+
+  // ── Path 0: regenerate the written analysis in the chosen language ──
+  // Birth data is untouched; the chart is recomputed deterministically (same result)
+  // and only the AI narrative is re-written in `lang`. Triggered by the
+  // "Regenerate in English / Hinglish" button on the Kundli page.
+  if (body.regenerate_lang && !birthFieldsChanged) {
+    let result;
+    try {
+      result = await runFullReAnalysis({ ...existing, lang, birth_time_source: existing.birth_time_source ?? 'exact' });
+    } catch (e) {
+      if (e instanceof EphemerisUnavailableError) return Response.json({ error: e.message, retryable: true }, { status: 503 });
+      throw e;
+    }
+    // Never replace a good analysis with an empty one if every AI piece failed.
+    if (!result.aiResult?.content || Object.keys(result.aiResult.content).length === 0) {
+      return Response.json({ error: 'AI is busy right now — please try again in a minute.', retryable: true }, { status: 503 });
+    }
+    const { data: kundli, error } = await supabase
+      .from('saved_kundlis')
+      .update({ planet_data: result.planet_data, luck_score: result.luck_score, last_analysis: result.last_analysis })
+      .eq('id', id).select().single();
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ kundli, reanalyzed: true, lang });
+  }
 
   // ── Path 1: label-only — instant, no recompute ─────────────────
   if (!birthFieldsChanged) {
@@ -263,6 +289,7 @@ export async function PATCH(req) {
     ayanamsa:    ayanamsa ?? existing.ayanamsa,
     gender:      existing.gender, // never changed via this route
     birth_time_source: newSource ?? existing.birth_time_source ?? 'exact',
+    lang,
   };
 
   let result;
