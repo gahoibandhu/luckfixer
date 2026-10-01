@@ -14,7 +14,8 @@ import RectifyModal from '@/components/RectifyModal';
 import LifeChips from '@/components/LifeChips';
 import { labelFor, MARITAL_OPTIONS, CHILDREN_OPTIONS } from '@/lib/life-details';
 import { getRemedyTimeStatus } from '@/lib/date-format';
-import { t, getSavedUiLang } from '@/lib/i18n';
+import EditKundliModal from '@/components/EditKundliModal';
+import { t, getSavedUiLang, setSavedUiLang } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +31,8 @@ export default function ProfilePage() {
   const [uiLang, setUiLang] = useState('hi');
   const [kundlis, setKundlis] = useState([]);
   const [rectifying, setRectifying] = useState(null);
-  const [lifeEditId, setLifeEditId] = useState(null);
+  const [infoOpenId, setInfoOpenId] = useState(null);   // which kundli's "Additional info" is expanded
+  const [editingKundli, setEditingKundli] = useState(null);
 
   useEffect(() => { setUiLang(getSavedUiLang()); }, []);
 
@@ -59,8 +61,8 @@ export default function ProfilePage() {
     loadRemedies();
     try {
       const { data: ks } = await supabase.from('saved_kundlis')
-        .select('id, label, full_name, dob, birth_time, birth_time_source, life_events, marital_status, children_status, created_at')
-        .eq('user_id', session.user.id).order('created_at', { ascending: true }).limit(6);
+        .select('id, label, full_name, dob, birth_time, birth_time_source, birth_place, latitude, longitude, ayanamsa, life_events, marital_status, children_status, created_at')
+        .eq('user_id', session.user.id).order('created_at', { ascending: true }).limit(10);
       setKundlis(ks || []);
     } catch { /* non-fatal — the card simply doesn't show */ }
   }
@@ -98,6 +100,24 @@ export default function ProfilePage() {
     setSaving(false);
   }
 
+  async function deleteKundli(id) {
+    if (!confirm(t('confirmDeleteKundli', uiLang))) return;
+    try {
+      const res = await fetch(`/api/kundli?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) setKundlis(list => list.filter(k => k.id !== id));
+      else alert(`${t('deleteFailed', uiLang)}: ${data.error || 'unknown error'}`);
+    } catch {
+      alert(t('deleteFailed', uiLang));
+    }
+  }
+
+  function toggleLang() {
+    const next = uiLang === 'en' ? 'hi' : 'en';
+    setUiLang(next);
+    setSavedUiLang(next);   // persists for every other page; no reload needed here
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     router.push('/login');
@@ -119,9 +139,14 @@ export default function ProfilePage() {
       {/* Simple page heading — no logo here, it's in the browser tab */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1.25rem' }}>
         <h2 style={{ fontSize:'18px', fontWeight:'500', color:'var(--color-text-primary)', margin:0 }}>{t('profileTitle', uiLang)}</h2>
-        <button onClick={() => router.push('/chat')} style={{ fontSize:'13px', color:'var(--color-text-secondary)', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'6px 12px', cursor:'pointer' }}>
-          {t('backToChat', uiLang)}
-        </button>
+        <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+          <button onClick={toggleLang} aria-label="Switch language" title="Switch language" style={{ fontSize:'12px', fontWeight:600, color:'var(--color-text-secondary)', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'6px 10px', cursor:'pointer' }}>
+            {t('switchLang', uiLang)}
+          </button>
+          <button onClick={() => router.push('/chat')} style={{ fontSize:'13px', color:'var(--color-text-secondary)', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'6px 12px', cursor:'pointer' }}>
+            {t('backToChat', uiLang)}
+          </button>
+        </div>
       </div>
 
       {/* Profile Card */}
@@ -129,7 +154,7 @@ export default function ProfilePage() {
         <div style={{ display:'flex', alignItems:'center', gap:'14px', marginBottom:'1rem' }}>
           <div style={{ width:'48px', height:'48px', borderRadius:'50%', background:'var(--color-background-info)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'500', fontSize:'15px', color:'var(--color-text-info)', flexShrink:0 }}>{initials}</div>
           <div style={{ flex:1 }}>
-            <p style={{ fontWeight:'500', fontSize:'16px', margin:'0', color:'var(--color-text-primary)' }}>{profile.full_name || 'नाम नहीं'}</p>
+            <p style={{ fontWeight:'500', fontSize:'16px', margin:'0', color:'var(--color-text-primary)' }}>{profile.full_name || t('noName', uiLang)}</p>
             <p style={{ fontSize:'13px', color:'var(--color-text-secondary)', margin:'2px 0 0' }}>{profile.email}</p>
           </div>
           <button onClick={() => setEditing(e => !e)} style={{ fontSize:'13px', color:'var(--color-text-secondary)', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'6px 12px', cursor:'pointer' }}>
@@ -155,72 +180,91 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* Birth-time confirmation + life details — one clear, tappable entry point */}
+      {/* Kundli cards — birth-time validation, Edit/Delete, and the optional
+          "Additional info" (marital status + children) tucked behind a link so
+          the card stays clean by default. */}
       {kundlis.length > 0 && (
         <div style={{ marginBottom:'1rem', display:'flex', flexDirection:'column', gap:'10px' }}>
-          {kundlis.slice(0, 3).map(k => {
+          {kundlis.map(k => {
             const src = k.birth_time_source || 'exact';
             const needs = src === 'unknown' || src === 'approx';
-            const statusText = src === 'unknown' ? (uiLang === 'en' ? 'Birth time not known' : 'जन्म समय पता नहीं')
-              : src === 'approx' ? (uiLang === 'en' ? 'Birth time is approximate' : 'जन्म समय अनुमानित है')
-              : src === 'rectified' ? (uiLang === 'en' ? 'Birth time confirmed from life events' : 'जन्म समय घटनाओं से पुष्ट')
-              : (uiLang === 'en' ? 'Birth time recorded' : 'जन्म समय दर्ज');
-            const editing = lifeEditId === k.id;
+            const statusText = src === 'unknown' ? t('btUnknown', uiLang)
+              : src === 'approx' ? t('btApprox', uiLang)
+              : src === 'rectified' ? t('btRectified', uiLang)
+              : t('btRecorded', uiLang);
+            const infoOpen = infoOpenId === k.id;
+            const hasInfo = !!(k.marital_status || k.children_status);
+            const iconBtn = { background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', padding:'7px', display:'flex', color:'var(--color-text-secondary)', flexShrink:0 };
+            const linkBtn = { background:'none', border:'none', cursor:'pointer', padding:'4px 0', fontSize:'12px', color:'var(--color-text-info)', textDecoration:'underline', whiteSpace:'nowrap' };
             return (
               <div key={k.id} style={{ background: needs ? 'var(--color-background-warning)' : 'var(--color-background-primary)', border:`0.5px solid ${needs ? 'var(--color-border-secondary)' : 'var(--color-border-tertiary)'}`, borderRadius:'var(--border-radius-lg)', padding:'14px 16px' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
                   <div style={{ width:'40px', height:'40px', borderRadius:'12px', background:'var(--color-background-secondary)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'20px', flexShrink:0 }}>🕐</div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <p style={{ margin:0, fontSize:'14px', fontWeight:500, color: needs ? 'var(--color-text-warning)' : 'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.label || k.full_name}</p>
-                    <p style={{ margin:'2px 0 0', fontSize:'12px', color: needs ? 'var(--color-text-warning)' : 'var(--color-text-tertiary)' }}>{statusText}</p>
+                    <p style={{ margin:'2px 0 0', fontSize:'12px', color: needs ? 'var(--color-text-warning)' : 'var(--color-text-tertiary)' }}>{k.dob} · {statusText}</p>
                   </div>
-                  {needs ? (
-                    <button onClick={() => setRectifying(k)} style={{ padding:'9px 14px', fontSize:'13px', fontWeight:600, cursor:'pointer', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', whiteSpace:'nowrap' }}>
-                      {uiLang === 'en' ? 'Confirm now' : 'अभी पुष्टि करें'}
-                    </button>
-                  ) : (
-                    <button onClick={() => setRectifying(k)} style={{ padding:'6px 4px', fontSize:'12px', cursor:'pointer', background:'none', border:'none', color:'var(--color-text-info)', textDecoration:'underline', whiteSpace:'nowrap' }}>
-                      {uiLang === 'en' ? 'Not sure of the time?' : 'समय पक्का नहीं?'}
-                    </button>
-                  )}
+                  <button onClick={() => setEditingKundli(k)} title={t('editKundli', uiLang)} aria-label={t('editKundli', uiLang)} style={iconBtn}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                  <button onClick={() => deleteKundli(k.id)} title={t('deleteKundliBtn', uiLang)} aria-label={t('deleteKundliBtn', uiLang)} style={{ ...iconBtn, background:'none', border:'none', color:'var(--color-text-tertiary)' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
                 </div>
 
-                {/* Life details — visible and editable, so the user always sees what is kept */}
-                <div style={{ marginTop:'12px', paddingTop:'10px', borderTop:'0.5px solid var(--color-border-tertiary)' }}>
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'8px' }}>
-                    <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)' }}>
-                      {(k.marital_status || k.children_status) ? (
+                <div style={{ marginTop:'10px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', flexWrap:'wrap' }}>
+                  {needs ? (
+                    <button onClick={() => setRectifying(k)} style={{ padding:'8px 14px', fontSize:'13px', fontWeight:600, cursor:'pointer', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', whiteSpace:'nowrap' }}>
+                      {t('validateBirthTime', uiLang)}
+                    </button>
+                  ) : (
+                    <button onClick={() => setRectifying(k)} style={linkBtn}>{t('validateBirthTime', uiLang)}</button>
+                  )}
+                  <button onClick={() => setInfoOpenId(infoOpen ? null : k.id)} style={linkBtn} aria-expanded={infoOpen}>
+                    {t('additionalInfo', uiLang)} {infoOpen ? '▴' : '▾'}
+                  </button>
+                </div>
+
+                {infoOpen && (
+                  <div style={{ marginTop:'10px', paddingTop:'10px', borderTop:'0.5px solid var(--color-border-tertiary)' }}>
+                    <p style={{ margin:'0 0 8px', fontSize:'12px', color:'var(--color-text-secondary)' }}>
+                      {hasInfo ? (
                         <>
                           {k.marital_status && <span>{labelFor(MARITAL_OPTIONS, k.marital_status, uiLang)}</span>}
                           {k.marital_status && k.children_status && <span> · </span>}
-                          {k.children_status && <span>{uiLang === 'en' ? 'Children: ' : 'संतान: '}{labelFor(CHILDREN_OPTIONS, k.children_status, uiLang)}</span>}
+                          {k.children_status && <span>{t('childrenPrefix', uiLang)}{labelFor(CHILDREN_OPTIONS, k.children_status, uiLang)}</span>}
                         </>
                       ) : (
-                        <span style={{ color:'var(--color-text-tertiary)' }}>{uiLang === 'en' ? 'Life details: not added' : 'जीवन विवरण: जोड़ा नहीं'}</span>
+                        <span style={{ color:'var(--color-text-tertiary)' }}>{t('infoNotAdded', uiLang)}</span>
                       )}
                     </p>
-                    <button onClick={() => setLifeEditId(editing ? null : k.id)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'12px', color:'var(--color-text-info)', padding:'4px' }}>
-                      {editing ? (uiLang === 'en' ? 'Done' : 'हो गया') : (uiLang === 'en' ? 'Edit' : 'बदलें')}
-                    </button>
+                    <p style={{ margin:'0 0 6px', fontSize:'11px', color:'var(--color-text-tertiary)' }}>{t('maritalLabel', uiLang)}</p>
+                    <LifeChips field="marital" value={k.marital_status} lang={uiLang} compact onPick={(v) => saveLife(k.id, { marital_status: v })} />
+                    <p style={{ margin:'10px 0 6px', fontSize:'11px', color:'var(--color-text-tertiary)' }}>{t('childrenLabel', uiLang)}</p>
+                    <LifeChips field="children" value={k.children_status} lang={uiLang} compact onPick={(v) => saveLife(k.id, { children_status: v })} />
+                    {hasInfo && (
+                      <button onClick={() => { saveLife(k.id, { clear: ['marital', 'children'] }); setKundlis(list => list.map(x => x.id === k.id ? { ...x, marital_status: null, children_status: null } : x)); }} style={{ marginTop:'10px', background:'none', border:'none', cursor:'pointer', fontSize:'12px', color:'var(--color-text-danger)', padding:0 }}>
+                        {t('removeDetails', uiLang)}
+                      </button>
+                    )}
                   </div>
-                  {editing && (
-                    <div style={{ marginTop:'8px' }}>
-                      <p style={{ margin:'0 0 6px', fontSize:'11px', color:'var(--color-text-tertiary)' }}>{uiLang === 'en' ? 'Status' : 'स्थिति'}</p>
-                      <LifeChips field="marital" value={k.marital_status} lang={uiLang} compact onPick={(v) => saveLife(k.id, { marital_status: v })} />
-                      <p style={{ margin:'10px 0 6px', fontSize:'11px', color:'var(--color-text-tertiary)' }}>{uiLang === 'en' ? 'Children' : 'संतान'}</p>
-                      <LifeChips field="children" value={k.children_status} lang={uiLang} compact onPick={(v) => saveLife(k.id, { children_status: v })} />
-                      {(k.marital_status || k.children_status) && (
-                        <button onClick={() => { saveLife(k.id, { clear: ['marital', 'children'] }); setKundlis(list => list.map(x => x.id === k.id ? { ...x, marital_status: null, children_status: null } : x)); }} style={{ marginTop:'10px', background:'none', border:'none', cursor:'pointer', fontSize:'12px', color:'var(--color-text-danger)', padding:0 }}>
-                          {uiLang === 'en' ? 'Remove these details' : 'ये जानकारी हटाएँ'}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             );
           })}
         </div>
+      )}
+
+      {editingKundli && (
+        <EditKundliModal
+          kundli={editingKundli}
+          lang={uiLang}
+          onClose={() => setEditingKundli(null)}
+          onSaved={(updated) => {
+            setKundlis(list => list.map(x => x.id === updated.id ? { ...x, ...updated } : x));
+            setEditingKundli(null);
+          }}
+        />
       )}
 
       {rectifying && (
@@ -242,7 +286,7 @@ export default function ProfilePage() {
         <button onClick={() => router.push('/remedies')} style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:'6px', padding:'14px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', cursor:'pointer', textAlign:'left' }}>
           <span style={{ fontSize:'22px' }}>🪔</span>
           <span style={{ fontSize:'13px', fontWeight:'500', color:'var(--color-text-primary)' }}>{t('myRemedies', uiLang)}</span>
-          <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)' }}>{activeNowCount > 0 ? `${activeNowCount} ${uiLang === 'en' ? 'active now' : 'अभी चल रहे हैं'}` : t('remedyStart', uiLang)}</span>
+          <span style={{ fontSize:'11px', color:'var(--color-text-tertiary)' }}>{activeNowCount > 0 ? `${activeNowCount} ${t('activeNow', uiLang)}` : t('remedyStart', uiLang)}</span>
         </button>
 
         <button onClick={() => router.push('/support')} style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:'6px', padding:'14px', background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', cursor:'pointer', textAlign:'left' }}>
@@ -267,7 +311,7 @@ export default function ProfilePage() {
           star average is public (everyone sees it); the written note
           is private, read only by the Luckfixer team. */}
       <div style={{ marginTop:'2rem' }}>
-        <SiteRatingWidget feature="overall" title={uiLang === 'en' ? 'Rate Luckfixer' : 'Luckfixer को Rate करें'} />
+        <SiteRatingWidget feature="overall" lang={uiLang} title={t('rateTitle', uiLang)} />
       </div>
     </div>
   );

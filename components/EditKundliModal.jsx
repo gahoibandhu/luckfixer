@@ -21,7 +21,27 @@ const ANALYZING_STEPS = [
   'बस थोड़ी देर और',
 ];
 
-export default function EditKundliModal({ kundli, onClose, onSaved }) {
+const EL = {
+  hi: {
+    steps: ANALYZING_STEPS,
+    title: 'कुंडली एडिट करें', fullName: 'पूरा नाम *', dob: 'जन्म तिथि *', tob: 'जन्म समय *', pob: 'जन्म स्थान *', search: 'खोजें',
+    placeFirst: 'कृपया पहले जन्म स्थान भरें', notFound: 'स्थान नहीं मिला — Latitude/Longitude खुद डालें', geoProblem: 'स्थान खोजने में समस्या — Latitude/Longitude खुद डालें',
+    needCoords: 'कृपया जन्म स्थान डालकर "खोजें" दबाएं, या Latitude/Longitude खुद भरें', saveFail: 'Save नहीं हो पाया', wrong: 'कुछ गड़बड़ हुई — दोबारा कोशिश करें',
+    next: 'आगे बढ़ें', save: 'Save करें', back: '← वापस', confirm: 'हाँ, पुनः विश्लेषण करें',
+    warn: '⚠️ जन्म तिथि/समय/स्थान बदल रहे हैं — इससे कुंडली दोबारा calculate होगी और AI विश्लेषण फिर से लिखा जाएगा।', placeLabel: 'स्थान',
+  },
+  en: {
+    steps: ['Rebuilding your kundli', 'Calculating planetary positions', 'Identifying yogas and dasha', 'Re-writing the AI analysis', 'Just a moment more'],
+    title: 'Edit kundli', fullName: 'Full name *', dob: 'Date of birth *', tob: 'Time of birth *', pob: 'Place of birth *', search: 'Search',
+    placeFirst: 'Please enter the birth place first', notFound: 'Place not found — enter latitude/longitude manually', geoProblem: 'Could not look up the place — enter latitude/longitude manually',
+    needCoords: 'Please enter the birth place and tap "Search", or fill latitude/longitude manually', saveFail: 'Could not save', wrong: 'Something went wrong — please try again',
+    next: 'Continue', save: 'Save', back: '← Back', confirm: 'Yes, re-analyse',
+    warn: '⚠️ Changing date/time/place will recalculate the kundli and re-write the AI analysis.', placeLabel: 'Place',
+  },
+};
+
+export default function EditKundliModal({ kundli, onClose, onSaved, lang = 'hi' }) {
+  const L = EL[lang === 'en' ? 'en' : 'hi'];
   const [form, setForm] = useState({
     label:       kundli.label || '',
     full_name:   kundli.full_name || '',
@@ -57,7 +77,7 @@ export default function EditKundliModal({ kundli, onClose, onSaved }) {
     form.ayanamsa !== (kundli.ayanamsa || 'lahiri');
 
   async function geocodePlace() {
-    if (!form.birth_place.trim()) { setGeoError('कृपया पहले जन्म स्थान भरें'); return; }
+    if (!form.birth_place.trim()) { setGeoError(L.placeFirst); return; }
     setGeocoding(true); setGeoError(''); setGeoResults([]);
     try {
       const res = await fetch(`/api/geocode?q=${encodeURIComponent(form.birth_place)}`);
@@ -66,10 +86,10 @@ export default function EditKundliModal({ kundli, onClose, onSaved }) {
         if (data.results.length === 1) selectLocation(data.results[0]);
         else setGeoResults(data.results);
       } else {
-        setGeoError('स्थान नहीं मिला — Latitude/Longitude खुद डालें');
+        setGeoError(L.notFound);
       }
     } catch {
-      setGeoError('स्थान खोजने में समस्या — Latitude/Longitude खुद डालें');
+      setGeoError(L.geoProblem);
     }
     setGeocoding(false);
   }
@@ -83,7 +103,7 @@ export default function EditKundliModal({ kundli, onClose, onSaved }) {
     e.preventDefault();
     setError('');
     if (!form.latitude || !form.longitude) {
-      setError('कृपया जन्म स्थान डालकर "खोजें" दबाएं, या Latitude/Longitude खुद भरें');
+      setError(L.needCoords);
       return;
     }
     if (birthFieldsChanged && !confirming) {
@@ -106,11 +126,11 @@ export default function EditKundliModal({ kundli, onClose, onSaved }) {
       if (data.kundli) {
         onSaved(data.kundli);
       } else {
-        setError(data.error || 'Save नहीं हो पाया');
+        setError(data.error || L.saveFail);
         setConfirming(false);
       }
     } catch {
-      setError('कुछ गड़बड़ हुई — दोबारा कोशिश करें');
+      setError(L.wrong);
       setConfirming(false);
     }
     setSaving(false);
@@ -120,7 +140,7 @@ export default function EditKundliModal({ kundli, onClose, onSaved }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '1rem' }} onClick={() => !saving && onClose()}>
       <div style={{ background: 'var(--color-background-primary)', borderRadius: 'var(--border-radius-lg)', padding: '1.5rem', maxWidth: '440px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <p style={{ fontSize: '15px', fontWeight: '500', color: 'var(--color-text-primary)', margin: 0 }}>कुंडली एडिट करें</p>
+          <p style={{ fontSize: '15px', fontWeight: '500', color: 'var(--color-text-primary)', margin: 0 }}>{L.title}</p>
           <button onClick={() => !saving && onClose()} style={{ background: 'none', border: 'none', cursor: saving ? 'default' : 'pointer', fontSize: '18px', color: 'var(--color-text-tertiary)' }}>✕</button>
         </div>
 
@@ -128,22 +148,22 @@ export default function EditKundliModal({ kundli, onClose, onSaved }) {
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
               <label className="lf-label">Label</label>
-              <input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder="मेरी कुंडली" style={{ width: '100%', fontSize: '14px' }} />
+              <input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder={lang === 'en' ? 'My kundli' : 'मेरी कुंडली'} style={{ width: '100%', fontSize: '14px' }} />
             </div>
             <div>
-              <label className="lf-label">पूरा नाम *</label>
+              <label className="lf-label">{L.fullName}</label>
               <input value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} required style={{ width: '100%', fontSize: '14px' }} />
             </div>
             <div>
-              <label className="lf-label">जन्म तिथि *</label>
+              <label className="lf-label">{L.dob}</label>
               <DateOfBirthInput value={form.dob} onChange={dob => setForm(f => ({ ...f, dob }))} required />
             </div>
             <div>
-              <label className="lf-label">जन्म समय *</label>
+              <label className="lf-label">{L.tob}</label>
               <input type="time" value={form.birth_time} onChange={e => setForm(f => ({ ...f, birth_time: e.target.value }))} required style={{ width: '100%', fontSize: '14px' }} />
             </div>
             <div>
-              <label className="lf-label">जन्म स्थान *</label>
+              <label className="lf-label">{L.pob}</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   value={form.birth_place}
@@ -153,7 +173,7 @@ export default function EditKundliModal({ kundli, onClose, onSaved }) {
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); geocodePlace(); } }}
                 />
                 <button type="button" onClick={geocodePlace} disabled={geocoding} style={{ padding: '8px 14px', fontSize: '13px', background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-secondary)', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', color: 'var(--color-text-primary)' }}>
-                  {geocoding ? '...' : 'खोजें'}
+                  {geocoding ? '...' : L.search}
                 </button>
               </div>
               {geoResults.length > 0 && (
@@ -166,7 +186,7 @@ export default function EditKundliModal({ kundli, onClose, onSaved }) {
                 </div>
               )}
               {form.latitude && form.longitude && (
-                <p style={{ fontSize: '11px', color: 'var(--color-text-success)', margin: '6px 0 0' }}>✓ स्थान: {form.latitude}, {form.longitude}</p>
+                <p style={{ fontSize: '11px', color: 'var(--color-text-success)', margin: '6px 0 0' }}>✓ {L.placeLabel}: {form.latitude}, {form.longitude}</p>
               )}
               {geoError && <p style={{ fontSize: '11px', color: 'var(--color-text-danger)', margin: '6px 0 0' }}>{geoError}</p>}
             </div>
@@ -182,20 +202,20 @@ export default function EditKundliModal({ kundli, onClose, onSaved }) {
             {error && <p style={{ fontSize: '12px', color: 'var(--color-text-danger)', margin: 0 }}>{error}</p>}
 
             <button type="submit" style={{ padding: '11px', background: 'var(--color-text-primary)', color: 'var(--color-background-primary)', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', marginTop: '4px' }}>
-              {birthFieldsChanged ? 'आगे बढ़ें' : 'Save करें'}
+              {birthFieldsChanged ? L.next : L.save}
             </button>
           </form>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ background: 'var(--color-background-warning)', borderRadius: '10px', padding: '12px 14px' }}>
               <p style={{ margin: 0, fontSize: '13px', color: 'var(--color-text-warning)', lineHeight: '1.6' }}>
-                ⚠️ जन्म तिथि/समय/स्थान बदल रहे हैं — इससे कुंडली दोबारा calculate होगी और AI विश्लेषण फिर से लिखा जाएगा। पुराना विश्लेषण overwrite हो जाएगा।
+                {L.warn}
               </p>
             </div>
             {error && <p style={{ fontSize: '12px', color: 'var(--color-text-danger)', margin: 0 }}>{error}</p>}
             <div style={{ display: 'flex', gap: '8px' }}>
               <button type="button" disabled={saving} onClick={() => setConfirming(false)} style={{ flex: '0 0 80px', padding: '11px', background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '10px', cursor: saving ? 'default' : 'pointer', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-                ← वापस
+                {L.back}
               </button>
               <button
                 type="button"
@@ -208,7 +228,7 @@ export default function EditKundliModal({ kundli, onClose, onSaved }) {
                   ...(saving ? {} : { background: 'var(--color-text-primary)', color: 'var(--color-background-primary)', cursor: 'pointer' }),
                 }}
               >
-                {saving ? <><span className="lf-spinner" /><span>{ANALYZING_STEPS[stepIdx]}...</span></> : 'हाँ, पुनः विश्लेषण करें'}
+                {saving ? <><span className="lf-spinner" /><span>{L.steps[stepIdx]}...</span></> : L.confirm}
               </button>
             </div>
           </div>

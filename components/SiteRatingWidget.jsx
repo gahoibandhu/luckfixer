@@ -29,7 +29,14 @@ function Stars({ value, onChange, size = 22 }) {
   );
 }
 
-export default function SiteRatingWidget({ feature = 'overall', title = 'Rating दें', compact = false }) {
+const RW = {
+  hi: { title: 'Rating दें', pickStars: 'कृपया स्टार चुनें', thanks: '✓ धन्यवाद! आपकी rating सेव हो गई', compactBtn: 'Rating व फीडबैक', close: 'बंद करें', placeholder: 'कोई सुझाव या समस्या बताएं? (वैकल्पिक, निजी)', saving: 'सेव हो रहा है...', update: 'Rating अपडेट करें', give: 'Rating दें' },
+  en: { title: 'Rate us', pickStars: 'Please select a star rating', thanks: '✓ Thank you! Your rating has been saved', compactBtn: 'Rating & feedback', close: 'Close', placeholder: 'Any suggestion or problem? (optional, private)', saving: 'Saving...', update: 'Update rating', give: 'Submit rating' },
+};
+
+export default function SiteRatingWidget({ feature = 'overall', title, compact = false, lang = 'hi' }) {
+  const L = RW[lang === 'en' ? 'en' : 'hi'];
+  title = title || L.title;
   const [ratings,     setRatings]     = useState(null);
   const [myStars,     setMyStars]     = useState(0);
   const [myComment,   setMyComment]   = useState('');
@@ -51,7 +58,7 @@ export default function SiteRatingWidget({ feature = 'overall', title = 'Rating 
   }
 
   async function submit() {
-    if (!myStars) { setMsg('कृपया स्टार चुनें'); return; }
+    if (!myStars) { setMsg(L.pickStars); return; }
     setSaving(true); setMsg('');
     const res = await fetch('/api/ratings', {
       method: 'POST',
@@ -60,7 +67,7 @@ export default function SiteRatingWidget({ feature = 'overall', title = 'Rating 
     });
     const data = await res.json();
     if (data.success) {
-      setMsg('✓ धन्यवाद! आपकी rating सेव हो गई');
+      setMsg(L.thanks);
       load();
     } else {
       setMsg('Error: ' + (data.error || 'unknown'));
@@ -74,7 +81,7 @@ export default function SiteRatingWidget({ feature = 'overall', title = 'Rating 
         onClick={() => setExpanded(true)}
         style={{ width:'100%', padding:'10px', fontSize:'14px', color:'var(--color-text-primary)', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontWeight:'500' }}
       >
-        ⭐ Rating व फीडबैक {ratings?.count ? `(${ratings.average} / 5 · ${ratings.count} ratings)` : ''}
+        ⭐ {L.compactBtn} {ratings?.count ? `(${ratings.average} / 5 · ${ratings.count})` : ''}
       </button>
     );
   }
@@ -84,7 +91,7 @@ export default function SiteRatingWidget({ feature = 'overall', title = 'Rating 
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
         <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:0 }}>{title}</p>
         {compact && (
-          <button onClick={() => setExpanded(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-tertiary)', fontSize:'13px' }}>बंद करें</button>
+          <button onClick={() => setExpanded(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-tertiary)', fontSize:'13px' }}>{L.close}</button>
         )}
       </div>
 
@@ -102,13 +109,13 @@ export default function SiteRatingWidget({ feature = 'overall', title = 'Rating 
       <textarea
         value={myComment}
         onChange={e => setMyComment(e.target.value)}
-        placeholder="कोई सुझाव या समस्या बताएं? (वैकल्पिक, निजी)"
+        placeholder={L.placeholder}
         rows={2}
         style={{ width:'100%', fontSize:'13px', resize:'vertical', marginTop:'12px' }}
       />
       {msg && <p style={{ fontSize:'12px', color: msg.startsWith('✓') ? 'var(--color-text-success)' : 'var(--color-text-danger)', margin:'6px 0 0' }}>{msg}</p>}
       <button onClick={submit} disabled={saving} style={{ marginTop:'10px', padding:'8px 16px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', fontWeight:'500' }}>
-        {saving ? 'सेव हो रहा है...' : (ratings?.myRating ? 'Rating अपडेट करें' : 'Rating दें')}
+        {saving ? L.saving : (ratings?.myRating ? L.update : L.give)}
       </button>
     </div>
   );

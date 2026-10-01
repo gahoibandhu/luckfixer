@@ -153,7 +153,8 @@ const MAX_WORD_LIMIT_MULTI_PART = 320; // ceiling even for very multi-part quest
 // benefit — this app's system prompt already asks for crisp, focused
 // replies to crisp, focused questions. Reject before the usage guard and
 // AI call even run, so it doesn't cost the user a free chat/minute.
-const MAX_USER_INPUT_CHARS = 600; // ~100-120 words — generous for a real question, well short of an essay
+const LONG_INPUT_SOFT_CHARS = 600;   // above this: still answered, but in "long message" mode (below)
+const MAX_USER_INPUT_CHARS  = 1500;  // hard ceiling — an essay/life story is still rejected, before it costs a credit
 
 function tooLongInputMessage(lang) {
   return lang === 'en'
@@ -1188,12 +1189,22 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
     // of everything, when there are too many parts to do justice to.
     const lastUserMsg = messages[messages.length - 1]?.content || '';
     const questionParts = countQuestionParts(lastUserMsg);
-    const dynamicWordLimit = questionParts >= 3
+    // Long-message mode (600-1500 chars): not rejected anymore. ONE AI call, but the
+    // model is told to split the message into its 2-4 real questions itself and answer
+    // each briefly. (Two parallel AI calls would double quota use and give two
+    // answers that don't know about each other.)
+    const isLongInput = lastUserMsg.length > LONG_INPUT_SOFT_CHARS;
+    let dynamicWordLimit = questionParts >= 3
       ? Math.min(HARD_WORD_LIMIT + (questionParts - 1) * 55, MAX_WORD_LIMIT_MULTI_PART)
       : HARD_WORD_LIMIT;
+    if (isLongInput) dynamicWordLimit = Math.max(dynamicWordLimit, 260);
 
     if (questionParts >= 3) {
       systemPrompt += `\n\n[MULTI-PART QUESTION DETECTED — ${questionParts} distinct questions in one message]\nUser ne ek saath kai sawal poochhe hain. Sabko halka-phulka chhoo kar mat jao — usse jawab adhoora aur generic lagta hai. Instead: sabse important 3-4 sawalon ko poora, specific (exact planet/degree/dasha se grounded) jawab do, aur bacha hua 1-2 kam-important sawal ke liye seedha bolo "baaki sawal ka jawab agli baar detail mein denge" ya unhe combine karke ek line mein cover karo. Kabhi bhi sentence beech mein mat chhodo — har jawab poora aur complete hona chahiye, chahe usse kam sawal cover ho paayein.`;
+    }
+
+    if (isLongInput) {
+      systemPrompt += `\n\n[LONG MESSAGE — user ne bada message likha hai]\nPehle mann mein is message ko 2-4 sabse zaroori sawalon mein baanto (zyada ho to sabse important chuno aur ant mein ek line mein batao ki baaki alag se pooch sakte hain). Har sawal ka chhota, seedha jawab do (1-3 line), numbered format mein (1., 2., 3.). Background/kahani ko dohrao mat. Ant mein ek practical action ya upaay do.`;
     }
 
     // ── Repeat-question detection ──────────────────────────────────
@@ -1226,7 +1237,10 @@ IMPORTANT: When user asks about "abhi kya chal raha hai" or current timing, comb
     }
 
     // ── Call AI (graceful fallback — never throws) ───────────
-    const aiResponse = await getChatResponse(systemPrompt, messages, langPref || 'auto');
+    // Long message -> keep only the last few turns of history so the prompt stays small
+    // (faster, and free-tier providers handle it better).
+    const aiMessages = isLongInput ? messages.slice(-4) : messages;
+    const aiResponse = await getChatResponse(systemPrompt, aiMessages, langPref || 'auto');
 
     // Deterministic safety net — guarantees crisp, non-repetitive output
     // regardless of which provider answered or how well it followed the
