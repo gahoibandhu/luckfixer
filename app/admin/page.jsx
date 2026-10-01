@@ -35,6 +35,8 @@ export default function AdminPage() {
   const [botNameLoaded, setBotNameLoaded] = useState(false);
   const [botNameSaving, setBotNameSaving] = useState(false);
   const [botNameMsg, setBotNameMsg] = useState('');
+  const [askAgeForm, setAskAgeForm] = useState('30');
+  const [askAgeMsg, setAskAgeMsg] = useState('');
 
   // ── Support/Feedback messages (support_messages table) ────
   const [supportMessages, setSupportMessages] = useState([]);
@@ -415,7 +417,18 @@ export default function AdminPage() {
     const data = await res.json();
     const row = data.config?.find(c => c.key === 'bot_display_name');
     setBotNameForm(row?.value || 'Luckfixer');
+    setAskAgeForm(data.config?.find(c => c.key === 'relationship_ask_age')?.value || '30');
     setBotNameLoaded(true);
+  }
+
+  async function saveAskAge(e) {
+    e.preventDefault();
+    setAskAgeMsg('');
+    const n = parseInt(askAgeForm, 10);
+    if (!Number.isFinite(n) || n < 18 || n > 80) { setAskAgeMsg('Error: 18 se 80 ke beech koi age dalein'); return; }
+    const res = await fetch('/api/admin/config', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ relationship_ask_age: String(n) }) });
+    const data = await res.json();
+    setAskAgeMsg(data.success ? '✓ सेव हो गया — 60 सेकंड में लागू होगा' : 'Error: ' + (data.error || 'unknown'));
   }
 
   async function loadSupportMessages() {
@@ -1319,6 +1332,18 @@ export default function AdminPage() {
             <button type="submit" disabled={botNameSaving || !botNameForm.trim()} style={{ padding:'10px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>
               {botNameSaving ? 'Save हो रहा है...' : 'Save करें'}
             </button>
+          </form>
+        </div>
+
+        <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1.25rem' }}>
+          <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 1rem' }}>Relationship Question Rule</p>
+          <form onSubmit={saveAskAge} style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
+            <div>
+              <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', fontWeight:'500', display:'block', marginBottom:'4px' }}>इस उम्र या उससे ऊपर के user रिश्ते/शादी का सवाल पूछें तो bot पहले उनकी स्थिति (विवाहित/अविवाहित) पूछेगा</label>
+              <input type="number" min="18" max="80" value={askAgeForm} onChange={e => setAskAgeForm(e.target.value)} />
+            </div>
+            {askAgeMsg && <p style={{ fontSize:'12px', color: askAgeMsg.startsWith('✓') ? 'var(--color-text-success)' : 'var(--color-text-danger)', margin:0 }}>{askAgeMsg}</p>}
+            <button type="submit" style={{ padding:'10px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>Save करें</button>
           </form>
         </div>
         </div>

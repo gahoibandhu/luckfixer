@@ -605,3 +605,9 @@ button:active { transform: scale(0.98); }
   color: var(--color-text-tertiary) !important;
   cursor: default;
 }
+
+/* ── Life-details chips (marital status / children) ─────────── */
+@keyframes lf-chipIn { from { opacity:0; transform: translateY(6px) scale(.96); } to { opacity:1; transform:none; } }
+.lf-chip { animation: lf-chipIn .28s ease both; transition: transform .12s ease, box-shadow .12s ease, background .12s ease; }
+.lf-chip:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.lf-chip:active:not(:disabled) { transform: scale(.95); }

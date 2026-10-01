@@ -24,6 +24,12 @@ const EVENT_TYPES = [
   ['separation', 'अलगाव / तलाक', 'Separation / divorce'],
 ];
 
+const EVENT_ICONS = {
+  marriage:'💍', child_birth:'👶', job_start:'💼', promotion:'📈', foreign_travel:'✈️', property:'🏠',
+  education:'🎓', father_death:'🕯️', mother_death:'🕯️', accident_illness:'🩹', major_loss:'📉', separation:'💔',
+};
+const SIGN_SYMBOL = { Aries:'♈', Taurus:'♉', Gemini:'♊', Cancer:'♋', Leo:'♌', Virgo:'♍', Libra:'♎', Scorpio:'♏', Sagittarius:'♐', Capricorn:'♑', Aquarius:'♒', Pisces:'♓' };
+
 const PARTS = [
   ['subah', 'सुबह (4-12)', 'Morning (4am-12pm)'],
   ['dopahar', 'दोपहर (12-5)', 'Afternoon (12-5pm)'],
@@ -84,11 +90,17 @@ export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied
   const [start, setStart] = useState(shift(base, -60));
   const [end, setEnd] = useState(shift(base, 60));
   const [part, setPart] = useState('subah');
-  const [events, setEvents] = useState(
-    Array.isArray(kundli.life_events) && kundli.life_events.length > 0
-      ? kundli.life_events.map(e => ({ type: e.type, date: e.date }))
-      : [{ type: 'marriage', date: '' }, { type: 'job_start', date: '' }, { type: 'child_birth', date: '' }]
-  );
+  // Start from saved events; otherwise pre-select the obvious ones from life details
+  // the user already gave (married -> marriage, has children -> child birth).
+  const [events, setEvents] = useState(() => {
+    if (Array.isArray(kundli.life_events) && kundli.life_events.length > 0) return kundli.life_events.map(e => ({ type: e.type, date: e.date }));
+    const pre = [];
+    if (['married', 'divorced', 'widowed'].includes(kundli.marital_status)) pre.push({ type: 'marriage', date: '' });
+    if (['one', 'two', 'three_plus'].includes(kundli.children_status)) pre.push({ type: 'child_birth', date: '' });
+    return pre;
+  });
+  const toggleType = (type) => setEvents(list => list.some(e => e.type === type) ? list.filter(e => e.type !== type) : [...list, { type, date: '' }]);
+  const [tick, setTick] = useState(0);
   const [phase, setPhase] = useState('setup'); // setup | running | results | applying
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
@@ -100,6 +112,12 @@ export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied
   useEffect(() => {
     if (result?.windows?.[sel]) setChosenTime(result.windows[sel].mid);
   }, [result, sel]);
+
+  useEffect(() => {
+    if (phase !== 'running' && phase !== 'applying') return;
+    const id = setInterval(() => setTick(x => x + 1), 1800);
+    return () => clearInterval(id);
+  }, [phase]);
 
   async function run() {
     setError('');
@@ -185,17 +203,38 @@ export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied
             </div>
 
             <div>
-              <label style={lbl}>{T.eventsQ}</label>
-              {events.map((ev, i) => (
-                <div key={i} style={{ display:'flex', gap:'6px', marginBottom:'6px' }}>
-                  <select value={ev.type} onChange={e => setEvents(list => list.map((x, j) => j === i ? { ...x, type: e.target.value } : x))} style={{ flex:'1 1 55%', minWidth:0, fontSize:'13px' }}>
-                    {EVENT_TYPES.map(([v, hi, en]) => <option key={v} value={v}>{L === 'en' ? en : hi}</option>)}
-                  </select>
-                  <input type="date" value={ev.date} max={today} min={kundli.dob} onChange={e => setEvents(list => list.map((x, j) => j === i ? { ...x, date: e.target.value } : x))} style={{ flex:'1 1 45%', minWidth:0, fontSize:'13px' }} />
-                  {events.length > 1 && <button type="button" onClick={() => setEvents(list => list.filter((_, j) => j !== i))} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-tertiary)', fontSize:'16px' }}>×</button>}
+              <label style={lbl}>{L === 'en' ? 'Tap the events that happened in your life' : 'जीवन की जो घटनाएँ हुईं, उन पर टैप करें'} <span style={{ color:'var(--color-text-tertiary)', fontWeight:400 }}>({L === 'en' ? 'at least 3, ideally 5+' : 'कम से कम 3, बेहतर 5+'})</span></label>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'8px' }}>
+                {EVENT_TYPES.map(([v, hi, en]) => {
+                  const on = events.some(e => e.type === v);
+                  return (
+                    <button key={v} type="button" onClick={() => toggleType(v)} className="lf-chip"
+                      style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'4px', padding:'10px 4px', cursor:'pointer', borderRadius:'12px', textAlign:'center',
+                        border:`1px solid ${on ? 'var(--color-brand, var(--color-text-primary))' : 'var(--color-border-tertiary)'}`,
+                        background: on ? 'var(--color-brand-light, var(--color-background-secondary))' : 'var(--color-background-primary)',
+                        color:'var(--color-text-primary)' }}>
+                      <span style={{ fontSize:'22px', lineHeight:1 }}>{EVENT_ICONS[v]}</span>
+                      <span style={{ fontSize:'11px', lineHeight:1.25, fontWeight: on ? 600 : 400 }}>{L === 'en' ? en : hi}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {events.length > 0 && (
+                <div style={{ marginTop:'12px', display:'flex', flexDirection:'column', gap:'6px' }}>
+                  <label style={lbl}>{L === 'en' ? 'When did each happen? (approximate date is fine)' : 'हर घटना कब हुई? (अंदाज़े की तारीख़ भी चलेगी)'}</label>
+                  {events.map((ev, i) => (
+                    <div key={i} style={{ display:'flex', gap:'8px', alignItems:'center' }}>
+                      <span style={{ fontSize:'18px', width:'26px', textAlign:'center' }}>{EVENT_ICONS[ev.type]}</span>
+                      <span style={{ flex:'1 1 40%', minWidth:0, fontSize:'13px', color:'var(--color-text-primary)' }}>{evLabel(ev.type)}</span>
+                      <input type="date" value={ev.date} max={today} min={kundli.dob} onChange={e => setEvents(list => list.map((x, j) => j === i ? { ...x, date: e.target.value } : x))} style={{ flex:'1 1 50%', minWidth:0, fontSize:'13px' }} />
+                      {(ev.type === 'child_birth' || ev.type === 'promotion' || ev.type === 'foreign_travel') && (
+                        <button type="button" title={L === 'en' ? 'Add another' : 'एक और जोड़ें'} onClick={() => setEvents(list => { const copy = [...list]; copy.splice(i + 1, 0, { type: ev.type, date: '' }); return copy; })} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'16px', color:'var(--color-text-tertiary)', padding:'0 2px' }}>＋</button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
-              {events.length < 10 && <button type="button" onClick={() => setEvents(list => [...list, { type: 'promotion', date: '' }])} style={{ fontSize:'13px', padding:'6px 10px', cursor:'pointer', background:'none', border:'0.5px dashed var(--color-border-secondary)', borderRadius:'var(--border-radius-md)', color:'var(--color-text-secondary)' }}>{T.addEvent}</button>}
+              )}
             </div>
 
             {error && <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-danger)' }}>{error}</p>}
@@ -205,9 +244,25 @@ export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied
 
         {/* ── RUNNING / APPLYING ─────────────────────────── */}
         {(phase === 'running' || phase === 'applying') && (
-          <div style={{ textAlign:'center', padding:'2rem 0.5rem' }}>
-            <span className="lf-spinner" />
-            <p style={{ fontSize:'14px', color:'var(--color-text-primary)', margin:'12px 0 4px' }}>{phase === 'running' ? T.running : T.applying}</p>
+          <div style={{ textAlign:'center', padding:'1.6rem 0.5rem' }}>
+            <style>{`@keyframes lf-hand { to { transform: rotate(360deg); } } @keyframes lf-hand-slow { to { transform: rotate(360deg); } }`}</style>
+            <svg width="72" height="72" viewBox="0 0 72 72" style={{ display:'block', margin:'0 auto' }}>
+              <circle cx="36" cy="36" r="32" fill="none" stroke="var(--color-border-secondary)" strokeWidth="2" />
+              {[0,30,60,90,120,150,180,210,240,270,300,330].map(a => (
+                <line key={a} x1="36" y1="7" x2="36" y2={a % 90 === 0 ? 13 : 10} stroke="var(--color-text-tertiary)" strokeWidth="1.5" transform={`rotate(${a} 36 36)`} />
+              ))}
+              <line x1="36" y1="36" x2="36" y2="14" stroke="var(--color-text-primary)" strokeWidth="2.5" strokeLinecap="round" style={{ transformOrigin:'36px 36px', animation:'lf-hand 1.6s linear infinite' }} />
+              <line x1="36" y1="36" x2="36" y2="22" stroke="var(--color-text-secondary)" strokeWidth="3" strokeLinecap="round" style={{ transformOrigin:'36px 36px', animation:'lf-hand-slow 12s linear infinite' }} />
+              <circle cx="36" cy="36" r="3" fill="var(--color-text-primary)" />
+            </svg>
+            <p style={{ fontSize:'14px', color:'var(--color-text-primary)', margin:'14px 0 4px', minHeight:'20px' }}>
+              {phase === 'applying' ? T.applying : [
+                L === 'en' ? 'Trying out possible birth times…' : 'संभावित जन्म-समय आज़माए जा रहे हैं…',
+                L === 'en' ? 'Matching each one with your life events…' : 'हर समय को आपकी घटनाओं से मिलाया जा रहा है…',
+                L === 'en' ? 'Comparing planetary periods (dasha)…' : 'ग्रहों की दशाएँ मिलाई जा रही हैं…',
+                L === 'en' ? 'Almost there…' : 'बस थोड़ा और…',
+              ][tick % 4]}
+            </p>
             {phase === 'running' && <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>{T.cold}</p>}
           </div>
         )}
@@ -232,7 +287,7 @@ export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied
                 {result.windows.map((w, i) => (
                   <div key={i} onClick={() => setSel(i)} style={{ ...box, padding:'10px 12px', cursor:'pointer', borderColor: sel === i ? 'var(--color-text-primary)' : undefined, background: sel === i ? 'var(--color-background-secondary)' : undefined }}>
                     <div style={{ display:'flex', justifyContent:'space-between', gap:'8px', alignItems:'center' }}>
-                      <p style={{ margin:0, fontSize:'14px', fontWeight:500, color:'var(--color-text-primary)' }}>{w.start} – {w.end} <span style={{ fontWeight:400, color:'var(--color-text-secondary)', fontSize:'13px' }}>· {L === 'en' ? w.lagna : w.lagna_hi} {L === 'en' ? 'Lagna' : 'लग्न'}</span></p>
+                      <p style={{ margin:0, fontSize:'14px', fontWeight:500, color:'var(--color-text-primary)' }}>{w.start} – {w.end} <span style={{ fontWeight:400, color:'var(--color-text-secondary)', fontSize:'13px' }}>· {SIGN_SYMBOL[w.lagna] || ''} {L === 'en' ? w.lagna : w.lagna_hi} {L === 'en' ? 'Lagna' : 'लग्न'}</span></p>
                       <span style={{ fontSize:'12px', color:'var(--color-text-secondary)', whiteSpace:'nowrap' }}>{w.matched_count}/{result.events_used} · {T.score} {Math.round(w.score)}%</span>
                     </div>
                     <div style={{ display:'flex', gap:'5px', flexWrap:'wrap', marginTop:'6px' }}>

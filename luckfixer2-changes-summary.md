@@ -72,3 +72,12 @@ tiers agree. `ephemeris-service/main.py` accepts optional `tz_offset`.
 - UI: `components/RectifyModal.jsx`; kundli page has a "how sure is this time"
   selector (exact / approximate / don't know), a badge, and a confirm-time button.
 - `vercel.json`: maxDuration 120 for the rectify route.
+
+## Session (cont.): profile birth-time card, life details via chat, 30+ relationship rule
+- migration_025: `marital_status`, `children_status`, `life_prompts_skipped` on saved_kundlis (per kundli, not per user).
+- `lib/life-details.js`: options, keyword+DOB rule `decideLifeAsk()`, warm question text, and `buildLifeContextBlock()` (tells the AI how to frame answers for married / unmarried / divorced / widowed / prefer-not).
+- Chat (`app/api/chat/route.js`): BEFORE the usage guard and any AI call, if the kundli's person is >= `relationship_ask_age` (app_config, default 30) and asks a relationship/marriage question with status unknown, the bot replies with a question + tap chips (no credit used, no AI call). Children question follows only after status is known and someone has been married. "बाद में" is remembered for 7 days. State is read from the DB (ownership-checked), never client-sent context; fails open if the columns are missing.
+- Chat page: `LifeChips` under the bot's question; tapping saves via `/api/kundli/life-details` and replays the original question (no duplicate user bubble).
+- Profile page: per-kundli card — clear "Confirm now" button when the time is unknown/approximate (subtle "Not sure of the time?" link otherwise), plus a visible, editable "life details" row with a "Remove these details" option.
+- Admin > Plan tab: "Relationship Question Rule" age setting.
+- RectifyModal: tap-able icon cards for events (pre-selected from marital/children status), animated clock while scanning, rotating progress lines, zodiac symbols on results.

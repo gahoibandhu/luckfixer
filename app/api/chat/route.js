@@ -2,7 +2,8 @@
 import { createClient } from '@/lib/supabase-server';
 import { getChatResponse, detectLanguage } from '@/lib/ai-engine';
 import { checkUsageAllowed, recordUsage } from '@/lib/usage-guard';
-import { getBotDisplayName } from '@/lib/app-config';
+import { decideLifeAsk, askQuestionText, buildLifeContextBlock, MARITAL_OPTIONS, CHILDREN_OPTIONS, DEFAULT_ASK_AGE } from '@/lib/life-details';
+import { getBotDisplayName, getAppConfig } from '@/lib/app-config';
 import { generatePastValidationQuestions } from '@/lib/past-validation';
 import { buildTransitReport } from '@/lib/transit';
 import { getPendingFollowUp, markFollowUpAsked, recordOutcome, detectOutcomeAnswer, buildFollowUpQuestion, getUserAccuracy, getDashaAccuracyStat, getRemedyOutcomeCorrelation } from '@/lib/outcome-tracking';
@@ -762,7 +763,7 @@ export async function POST(req) {
 
     const userId = user.id;
     const body = await req.json();
-    const { messages, sessionId, kundliId, kundliContext, isGreeting, langPref, pendingFollowUpId } = body;
+    const { messages, sessionId, kundliId, kundliContext, isGreeting, langPref, pendingFollowUpId, skipLifeAsk } = body;
 
     if (!messages || messages.length === 0) {
       return Response.json({ error: 'No messages provided' }, { status: 400 });
@@ -806,6 +807,41 @@ export async function POST(req) {
         pendingFollowUpId: pendingFollowUp?.id || null,
         usage: { freeChatsLeft: 99, freeMinsLeft: 99 },
       });
+    }
+
+    // ── Life-details gate (marital status / children) ───────────
+    // Runs BEFORE the usage guard and BEFORE any AI call, so asking a clarifying
+    // question costs the user no free-chat credit and costs us no AI call.
+    // State comes from the DB row (ownership-checked), never from client-sent context.
+    // Fails open: if the columns don't exist yet or anything errors, chat works as before.
+    let lifeRow = null;
+    if (kundliId) {
+      try {
+        const { data: lr } = await supabase
+          .from('saved_kundlis')
+          .select('user_id, dob, marital_status, children_status, life_prompts_skipped')
+          .eq('id', kundliId).maybeSingle();
+        if (lr && lr.user_id === userId) lifeRow = lr;
+      } catch (e) {
+        console.warn('[Chat] life-details lookup failed (non-fatal):', e.message);
+      }
+    }
+    if (lifeRow && !skipLifeAsk) {
+      try {
+        const cfg = await getAppConfig();
+        const askAge = parseInt(cfg.relationship_ask_age, 10) || DEFAULT_ASK_AGE;
+        const field = decideLifeAsk(latestUserContent, lifeRow, askAge);
+        if (field) {
+          const lang = (langPref && langPref !== 'auto') ? langPref : detectLanguage(latestUserContent);
+          return Response.json({
+            content: askQuestionText(field, lang === 'en' ? 'en' : 'hi'),
+            model: 'local',
+            lifeAsk: { field, options: field === 'marital' ? MARITAL_OPTIONS : CHILDREN_OPTIONS },
+          });
+        }
+      } catch (e) {
+        console.warn('[Chat] life-ask decision failed (non-fatal):', e.message);
+      }
     }
 
     // ── Usage guard ─────────────────────────────────────────
@@ -941,6 +977,7 @@ ${genderAddressNote}
 DOB: ${kundliContext.dob}, Time: ${kundliContext.birth_time}, Place: ${kundliContext.birth_place}
 Current Dasha: ${vim?.mahaDasha?.lordHi || '—'} Mahadasha → ${vim?.antarDasha?.lordHi || '—'} Antardasha (${vim?.antarDasha?.daysLeft || '—'} days remaining, ends ${vim?.antarDasha?.end || '—'})
 RULE: Har response mein kam se kam ek baar "${firstName}" ka naam aana chahiye. "Aapki kundli mein..." mat likho — seedha naam se shuru karo, jaise instruction diya gaya address term use karke.`;
+      systemPrompt += buildLifeContextBlock(lifeRow);
 
       // ── Compact chart summary — NOT the full raw JSON dump ──────
       // CRITICAL FIX: previously we dumped the ENTIRE kundliContext as

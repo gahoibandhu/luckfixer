@@ -10,6 +10,9 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import SiteRatingWidget from '@/components/SiteRatingWidget';
+import RectifyModal from '@/components/RectifyModal';
+import LifeChips from '@/components/LifeChips';
+import { labelFor, MARITAL_OPTIONS, CHILDREN_OPTIONS } from '@/lib/life-details';
 import { getRemedyTimeStatus } from '@/lib/date-format';
 import { t, getSavedUiLang } from '@/lib/i18n';
 
@@ -25,6 +28,9 @@ export default function ProfilePage() {
   const [saving,   setSaving]   = useState(false);
   const [remedies, setRemedies] = useState([]);
   const [uiLang, setUiLang] = useState('hi');
+  const [kundlis, setKundlis] = useState([]);
+  const [rectifying, setRectifying] = useState(null);
+  const [lifeEditId, setLifeEditId] = useState(null);
 
   useEffect(() => { setUiLang(getSavedUiLang()); }, []);
 
@@ -51,6 +57,20 @@ export default function ProfilePage() {
     setForm({ full_name: prof?.full_name || '', mobile: prof?.mobile || '' });
     setUsage(usageData || { chat_count: 0, free_mins_used: 0 });
     loadRemedies();
+    try {
+      const { data: ks } = await supabase.from('saved_kundlis')
+        .select('id, label, full_name, dob, birth_time, birth_time_source, life_events, marital_status, children_status, created_at')
+        .eq('user_id', session.user.id).order('created_at', { ascending: true }).limit(6);
+      setKundlis(ks || []);
+    } catch { /* non-fatal — the card simply doesn't show */ }
+  }
+
+
+  async function saveLife(kundliId, body) {
+    setKundlis(list => list.map(k => k.id === kundliId ? { ...k, ...Object.fromEntries(Object.entries(body).filter(([a]) => a === 'marital_status' || a === 'children_status')) } : k));
+    try {
+      await fetch('/api/kundli/life-details', { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ kundli_id: kundliId, ...body }) });
+    } catch { /* non-fatal */ }
   }
 
   // ── Remedy tracking — full checklist lives on its own page now ──
@@ -134,6 +154,86 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Birth-time confirmation + life details — one clear, tappable entry point */}
+      {kundlis.length > 0 && (
+        <div style={{ marginBottom:'1rem', display:'flex', flexDirection:'column', gap:'10px' }}>
+          {kundlis.slice(0, 3).map(k => {
+            const src = k.birth_time_source || 'exact';
+            const needs = src === 'unknown' || src === 'approx';
+            const statusText = src === 'unknown' ? (uiLang === 'en' ? 'Birth time not known' : 'जन्म समय पता नहीं')
+              : src === 'approx' ? (uiLang === 'en' ? 'Birth time is approximate' : 'जन्म समय अनुमानित है')
+              : src === 'rectified' ? (uiLang === 'en' ? 'Birth time confirmed from life events' : 'जन्म समय घटनाओं से पुष्ट')
+              : (uiLang === 'en' ? 'Birth time recorded' : 'जन्म समय दर्ज');
+            const editing = lifeEditId === k.id;
+            return (
+              <div key={k.id} style={{ background: needs ? 'var(--color-background-warning)' : 'var(--color-background-primary)', border:`0.5px solid ${needs ? 'var(--color-border-secondary)' : 'var(--color-border-tertiary)'}`, borderRadius:'var(--border-radius-lg)', padding:'14px 16px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+                  <div style={{ width:'40px', height:'40px', borderRadius:'12px', background:'var(--color-background-secondary)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'20px', flexShrink:0 }}>🕐</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <p style={{ margin:0, fontSize:'14px', fontWeight:500, color: needs ? 'var(--color-text-warning)' : 'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.label || k.full_name}</p>
+                    <p style={{ margin:'2px 0 0', fontSize:'12px', color: needs ? 'var(--color-text-warning)' : 'var(--color-text-tertiary)' }}>{statusText}</p>
+                  </div>
+                  {needs ? (
+                    <button onClick={() => setRectifying(k)} style={{ padding:'9px 14px', fontSize:'13px', fontWeight:600, cursor:'pointer', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', whiteSpace:'nowrap' }}>
+                      {uiLang === 'en' ? 'Confirm now' : 'अभी पुष्टि करें'}
+                    </button>
+                  ) : (
+                    <button onClick={() => setRectifying(k)} style={{ padding:'6px 4px', fontSize:'12px', cursor:'pointer', background:'none', border:'none', color:'var(--color-text-info)', textDecoration:'underline', whiteSpace:'nowrap' }}>
+                      {uiLang === 'en' ? 'Not sure of the time?' : 'समय पक्का नहीं?'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Life details — visible and editable, so the user always sees what is kept */}
+                <div style={{ marginTop:'12px', paddingTop:'10px', borderTop:'0.5px solid var(--color-border-tertiary)' }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'8px' }}>
+                    <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)' }}>
+                      {(k.marital_status || k.children_status) ? (
+                        <>
+                          {k.marital_status && <span>{labelFor(MARITAL_OPTIONS, k.marital_status, uiLang)}</span>}
+                          {k.marital_status && k.children_status && <span> · </span>}
+                          {k.children_status && <span>{uiLang === 'en' ? 'Children: ' : 'संतान: '}{labelFor(CHILDREN_OPTIONS, k.children_status, uiLang)}</span>}
+                        </>
+                      ) : (
+                        <span style={{ color:'var(--color-text-tertiary)' }}>{uiLang === 'en' ? 'Life details: not added' : 'जीवन विवरण: जोड़ा नहीं'}</span>
+                      )}
+                    </p>
+                    <button onClick={() => setLifeEditId(editing ? null : k.id)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'12px', color:'var(--color-text-info)', padding:'4px' }}>
+                      {editing ? (uiLang === 'en' ? 'Done' : 'हो गया') : (uiLang === 'en' ? 'Edit' : 'बदलें')}
+                    </button>
+                  </div>
+                  {editing && (
+                    <div style={{ marginTop:'8px' }}>
+                      <p style={{ margin:'0 0 6px', fontSize:'11px', color:'var(--color-text-tertiary)' }}>{uiLang === 'en' ? 'Status' : 'स्थिति'}</p>
+                      <LifeChips field="marital" value={k.marital_status} lang={uiLang} compact onPick={(v) => saveLife(k.id, { marital_status: v })} />
+                      <p style={{ margin:'10px 0 6px', fontSize:'11px', color:'var(--color-text-tertiary)' }}>{uiLang === 'en' ? 'Children' : 'संतान'}</p>
+                      <LifeChips field="children" value={k.children_status} lang={uiLang} compact onPick={(v) => saveLife(k.id, { children_status: v })} />
+                      {(k.marital_status || k.children_status) && (
+                        <button onClick={() => { saveLife(k.id, { clear: ['marital', 'children'] }); setKundlis(list => list.map(x => x.id === k.id ? { ...x, marital_status: null, children_status: null } : x)); }} style={{ marginTop:'10px', background:'none', border:'none', cursor:'pointer', fontSize:'12px', color:'var(--color-text-danger)', padding:0 }}>
+                          {uiLang === 'en' ? 'Remove these details' : 'ये जानकारी हटाएँ'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {rectifying && (
+        <RectifyModal
+          kundli={rectifying}
+          uiLang={uiLang}
+          onClose={() => setRectifying(null)}
+          onApplied={(updated) => {
+            setKundlis(list => list.map(x => x.id === updated.id ? { ...x, birth_time: updated.birth_time, birth_time_source: updated.birth_time_source } : x));
+            setRectifying(null);
+          }}
+        />
+      )}
 
       {/* Quick links — only the things without their own bottom-nav
           tab: remedies tracker and contact/support. Kundli, Numerology,

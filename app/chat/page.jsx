@@ -5,6 +5,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
+import LifeChips from '@/components/LifeChips';
+import { labelFor, MARITAL_OPTIONS, CHILDREN_OPTIONS } from '@/lib/life-details';
 import KundliDetailPanel from '@/components/KundliDetailPanel';
 import DateOfBirthInput from '@/components/DateOfBirthInput';
 import MissingKundliFieldsModal from '@/components/MissingKundliFieldsModal';
@@ -539,15 +541,42 @@ export default function ChatPage() {
     else setMessages([]);
   }
 
-  async function sendMessage(e, quickPrompt) {
+  // User tapped a chip (or "later") under a life-details question.
+  async function answerLifeAsk(msgIndex, pick /* value | null for "later" */) {
+    const msg = messages[msgIndex];
+    const ask = msg?._lifeAsk;
+    const kid = pendingKundliId || kundli?.id;
+    if (!ask || ask.answered || !kid || loading) return;
+    const field = ask.field;
+
+    setMessages(list => list.map((mm, idx) => idx === msgIndex ? { ...mm, _lifeAsk: { ...mm._lifeAsk, answered: pick || 'later' } } : mm));
+    try {
+      const body = { kundli_id: kid };
+      if (pick) body[field === 'marital' ? 'marital_status' : 'children_status'] = pick;
+      else body.skip = field;
+      const res = await fetch('/api/kundli/life-details', { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (res.ok && data.kundli) {
+        setKundli(k => k ? { ...k, ...data.kundli } : k);
+        setKundlis(list => list.map(x => x.id === kid ? { ...x, ...data.kundli } : x));
+      }
+    } catch { /* non-fatal — the question is still answered below with what we know */ }
+    // Answer the original question now (no extra user bubble).
+    sendMessage(null, ask.originalText, true);
+  }
+
+  // replay=true: re-send a question the user ALREADY asked (after they tapped an answer
+  // to the bot's life-details question) — no second user bubble, and the bot's own
+  // question bubble is left out of the payload.
+  async function sendMessage(e, quickPrompt, replay = false) {
     if (e) e.preventDefault();
     const text = quickPrompt || input;
     if (!text?.trim() || loading) return;
-    setLimitErr(''); setInput('');
+    setLimitErr(''); if (!replay) setInput('');
     if (inputRef.current) inputRef.current.style.height = 'auto'; // collapse composer back to 1 row
     if (listening) { recognitionRef.current?.stop(); setListening(false); }
     const userMsg = { role:'user', content: text };
-    setMessages(m => [...m, userMsg]);
+    if (!replay) setMessages(m => [...m, userMsg]);
     setLoading(true);
 
     // Extra safety net: if something hangs (network stall, no response,
@@ -572,10 +601,11 @@ export default function ChatPage() {
       const res = await fetch('/api/chat', {
         method:'POST', headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({
-          messages: [...messages, userMsg].filter(m => m.role !== 'system').slice(-10),
+          messages: (replay ? messages : [...messages, userMsg]).filter(m => m.role !== 'system' && !m._lifeAsk).slice(-10),
           sessionId: sid, kundliId: pendingKundliId || kundli?.id || null,
           kundliContext: buildContext(kundli), langPref,
           pendingFollowUpId: pendingFollowUpId || null,
+          skipLifeAsk: replay || undefined,
         }),
       });
 
@@ -597,6 +627,9 @@ export default function ChatPage() {
         setLimitErr(data.error);
         setMessages(m => m.slice(0, -1)); // remove the unanswered user message
         setInput(text); // give it back so they can trim it instead of retyping
+      } else if (data.lifeAsk) {
+        // Bot needs one detail first (e.g. marital status) — shown as tap chips.
+        setMessages(m => [...m, { role:'assistant', content: data.content, _lifeAsk: { field: data.lifeAsk.field, originalText: text, answered: null } }]);
       } else {
         setMessages(m => [...m, { role:'assistant', content: data.content || 'माफ़ करें, जवाब नहीं मिल पाया। कृपया दोबारा कोशिश करें।', _animate: true }]);
         if (data.usage) setUsage(data.usage);
@@ -948,6 +981,15 @@ export default function ChatPage() {
                           }} />
                         : m.content}
                   </div>
+                  {m._lifeAsk && (
+                    m._lifeAsk.answered && m._lifeAsk.answered !== 'later' ? (
+                      <div style={{ marginTop:'8px', fontSize:'13px', color:'var(--color-text-secondary)' }}>
+                        ✓ {labelFor(m._lifeAsk.field === 'children' ? CHILDREN_OPTIONS : MARITAL_OPTIONS, m._lifeAsk.answered, uiLang)}
+                      </div>
+                    ) : m._lifeAsk.answered === 'later' ? null : (
+                      <LifeChips field={m._lifeAsk.field} lang={uiLang} disabled={loading} onPick={(v) => answerLifeAsk(i, v)} onLater={() => answerLifeAsk(i, null)} />
+                    )
+                  )}
                   {m.role === 'assistant' && m.content !== '...' && !m._animate && voiceOutputSupported && (
                     <button
                       onClick={() => speakMessage(m.content, i)}
