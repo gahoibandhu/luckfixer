@@ -233,10 +233,11 @@ export default function ProfilePage() {
                     <button onClick={() => setRectifying(k)} style={{ padding:'8px 14px', fontSize:'13px', fontWeight:600, cursor:'pointer', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', whiteSpace:'nowrap' }}>
                       {t('validateBirthTime', uiLang)}
                     </button>
-                  ) : (
+                  ) : src === 'rectified' ? (
+                    // already found from events once — keep a quiet way to redo it
                     <button onClick={() => setRectifying(k)} style={linkBtn}>{t('validateBirthTime', uiLang)}</button>
-                  )}
-                  <button onClick={() => setInfoOpenId(infoOpen ? null : k.id)} style={linkBtn} aria-expanded={infoOpen}>
+                  ) : null /* birth time was ENTERED (exact): never nudge those users to "find" it */}
+                  <button onClick={() => setInfoOpenId(infoOpen ? null : k.id)} style={{ ...linkBtn, marginLeft:'auto' }} aria-expanded={infoOpen}>
                     {t('additionalInfo', uiLang)} {infoOpen ? '▴' : '▾'}
                   </button>
                 </div>

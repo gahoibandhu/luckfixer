@@ -113,13 +113,15 @@ export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied
   const [phase, setPhase] = useState('setup'); // setup | running | results | applying
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  // Possible birth times: one card per best-fitting Lagna (server `suggestions`), falling back to raw windows.
+  const cards = result?.suggestions?.length ? result.suggestions : (result?.windows || []);
   const [sel, setSel] = useState(0);
   const [chosenTime, setChosenTime] = useState('');
 
   const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
-    if (result?.windows?.[sel]) setChosenTime(result.windows[sel].mid);
+    if (cards[sel]) setChosenTime(cards[sel].mid);
   }, [result, sel]);
 
   useEffect(() => {
@@ -152,7 +154,7 @@ export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied
   }
 
   async function apply() {
-    const w = result.windows[sel];
+    const w = cards[sel];
     if (!w || !chosenTime) return;
     setPhase('applying'); setError('');
     try {
@@ -171,7 +173,7 @@ export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied
     }
   }
 
-  const win = result?.windows?.[sel];
+  const win = cards[sel];
 
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:60, display:'flex', alignItems:'flex-end', justifyContent:'center' }} onClick={() => phase !== 'running' && phase !== 'applying' && onClose()}>
@@ -317,12 +319,27 @@ export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied
               <div style={{ background:'var(--color-background-info)', color:'var(--color-text-info)', padding:'8px 10px', borderRadius:'var(--border-radius-md)', fontSize:'12px', lineHeight:1.5 }}>{T.lmt}</div>
             )}
 
-            {result.windows.length === 0 ? (
+            {cards.length === 0 ? (
               <p style={{ fontSize:'13px', color:'var(--color-text-secondary)' }}>{T.none_found}</p>
             ) : (
               <>
-                {result.windows.map((w, i) => (
+                <p style={{ margin:'4px 0 -4px', fontSize:'13px', fontWeight:500, color:'var(--color-text-primary)' }}>
+                  {L === 'en' ? 'Possible birth times that match your events' : 'आपकी घटनाओं से मेल खाते संभावित जन्म समय'}
+                </p>
+                {result.current_time && (
+                  <div style={{ background:'var(--color-background-info)', color:'var(--color-text-info)', padding:'8px 10px', borderRadius:'var(--border-radius-md)', fontSize:'12px', lineHeight:1.5 }}>
+                    {L === 'en'
+                      ? `Your recorded time ${result.current_time.time} (${result.current_time.lagna} Lagna) matches ${result.current_time.matched_count} of ${result.events_used} events${result.current_time.rank ? ` — its Lagna ranks #${result.current_time.rank} of ${result.current_time.lagna_count}` : ''}.`
+                      : `आपका दर्ज समय ${result.current_time.time} (${result.current_time.lagna_hi} लग्न) ${result.events_used} में से ${result.current_time.matched_count} घटनाओं से मेल खाता है${result.current_time.rank ? ` — इसका लग्न ${result.current_time.lagna_count} में #${result.current_time.rank} पर है` : ''}।`}
+                  </div>
+                )}
+                {cards.map((w, i) => (
                   <div key={i} onClick={() => setSel(i)} style={{ ...box, padding:'10px 12px', cursor:'pointer', borderColor: sel === i ? 'var(--color-text-primary)' : undefined, background: sel === i ? 'var(--color-background-secondary)' : undefined }}>
+                    {result.suggestions?.length > 0 && (
+                      <p style={{ margin:'0 0 4px', fontSize:'11px', fontWeight:600, letterSpacing:'0.5px', textTransform:'uppercase', color: i === 0 ? 'var(--color-text-success)' : 'var(--color-text-tertiary)' }}>
+                        {i === 0 ? (L === 'en' ? 'Best fit' : 'सबसे अच्छा मेल') : (L === 'en' ? 'Also possible' : 'यह भी संभव')}
+                      </p>
+                    )}
                     <div style={{ display:'flex', justifyContent:'space-between', gap:'8px', alignItems:'center' }}>
                       <p style={{ margin:0, fontSize:'14px', fontWeight:500, color:'var(--color-text-primary)' }}>{w.start} – {w.end} <span style={{ fontWeight:400, color:'var(--color-text-secondary)', fontSize:'13px' }}>· {SIGN_SYMBOL[w.lagna] || ''} {L === 'en' ? w.lagna : w.lagna_hi} {L === 'en' ? 'Lagna' : 'लग्न'}</span></p>
                       <span style={{ fontSize:'12px', color:'var(--color-text-secondary)', whiteSpace:'nowrap' }}>{w.matched_count}/{result.events_used} · {T.score} {Math.round(w.score)}%</span>
@@ -360,7 +377,7 @@ export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied
             {error && <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-danger)' }}>{error}</p>}
             <div style={{ display:'flex', gap:'8px' }}>
               <button type="button" onClick={() => setPhase('setup')} style={{ flex:'0 0 auto', padding:'11px 14px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'13px', color:'var(--color-text-secondary)' }}>{T.back}</button>
-              {result.windows.length > 0 && <button type="button" onClick={apply} disabled={!chosenTime} style={{ ...btnPrimary, flex:1 }}>{T.apply}</button>}
+              {cards.length > 0 && <button type="button" onClick={apply} disabled={!chosenTime} style={{ ...btnPrimary, flex:1 }}>{T.apply}</button>}
             </div>
           </div>
         )}
