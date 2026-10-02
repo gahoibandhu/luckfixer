@@ -32,6 +32,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { RAM_SHALAKA_GRID, getAnswerForCell } from '@/lib/ram-shalaka';
+import { useUiLang } from '@/lib/i18n';
 
 const FLAT = RAM_SHALAKA_GRID.flat(); // 225 real akshars, reading order
 const COLS = 15;
@@ -46,6 +47,7 @@ function center(el) {
 }
 
 export default function RamShalakaWheel({ onResult }) {
+  const en = useUiLang() === 'en';
   const ringRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
   const pinDotRef = useRef(null);
   const cellsRef = useRef([[], [], [], []]); // [{el, letter, flatIdx}] per ring
@@ -223,7 +225,7 @@ export default function RamShalakaWheel({ onResult }) {
         <div ref={ringRefs[2]} style={{ position: 'absolute', inset: '62px', borderRadius: '50%', background: '#f6e4c8', border: '2px solid #d4af37' }} />
         <div ref={ringRefs[3]} style={{ position: 'absolute', inset: '93px', borderRadius: '50%', background: '#f0d9ae', border: '1.5px solid #c9a45c' }} />
 
-        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '46px', height: '46px', borderRadius: '50%', background: '#7a2020', border: '3px solid #b8860b', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fac775', fontSize: '10px', fontWeight: 500, zIndex: 5 }}>राम</div>
+        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '46px', height: '46px', borderRadius: '50%', background: '#7a2020', border: '3px solid #b8860b', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fac775', fontSize: '10px', fontWeight: 500, zIndex: 5 }}>{en ? 'Ram' : 'राम'}</div>
       </div>
 
       {phase === 'spinning' && (
@@ -235,13 +237,13 @@ export default function RamShalakaWheel({ onResult }) {
       {phase !== 'spinning' && (
         <p style={{ fontSize: '13px', color: '#7a2020', minHeight: '24px', fontWeight: 500 }}>
           {phase === 'revealing' && landedLetter && (
-            <>पिन पर: <b>{landedLetter}</b> — <span style={{ color: '#b8860b' }}>{traceText}</span></>
+            <>{en ? 'On the pin:' : 'पिन पर:'} <b>{landedLetter}</b> — <span style={{ color: '#b8860b' }}>{traceText}</span></>
           )}
         </p>
       )}
 
       <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginTop: '10px' }}>
-        जैसे ही घूमता पहिया रुके — जो अक्षर पिन पर हो, वही आपका उत्तर तय करता है।
+        {en ? 'When the wheel stops, the letter on the pin decides your answer.' : 'जैसे ही घूमता पहिया रुके — जो अक्षर पिन पर हो, वही आपका उत्तर तय करता है।'}
       </p>
     </div>
   );

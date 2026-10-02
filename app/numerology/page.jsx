@@ -268,7 +268,7 @@ export default function NumerologyPage() {
         <textarea
           value={myComment}
           onChange={e => setMyComment(e.target.value)}
-          placeholder="कोई सुझाव या समस्या बताएं? (वैकल्पिक, निजी)"
+          placeholder={uiLang === 'en' ? 'Any suggestion or problem? (optional, private)' : 'कोई सुझाव या समस्या बताएं? (वैकल्पिक, निजी)'}
           rows={2}
           style={{ width:'100%', fontSize:'13px', resize:'vertical', marginTop:'12px' }}
         />

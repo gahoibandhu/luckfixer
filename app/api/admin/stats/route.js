@@ -22,13 +22,31 @@ export async function GET() {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  // ── PERFORMANCE FIX ─────────────────────────────────────────
-  // Previously these 7 queries ran sequentially (await one at a time),
-  // meaning total load time = sum of every query's round-trip latency.
-  // None of these queries depend on each other's results, so running
-  // them in parallel via Promise.all cuts admin panel load time down
-  // to roughly the SLOWEST single query instead of the sum of all 7 —
-  // this was the main cause of the admin panel feeling slow.
+  // ── Resilient loading ─────────────────────────────────────────
+  // Every query below runs in parallel, each with its own 9s abort and its own
+  // error capture. One slow or failing query (e.g. Postgres 57014 "statement
+  // timeout") used to silently blank its part of the dashboard — and the
+  // dashboard just looked broken. Now the rest still loads, and the response
+  // carries `warnings` naming exactly what failed so the admin panel can say so.
+  const warnings = [];
+  async function run(label, makeQuery) {
+    try {
+      const r = await makeQuery().abortSignal(AbortSignal.timeout(9000));
+      if (r.error) { console.error(`[Admin stats] ${label}:`, r.error.message); warnings.push(label); return { data: null, count: null }; }
+      return r;
+    } catch (e) {
+      console.error(`[Admin stats] ${label}:`, e.message);
+      warnings.push(label);
+      return { data: null, count: null };
+    }
+  }
+  const countOf = (table, col, val) => run(`${table} count`, () => {
+    let q = adminSupabase.from(table).select('*', { count: 'exact', head: true });
+    if (col) q = val === null ? q.not(col, 'is', null) : q.eq(col, val);
+    return q;
+  });
+  const weekStartDate = sevenDaysAgo.toISOString().split('T')[0];
+
   const [
     { count: totalUsers },
     { count: totalKundlis },
@@ -36,62 +54,42 @@ export async function GET() {
     { data: weekUsage },
     { data: plan },
     { data: recentUsers },
-    { data: outcomeRows },
-    { data: modelRows },
-    { data: predictionRows },
-    { data: remedyRows },
+    modelRpc,
+    // outcome tracking + remedy engagement: exact COUNTs instead of downloading
+    // every row (the API silently caps row downloads at 1000, so those numbers
+    // were also wrong once the tables grew past that).
+    { count: oTotal }, { count: oConfirmed }, { count: oDenied }, { count: oPartial }, { count: oSkipped },
+    { count: rTotal }, { count: rDone }, { count: rPending }, { count: rSkipped },
+    { data: aiLogRows },
   ] = await Promise.all([
-    adminSupabase.from('user_profiles').select('*', { count: 'exact', head: true }),
-    adminSupabase.from('saved_kundlis').select('*', { count: 'exact', head: true }),
-    adminSupabase.from('usage_log').select('user_id, chat_count, free_mins_used, total_tokens').eq('log_date', today),
-    adminSupabase.from('usage_log').select('log_date, chat_count, free_mins_used, total_tokens').gte('log_date', sevenDaysAgo.toISOString().split('T')[0]).order('log_date', { ascending: true }),
-    adminSupabase.from('plan_config').select('*').eq('plan_name', 'free').single(),
-    adminSupabase.from('user_profiles').select('id, full_name, email, mobile, created_at').order('created_at', { ascending: false }).limit(20),
-    adminSupabase.from('outcome_tracking').select('outcome').not('outcome', 'is', null),
-    // ── Model usage breakdown (last 7 days) — surfaces exactly how often
-    // Gemini (primary) vs weaker fallback providers (SambaNova/OpenRouter/
-    // HuggingFace/Groq) are actually answering, across BOTH chat replies
-    // and background AI calls (kundli creation/reanalysis/backfill — see
-    // predictions_log query below). If quality feels poor, this number
-    // tells you whether it's because most real traffic is landing on
-    // Gemini's free-tier rate limit and silently falling back to a
-    // weaker model that doesn't follow the system prompt as reliably —
-    // rather than guessing from anecdotal chat transcripts.
-    adminSupabase.from('chat_messages').select('model_used').eq('role', 'assistant').gte('created_at', sevenDaysAgo.toISOString()).not('model_used', 'is', null),
-    // Background/non-chat AI calls (new kundli creation, re-analysis,
-    // and the life_domains/annual_timeline backfill — admin batch, the
-    // daily auto-heal cron, and the on-view trigger — see
-    // lib/life-domains-backfill.js) never went through chat_messages,
-    // so the block above alone made this dashboard blind to most of
-    // the app's actual AI usage. Each row's model_used is a
-    // "piece:model, piece:model" joined string (see
-    // lib/kundli-reanalysis.js) rather than one model per row like
-    // chat — split further below before merging into modelBreakdown.
-    adminSupabase.from('predictions_log').select('model_used').gte('created_at', sevenDaysAgo.toISOString()).not('model_used', 'is', null),
-    // ── Remedy engagement — see migration_013. Surfaces whether the
-    // remedy-tracking feature is actually being used/completed.
-    adminSupabase.from('user_remedies').select('status'),
+    run('user_profiles count', () => adminSupabase.from('user_profiles').select('*', { count: 'exact', head: true })),
+    run('saved_kundlis count', () => adminSupabase.from('saved_kundlis').select('*', { count: 'exact', head: true })),
+    run('usage today', () => adminSupabase.from('usage_log').select('user_id, chat_count, free_mins_used, total_tokens').eq('log_date', today)),
+    run('usage 7 days', () => adminSupabase.from('usage_log').select('log_date, chat_count, free_mins_used, total_tokens').gte('log_date', weekStartDate).order('log_date', { ascending: true })),
+    run('plan config', () => adminSupabase.from('plan_config').select('*').eq('plan_name', 'free').single()),
+    run('recent users', () => adminSupabase.from('user_profiles').select('id, full_name, email, mobile, created_at').order('created_at', { ascending: false }).limit(20)),
+    // Model usage breakdown (last 7 days): chat replies + background AI calls
+    // (kundli creation / reanalysis / backfill), aggregated INSIDE Postgres by
+    // admin_model_breakdown() (migration_026) — only a handful of rows come back.
+    run('model breakdown (run migration_026)', () => adminSupabase.rpc('admin_model_breakdown', { since: sevenDaysAgo.toISOString() })),
+    countOf('outcome_tracking', 'outcome', null),
+    countOf('outcome_tracking', 'outcome', 'confirmed'),
+    countOf('outcome_tracking', 'outcome', 'denied'),
+    countOf('outcome_tracking', 'outcome', 'partial'),
+    countOf('outcome_tracking', 'outcome', 'skipped'),
+    countOf('user_remedies'),
+    countOf('user_remedies', 'status', 'done'),
+    countOf('user_remedies', 'status', 'pending'),
+    countOf('user_remedies', 'status', 'skipped'),
+    // AI token ledger for every non-chat feature (migration_027). Bounded to 7 days.
+    run('ai usage ledger (run migration_027)', () => adminSupabase.from('ai_usage_log').select('feature, tokens_est, created_at').gte('created_at', sevenDaysAgo.toISOString()).limit(10000)),
   ]);
 
+  // Sum rows per model name (the same model can appear in both the chat and background halves).
   const modelBreakdown = {};
-  (modelRows || []).forEach(r => {
-    const key = r.model_used || 'unknown';
-    modelBreakdown[key] = (modelBreakdown[key] || 0) + 1;
-  });
-  // predictions_log rows are "piece:model, piece:model" (one kundli
-  // creation/reanalysis/backfill fires up to 3 separate provider calls
-  // — see lib/kundli-reanalysis.js) — split each row into its
-  // individual piece calls so e.g. "core:gemini/..., life_domains:
-  // groq/..." counts as ONE Gemini call and ONE Groq call, same as if
-  // they'd been two separate chat_messages rows, not one lumped entry.
-  (predictionRows || []).forEach(r => {
-    if (!r.model_used) return;
-    r.model_used.split(',').forEach(part => {
-      const idx = part.indexOf(':');
-      const modelName = (idx === -1 ? part : part.slice(idx + 1)).trim();
-      if (!modelName) return;
-      modelBreakdown[modelName] = (modelBreakdown[modelName] || 0) + 1;
-    });
+  (modelRpc?.data || []).forEach(r => {
+    const key = (r.model || 'unknown').trim() || 'unknown';
+    modelBreakdown[key] = (modelBreakdown[key] || 0) + Number(r.cnt || 0);
   });
   const modelBreakdownTotal = Object.values(modelBreakdown).reduce((a, b) => a + b, 0);
   const modelBreakdownList = Object.entries(modelBreakdown)
@@ -105,6 +103,23 @@ export async function GET() {
   }), { chats: 0, mins: 0, tokens: 0 });
 
   const activeToday = (todayUsage || []).filter(r => r.chat_count > 0).length;
+
+  // ── AI tokens by feature (today + 7 days) ─────────────────────────
+  // Chat comes from usage_log (already counted); everything else from ai_usage_log.
+  // Previously the dashboard showed ONLY chat tokens, so kundli analysis, numerology
+  // etc. were invisible. Values are estimates (characters / 4).
+  const todayStartIso = today + 'T00:00:00';
+  const aiByFeature = {};
+  (aiLogRows || []).forEach(r => {
+    const f = aiByFeature[r.feature] || (aiByFeature[r.feature] = { feature: r.feature, today: 0, week: 0, calls: 0 });
+    f.week += r.tokens_est || 0; f.calls += 1;
+    if (r.created_at >= todayStartIso) f.today += r.tokens_est || 0;
+  });
+  const chatWeekTokens = (weekUsage || []).reduce((n, r) => n + (r.total_tokens || 0), 0);
+  const aiUsageByFeature = [
+    { feature: 'chat', today: todayTotals.tokens, week: chatWeekTokens, calls: (weekUsage || []).reduce((n, r) => n + (r.chat_count || 0), 0) },
+    ...Object.values(aiByFeature),
+  ].sort((a, b) => b.week - a.week);
 
   // ── Real signed-in "visitors" today ──────────────────────────
   // activeToday (above) only counts people who actually SENT a chat
@@ -175,25 +190,23 @@ export async function GET() {
   // (MIN_TRACKED_FOR_DISPLAY in app/api/chat/route.js) — a handful of
   // early responses would otherwise show a falsely precise 0%/100%.
   const MIN_RESPONDED_FOR_ADMIN_ACCURACY = 5;
-  const respondedRows = (outcomeRows || []).filter(r => r.outcome && r.outcome !== 'skipped');
-  const outcomeStats = outcomeRows ? {
-    total_tracked: outcomeRows.length,
-    confirmed:  outcomeRows.filter(r => r.outcome === 'confirmed').length,
-    denied:     outcomeRows.filter(r => r.outcome === 'denied').length,
-    partial:    outcomeRows.filter(r => r.outcome === 'partial').length,
-    accuracy_pct: respondedRows.length >= MIN_RESPONDED_FOR_ADMIN_ACCURACY
-      ? Math.round(respondedRows.filter(r => ['confirmed','partial'].includes(r.outcome)).length / respondedRows.length * 100)
+  const responded = Math.max(0, (oTotal || 0) - (oSkipped || 0));
+  const outcomeStats = oTotal !== null && oTotal !== undefined ? {
+    total_tracked: oTotal || 0,
+    confirmed: oConfirmed || 0,
+    denied:    oDenied || 0,
+    partial:   oPartial || 0,
+    accuracy_pct: responded >= MIN_RESPONDED_FOR_ADMIN_ACCURACY
+      ? Math.round(((oConfirmed || 0) + (oPartial || 0)) / responded * 100)
       : null,
   } : null;
 
-  const remedyStats = remedyRows ? {
-    total_given:   remedyRows.length,
-    done:          remedyRows.filter(r => r.status === 'done').length,
-    pending:       remedyRows.filter(r => r.status === 'pending').length,
-    skipped:       remedyRows.filter(r => r.status === 'skipped').length,
-    completion_pct: remedyRows.length > 0
-      ? Math.round(remedyRows.filter(r => r.status === 'done').length / remedyRows.length * 100)
-      : null,
+  const remedyStats = rTotal !== null && rTotal !== undefined ? {
+    total_given:   rTotal || 0,
+    done:          rDone || 0,
+    pending:       rPending || 0,
+    skipped:       rSkipped || 0,
+    completion_pct: rTotal > 0 ? Math.round((rDone || 0) / rTotal * 100) : null,
   } : null;
 
   return Response.json({
@@ -210,5 +223,7 @@ export async function GET() {
     outcomeStats,
     remedyStats,
     modelBreakdown: modelBreakdownList,
+    aiUsageByFeature,
+    warnings: [...new Set(warnings)],
   });
 }

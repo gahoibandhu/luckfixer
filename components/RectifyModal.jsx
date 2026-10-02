@@ -17,12 +17,17 @@ const EVENT_TYPES = [
   ['foreign_travel', 'विदेश यात्रा / विदेश बसना', 'Foreign travel / settling abroad'],
   ['property', 'घर / जमीन खरीदना', 'Property purchase'],
   ['education', 'पढ़ाई पूरी / बड़ी डिग्री', 'Education milestone'],
-  ['father_death', 'पिता का देहांत', "Father's death"],
-  ['mother_death', 'माता का देहांत', "Mother's death"],
   ['accident_illness', 'बड़ी दुर्घटना / गंभीर बीमारी', 'Major accident / serious illness'],
   ['major_loss', 'बड़ा आर्थिक नुकसान', 'Major financial loss'],
   ['separation', 'अलगाव / तलाक', 'Separation / divorce'],
 ];
+
+// Shown only under "More options" at the very end — parents' demise looks out of place as a headline choice for everyone.
+const MORE_EVENT_TYPES = [
+  ['father_death', 'पिता का देहांत', "Father's death"],
+  ['mother_death', 'माता का देहांत', "Mother's death"],
+];
+
 
 const EVENT_ICONS = {
   marriage:'💍', child_birth:'👶', job_start:'💼', promotion:'📈', foreign_travel:'✈️', property:'🏠',
@@ -46,6 +51,7 @@ const TXT = {
     pick: 'घटना चुनें', run: 'समय खोजें', running: 'जन्म-समय के विकल्प जाँचे जा रहे हैं...', cold: 'सर्वर जागने में 30-50 सेकंड लग सकते हैं',
     resultsTitle: 'मेल खाने वाले समय', pickOne: 'एक विंडो चुनें', exact: 'इस विंडो में सटीक समय', apply: 'यह समय लागू करें', applying: 'कुंडली दोबारा बन रही है...',
     back: '← बदलाव करें', close: 'बंद करें', matched: 'घटनाएँ मेल खाईं', score: 'फिट',
+    lowWarn: '⚠️ भरोसा कम है — इसे सिर्फ़ संकेत मानें। अगर जन्म प्रमाणपत्र/घर के रिकॉर्ड से समय पता है तो वही रखें। ज़्यादा सटीक नतीजे के लिए 5-6+ घटनाएँ जोड़ें।',
     conf: { high: 'भरोसा: ऊँचा', medium: 'भरोसा: मध्यम', low: 'भरोसा: कम' },
     lagnaOnly: 'सिर्फ़ लग्न के हिसाब से', lagnaHelp: 'अगर सटीक समय तय नहीं हो पा रहा, तो ये लग्न सबसे संभावित हैं:',
     warn: 'यह अनुमान दशा पर आधारित है (गोचर शामिल नहीं) — सबूत है, पक्का प्रमाण नहीं। गलत विंडो चुनने पर लग्न-आधारित विश्लेषण बदल जाएगा।',
@@ -62,6 +68,7 @@ const TXT = {
     pick: 'Choose event', run: 'Find birth time', running: 'Checking candidate birth times...', cold: 'The server may take 30-50 seconds to wake up',
     resultsTitle: 'Matching times', pickOne: 'Choose one window', exact: 'Exact time within this window', apply: 'Apply this time', applying: 'Rebuilding your kundli...',
     back: '← Edit inputs', close: 'Close', matched: 'events matched', score: 'fit',
+    lowWarn: '⚠️ Low confidence — treat this as a hint only. If you know the time from a birth certificate or family record, keep that one. Add 5-6+ events for a sharper result.',
     conf: { high: 'Confidence: high', medium: 'Confidence: medium', low: 'Confidence: low' },
     lagnaOnly: 'By Lagna only', lagnaHelp: 'If the exact time can’t be pinned down, these Lagnas are most likely:',
     warn: 'This estimate is dasha-based (transits not used) — evidence, not proof. Choosing the wrong window will change the Lagna-based analysis.',
@@ -81,7 +88,7 @@ function clamp(t, a, b) { return t < a ? a : t > b ? b : t; }
 export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied }) {
   const L = uiLang === 'en' ? 'en' : 'hi';
   const T = TXT[L];
-  const evLabel = (type) => { const r = EVENT_TYPES.find(e => e[0] === type); return r ? (L === 'en' ? r[2] : r[1]) : type; };
+  const evLabel = (type) => { const r = [...EVENT_TYPES, ...MORE_EVENT_TYPES].find(e => e[0] === type); return r ? (L === 'en' ? r[2] : r[1]) : type; };
 
   const initialMode = kundli.birth_time_source === 'unknown' ? 'none' : 'rough';
   const [mode, setMode] = useState(initialMode);
@@ -99,6 +106,8 @@ export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied
     if (['one', 'two', 'three_plus'].includes(kundli.children_status)) pre.push({ type: 'child_birth', date: '' });
     return pre;
   });
+  // "More options" (parents' demise) stays collapsed unless a saved event already uses it
+  const [showMore, setShowMore] = useState(() => Array.isArray(kundli.life_events) && kundli.life_events.some(e => MORE_EVENT_TYPES.some(m => m[0] === e.type)));
   const toggleType = (type) => setEvents(list => list.some(e => e.type === type) ? list.filter(e => e.type !== type) : [...list, { type, date: '' }]);
   const [tick, setTick] = useState(0);
   const [phase, setPhase] = useState('setup'); // setup | running | results | applying
@@ -219,6 +228,26 @@ export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied
                   );
                 })}
               </div>
+              <button type="button" onClick={() => setShowMore(x => !x)} style={{ marginTop:'8px', background:'none', border:'none', padding:'4px 0', cursor:'pointer', fontSize:'12px', color:'var(--color-text-info)', textDecoration:'underline' }}>
+                {L === 'en' ? 'More options' : 'अन्य विकल्प'} {showMore ? '▴' : '▾'}
+              </button>
+              {showMore && (
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'8px', marginTop:'6px' }}>
+                {MORE_EVENT_TYPES.map(([v, hi, en]) => {
+                  const on = events.some(e => e.type === v);
+                  return (
+                    <button key={v} type="button" onClick={() => toggleType(v)} className="lf-chip"
+                      style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'4px', padding:'10px 4px', cursor:'pointer', borderRadius:'12px', textAlign:'center',
+                        border:`1px solid ${on ? 'var(--color-brand, var(--color-text-primary))' : 'var(--color-border-tertiary)'}`,
+                        background: on ? 'var(--color-brand-light, var(--color-background-secondary))' : 'var(--color-background-primary)',
+                        color:'var(--color-text-primary)' }}>
+                      <span style={{ fontSize:'22px', lineHeight:1 }}>{EVENT_ICONS[v]}</span>
+                      <span style={{ fontSize:'11px', lineHeight:1.25, fontWeight: on ? 600 : 400 }}>{L === 'en' ? en : hi}</span>
+                    </button>
+                  );
+                })}
+                </div>
+              )}
 
               {events.length > 0 && (
                 <div style={{ marginTop:'12px', display:'flex', flexDirection:'column', gap:'6px' }}>
@@ -228,11 +257,16 @@ export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied
                       <span style={{ fontSize:'18px', width:'26px', textAlign:'center' }}>{EVENT_ICONS[ev.type]}</span>
                       <span style={{ flex:'1 1 40%', minWidth:0, fontSize:'13px', color:'var(--color-text-primary)' }}>{evLabel(ev.type)}</span>
                       <input type="date" value={ev.date} max={today} min={kundli.dob} onChange={e => setEvents(list => list.map((x, j) => j === i ? { ...x, date: e.target.value } : x))} style={{ flex:'1 1 50%', minWidth:0, fontSize:'13px' }} />
-                      {(ev.type === 'child_birth' || ev.type === 'promotion' || ev.type === 'foreign_travel') && (
+                      {(['child_birth', 'promotion', 'foreign_travel'].includes(ev.type)) && (
                         <button type="button" title={L === 'en' ? 'Add another' : 'एक और जोड़ें'} onClick={() => setEvents(list => { const copy = [...list]; copy.splice(i + 1, 0, { type: ev.type, date: '' }); return copy; })} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'16px', color:'var(--color-text-tertiary)', padding:'0 2px' }}>＋</button>
                       )}
                     </div>
                   ))}
+                  {events.some(e => e.type === 'property') && (
+                    <p style={{ margin:'2px 0 0', fontSize:'11px', color:'var(--color-text-tertiary)', lineHeight:1.5 }}>
+                      {L === 'en' ? 'Property: registry/possession date is fine — we allow for the 2-6 months of booking before it.' : 'प्रॉपर्टी: रजिस्ट्री/कब्ज़े की तारीख़ चलेगी — उससे पहले के 2-6 महीने की बुकिंग का हम ध्यान रखते हैं।'}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -275,6 +309,9 @@ export default function RectifyModal({ kundli, uiLang = 'hi', onClose, onApplied
               <span style={{ fontSize:'12px', fontWeight:500, color: result.confidence === 'high' ? 'var(--color-text-success)' : result.confidence === 'medium' ? 'var(--color-text-warning)' : 'var(--color-text-danger)' }}>{T.conf[result.confidence]}</span>
             </div>
             <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-tertiary)', lineHeight:1.5 }}>{result.confidence_reason}</p>
+            {result.confidence === 'low' && (
+              <div style={{ background:'var(--color-background-warning)', color:'var(--color-text-warning)', padding:'8px 10px', borderRadius:'var(--border-radius-md)', fontSize:'12px', lineHeight:1.5 }}>{T.lowWarn}</div>
+            )}
 
             {result.lmt_check?.lmt_fits_better && (
               <div style={{ background:'var(--color-background-info)', color:'var(--color-text-info)', padding:'8px 10px', borderRadius:'var(--border-radius-md)', fontSize:'12px', lineHeight:1.5 }}>{T.lmt}</div>

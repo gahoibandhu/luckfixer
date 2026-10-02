@@ -120,6 +120,7 @@ export async function POST(req) {
       full_name, dob, birth_time, birth_place,
       latitude: parseFloat(latitude), longitude: parseFloat(longitude),
       ayanamsa: ayanamsa || 'lahiri', gender, birth_time_source, lang,
+      user_id: user.id,   // lets the AI-usage ledger attribute tokens to this user
     });
   } catch (e) {
     if (e instanceof EphemerisUnavailableError) {

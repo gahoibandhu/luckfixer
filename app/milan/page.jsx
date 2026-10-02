@@ -64,7 +64,8 @@ export default function MilanPage() {
   };
 
   function shareOnWhatsApp(m) {
-    const text = `🔮 *Luckfixer 2.0 — कुंडली मिलान*\n\n${kName(boyId)} + ${kName(girlId)}\n\n*अंक: ${m.totalScore}/36* (${m.percentage}%)\n*${m.verdictHi}*\n\n${m.doshas.length > 0 ? '⚠️ ' + m.doshas.map(d=>d.name).join(', ') + '\n\n' : ''}${m.recommendation}\n\n✦ अपनी कुंडली मिलान चेक करें: luckfixer.jaigahoi.in`;
+    const enMsg = uiLang === 'en';
+    const text = `🔮 *Luckfixer 2.0 — ${enMsg ? 'Kundli Matching' : 'कुंडली मिलान'}*\n\n${kName(boyId)} + ${kName(girlId)}\n\n*${enMsg ? 'Score' : 'अंक'}: ${m.totalScore}/36* (${m.percentage}%)\n*${enMsg ? m.verdict : m.verdictHi}*\n\n${m.doshas.length > 0 ? '⚠️ ' + m.doshas.map(d=>d.name).join(', ') + '\n\n' : ''}${m.recommendation}\n\n✦ ${enMsg ? 'Check your kundli match' : 'अपनी कुंडली मिलान चेक करें'}: luckfixer.jaigahoi.in`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   }
@@ -124,7 +125,7 @@ export default function MilanPage() {
               <p style={{ fontSize:'48px', fontWeight:'600', color: VERDICT_COLOR[m.verdict] || 'var(--color-text-primary)', margin:'8px 0 4px', lineHeight:1 }}>
                 {m.totalScore}<span style={{ fontSize:'20px', color:'var(--color-text-tertiary)' }}>/36</span>
               </p>
-              <p style={{ fontSize:'18px', fontWeight:'500', color: VERDICT_COLOR[m.verdict], margin:'0 0 4px' }}>{m.verdictHi}</p>
+              <p style={{ fontSize:'18px', fontWeight:'500', color: VERDICT_COLOR[m.verdict], margin:'0 0 4px' }}>{uiLang === 'en' ? m.verdict : m.verdictHi}</p>
               <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', margin:0 }}>{m.percentage}% {t('compatibilityPct', uiLang)}</p>
             </div>
 
@@ -162,7 +163,7 @@ export default function MilanPage() {
                 border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-md)', padding:'12px 14px',
               }}>
                 <p style={{ fontSize:'12px', fontWeight:'600', margin:'0 0 4px', textTransform:'uppercase', letterSpacing:'1px', color: m.manglik.compatibility.status === 'one_sided' ? 'var(--color-text-warning)' : 'var(--color-text-info)' }}>
-                  मंगल दोष — {m.manglik.compatibility.statusHi}
+                  {uiLang === 'en' ? 'Mangal Dosha' : 'मंगल दोष'} — {uiLang === 'en' ? ({ clear: 'No Mangal Dosha', both: 'Both Manglik — self-balanced', one_sided: 'Only one partner is Manglik — needs attention' }[m.manglik.compatibility.status] || m.manglik.compatibility.statusHi) : m.manglik.compatibility.statusHi}
                 </p>
                 <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)', lineHeight:'1.6' }}>{m.manglik.compatibility.note}</p>
               </div>

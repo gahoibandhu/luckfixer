@@ -15,6 +15,7 @@
 // replacement wherever that was used.
 
 import { useState, useEffect, useRef } from 'react';
+import { useUiLang } from '@/lib/i18n';
 
 function isoToDisplay(iso) {
   if (!iso) return '';
@@ -39,6 +40,7 @@ function parseToIso(text) {
 }
 
 export default function DateOfBirthInput({ value, onChange, required, style }) {
+  const en = useUiLang() === 'en';
   const [text, setText] = useState(isoToDisplay(value));
   const [error, setError] = useState('');
   const hiddenDateRef = useRef(null);
@@ -67,7 +69,7 @@ export default function DateOfBirthInput({ value, onChange, required, style }) {
       setError('');
       onChange(iso);
     } else if (cleaned.length >= 8) {
-      setError('तारीख सही नहीं लग रही — DD/MM/YYYY जैसे 15/03/1984');
+      setError(en ? 'That date does not look right — use DD/MM/YYYY, e.g. 15/03/1984' : 'तारीख सही नहीं लग रही — DD/MM/YYYY जैसे 15/03/1984');
     } else {
       setError('');
     }
@@ -105,7 +107,7 @@ export default function DateOfBirthInput({ value, onChange, required, style }) {
         <button
           type="button"
           onClick={openCalendar}
-          title="कैलेंडर से चुनें"
+          title={en ? 'Pick from calendar' : 'कैलेंडर से चुनें'}
           style={{ flexShrink: 0, width: '42px', padding: 0, background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '8px', cursor: 'pointer', fontSize: '17px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           📅

@@ -22,20 +22,20 @@ const REMEDY_TYPE_ICON     = { lal_kitab: '🪔', vedic_mantra: '🕉️', gemst
 const DEFAULT_DURATION_DAYS = { lal_kitab: 1, vedic_mantra: 43, gemstone: null, dosha_remedy: 43 };
 const REMEDY_TYPE_PRIORITY  = { dosha_remedy: 0, lal_kitab: 1, vedic_mantra: 2, gemstone: 3 };
 
-function remedyLabel(r) {
+function remedyLabel(r, en = false) {
   if (r.remedy_type === 'lal_kitab') {
-    return `${r.day_of_week || ''} — ${r.donate || 'दान'} करें${r.avoid ? ` (सावधानी: ${r.avoid})` : ''}`.trim();
+    return `${r.day_of_week || ''} — ${r.donate || (en ? 'Donation' : 'दान')}${en ? '' : ' करें'}${r.avoid ? (en ? ` (Caution: ${r.avoid})` : ` (सावधानी: ${r.avoid})`) : ''}`.trim();
   }
   if (r.remedy_type === 'vedic_mantra') {
-    return `"${r.mantra}"${r.mantra_count ? ` — ${r.mantra_count} बार जाप` : ''}`;
+    return `"${r.mantra}"${r.mantra_count ? (en ? ` — chant ${r.mantra_count} times` : ` — ${r.mantra_count} बार जाप`) : ''}`;
   }
   if (r.remedy_type === 'gemstone') {
     return `${r.gem_name}${r.gem_reason ? ` — ${r.gem_reason}` : ''}`;
   }
   if (r.remedy_type === 'dosha_remedy') {
-    return r.remedy_text || r.yoga_name || 'उपाय';
+    return r.remedy_text || r.yoga_name || (en ? 'Remedy' : 'उपाय');
   }
-  return 'उपाय';
+  return en ? 'Remedy' : 'उपाय';
 }
 
 const TABS = [
@@ -184,7 +184,7 @@ export default function RemediesPage() {
           )}
 
           {Object.entries(groupByKundli(visibleList)).map(([kundliId, list]) => {
-            const kundliLabel = kundlis.find(k => k.id === kundliId)?.label || kundlis.find(k => k.id === kundliId)?.full_name || 'कुंडली';
+            const kundliLabel = kundlis.find(k => k.id === kundliId)?.label || kundlis.find(k => k.id === kundliId)?.full_name || (uiLang === 'en' ? 'Kundli' : 'कुंडली');
             const collapsed = collapsedGroups[kundliId];
             const sorted = sortRemedies(list);
             return (
@@ -213,7 +213,7 @@ export default function RemediesPage() {
                           {!isExpired && timeStatus.phase === 'active' && timeStatus.daysRemaining != null && (
                             <span style={{ display:'inline-block', fontSize:'10px', fontWeight:'600', color:'var(--color-text-success)', background:'var(--color-background-secondary)', borderRadius:'4px', padding:'2px 6px', marginBottom:'4px' }}>{timeStatus.daysRemaining} {t('daysRemainingSuffix', uiLang)}</span>
                           )}
-                          <p style={{ fontSize:'13px', color:'var(--color-text-primary)', margin:'0 0 3px', lineHeight:'1.5', textDecoration: r.status === 'done' ? 'line-through' : 'none' }}>{remedyLabel(r)}</p>
+                          <p style={{ fontSize:'13px', color:'var(--color-text-primary)', margin:'0 0 3px', lineHeight:'1.5', textDecoration: r.status === 'done' ? 'line-through' : 'none' }}>{remedyLabel(r, uiLang === 'en')}</p>
                           <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:0 }}>
                             {(r.planet_hi || r.planet) && `${r.planet_hi || r.planet} · `}{kundlis.length === 1 ? kundliLabel : ''}
                             {r.start_date && ` · ${t('startedOnPrefix', uiLang)} ${r.start_date.slice(8,10)}-${r.start_date.slice(5,7)}-${r.start_date.slice(0,4)}`}

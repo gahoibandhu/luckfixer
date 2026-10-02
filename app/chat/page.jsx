@@ -96,6 +96,14 @@ function ageOf(dob) {
   return age;
 }
 
+// English text for the quick-action forms (the Hindi/Hinglish originals stay as the Hindi-mode text).
+const QA_EN = {
+  'अपनी situation बताएं — job, business, ya koi specific field': ['Tell us your situation — job, business, or a specific field', 'e.g. I want a government job, or to start a business, or to switch fields...'],
+  'अपना सवाल बताएं (status/specific concern)': ['Tell us your question (status / specific concern)', 'e.g. when will I marry, or why has it not happened yet, or is this match right...'],
+  'किस क्षेत्र के लिए उपाय चाहिए?': ['Which area do you need a remedy for?', 'e.g. for career, for health, or just general remedies...'],
+};
+const qaText = (q, en, field) => (en && QA_EN[q.label] ? QA_EN[q.label][field === 'ph' ? 1 : 0] : (field === 'ph' ? q.placeholder : q.label));
+
 const QUICK_ACTION_CONFIG = {
   career: {
     label: '💼 करियर',
@@ -419,14 +427,14 @@ export default function ChatPage() {
     const yogas = k.planet_data?.yogas || [];
     const strongYoga = yogas.find(y => !y.isChallenging && y.strength === 'high') || yogas.find(y => !y.isChallenging);
     if (strongYoga) {
-      setNotableFinding({ type: 'yoga', label: strongYoga.name, prompt: `मेरी कुंडली में ${strongYoga.name} है — इसके बारे में विस्तार से बताएं, यह मेरी ज़िंदगी में कैसे असर डालता है?` });
+      setNotableFinding({ type: 'yoga', label: strongYoga.name, prompt: uiLang === 'en' ? `My kundli has ${strongYoga.name} — please explain it in detail and how it affects my life.` : `मेरी कुंडली में ${strongYoga.name} है — इसके बारे में विस्तार से बताएं, यह मेरी ज़िंदगी में कैसे असर डालता है?` });
       return;
     }
 
     const areas = k.planet_data?.varshaphal?.areas || [];
     const notable = [...areas].sort((a, b) => (b.strength === 'शुभ' ? 1 : 0) - (a.strength === 'शुभ' ? 1 : 0))[0];
     if (notable) {
-      setNotableFinding({ type: 'varshaphal', label: notable.area, prompt: `मेरे इस साल के ${notable.area} के बारे में विस्तार से बताएं।` });
+      setNotableFinding({ type: 'varshaphal', label: notable.area, prompt: uiLang === 'en' ? `Tell me in detail about my ${notable.area} this year.` : `मेरे इस साल के ${notable.area} के बारे में विस्तार से बताएं।` });
       return;
     }
     setNotableFinding(null);
@@ -463,7 +471,7 @@ export default function ChatPage() {
       setMessages([{ role:'assistant', content: data.content, _animate: true }]);
       if (data.pendingFollowUpId) setPendingFollowUpId(data.pendingFollowUpId);
     } catch {
-      setMessages([{ role:'assistant', content:`नमस्ते! ${k.full_name} की कुंडली लोड हो गई। कोई भी प्रश्न पूछें।` }]);
+      setMessages([{ role:'assistant', content: uiLang === 'en' ? `Namaste! ${k.full_name}’s kundli is loaded. Ask me anything.` : `नमस्ते! ${k.full_name} की कुंडली लोड हो गई। कोई भी प्रश्न पूछें।` }]);
     }
     setTimeout(() => inputRef.current?.focus(), 300);
   }
@@ -472,7 +480,7 @@ export default function ChatPage() {
   // endpoints the /profile page uses, just surfaced inline in chat so a
   // brand-new user never has to leave the conversation to get started.
   async function geocodePlace() {
-    if (!newK.birth_place.trim()) { setGeoError('कृपया पहले जन्म स्थान भरें'); return; }
+    if (!newK.birth_place.trim()) { setGeoError(uiLang === 'en' ? 'Please enter the birth place first' : 'कृपया पहले जन्म स्थान भरें'); return; }
     setGeocoding(true); setGeoError(''); setGeoResults([]);
     try {
       const res = await fetch(`/api/geocode?q=${encodeURIComponent(newK.birth_place)}`);
@@ -481,10 +489,10 @@ export default function ChatPage() {
         if (data.results.length === 1) selectGeoResult(data.results[0]);
         else setGeoResults(data.results);
       } else {
-        setGeoError('स्थान नहीं मिला — Latitude/Longitude खुद डालें');
+        setGeoError(uiLang === 'en' ? 'Place not found — enter latitude/longitude manually' : 'स्थान नहीं मिला — Latitude/Longitude खुद डालें');
       }
     } catch {
-      setGeoError('स्थान खोजने में समस्या — Latitude/Longitude खुद डालें');
+      setGeoError(uiLang === 'en' ? 'Could not look up the place — enter latitude/longitude manually' : 'स्थान खोजने में समस्या — Latitude/Longitude खुद डालें');
     }
     setGeocoding(false);
   }
@@ -518,10 +526,10 @@ export default function ChatPage() {
         setNewK({ label:'', full_name:'', dob:'', birth_time:'', birth_place:'', latitude:'', longitude:'', ayanamsa:'lahiri', gender:'' });
         await selectKundli(data.kundli); // auto-select and jump straight into chat
       } else {
-        setGeoError(data.error || 'कुंडली save नहीं हो पाई, दोबारा कोशिश करें');
+        setGeoError(data.error || (uiLang === 'en' ? 'Could not save the kundli, please try again' : 'कुंडली save नहीं हो पाई, दोबारा कोशिश करें'));
       }
     } catch {
-      setGeoError('कुछ गड़बड़ हुई — दोबारा कोशिश करें');
+      setGeoError(uiLang === 'en' ? 'Something went wrong — please try again' : 'कुछ गड़बड़ हुई — दोबारा कोशिश करें');
     }
     setSavingKundli(false);
   }
@@ -615,7 +623,7 @@ export default function ChatPage() {
       } catch {
         // Server returned non-JSON (e.g. a raw error page) — don't crash,
         // show a graceful message instead.
-        data = { content: 'माफ़ करें, जवाब में कुछ गड़बड़ हुई। कृपया दोबारा भेजें।' };
+        data = { content: uiLang === 'en' ? 'Sorry, something went wrong with the reply. Please send it again.' : 'माफ़ करें, जवाब में कुछ गड़बड़ हुई। कृपया दोबारा भेजें।' };
       }
 
       if (pendingFollowUpId) setPendingFollowUpId(null);
@@ -631,12 +639,12 @@ export default function ChatPage() {
         // Bot needs one detail first (e.g. marital status) — shown as tap chips.
         setMessages(m => [...m, { role:'assistant', content: data.content, _lifeAsk: { field: data.lifeAsk.field, originalText: text, answered: null } }]);
       } else {
-        setMessages(m => [...m, { role:'assistant', content: data.content || 'माफ़ करें, जवाब नहीं मिल पाया। कृपया दोबारा कोशिश करें।', _animate: true }]);
+        setMessages(m => [...m, { role:'assistant', content: data.content || (uiLang === 'en' ? 'Sorry, no reply came through. Please try again.' : 'माफ़ करें, जवाब नहीं मिल पाया। कृपया दोबारा कोशिश करें।'), _animate: true }]);
         if (data.usage) setUsage(data.usage);
       }
     } catch (err) {
       console.error('[Chat] sendMessage failed:', err);
-      setMessages(m => [...m, { role:'assistant', content: 'माफ़ करें, connection में समस्या हुई। कृपया दोबारा भेजें।' }]);
+      setMessages(m => [...m, { role:'assistant', content: uiLang === 'en' ? 'Sorry, there was a connection problem. Please send it again.' : 'माफ़ करें, connection में समस्या हुई। कृपया दोबारा भेजें।' }]);
     } finally {
       // ALWAYS runs — success, error, or network failure — so the send
       // button never gets permanently stuck.
@@ -681,7 +689,7 @@ export default function ChatPage() {
             </div>
           </div>
           <button onClick={newChat} style={{ width:'100%', padding:'7px', fontSize:'13px', fontWeight:'500', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'8px', cursor:'pointer' }}>
-            + नई Chat
+            {uiLang === 'en' ? '+ New chat' : '+ नई Chat'}
           </button>
         </div>
 
@@ -690,9 +698,9 @@ export default function ChatPage() {
             without leaving the conversation. */}
         {kundli && (
           <div style={{ padding: '10px 12px', borderBottom: '0.5px solid var(--color-border-tertiary)', flexShrink: 0 }}>
-            <p style={{ fontSize: '10px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 6px' }}>फलादेश</p>
+            <p style={{ fontSize: '10px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 6px' }}>{uiLang === 'en' ? 'FORECASTS' : 'फलादेश'}</p>
             <div style={{ display: 'flex', gap: '6px' }}>
-              {[['varshik', '📅 वार्षिक'], ['masik', '🌙 मासिक'], ['saptahik', '⭐ साप्ताहिक']].map(([key, label]) => (
+              {[['varshik', uiLang === 'en' ? '📅 Yearly' : '📅 वार्षिक'], ['masik', uiLang === 'en' ? '🌙 Monthly' : '🌙 मासिक'], ['saptahik', uiLang === 'en' ? '⭐ Weekly' : '⭐ साप्ताहिक']].map(([key, label]) => (
                 <button
                   key={key}
                   onClick={() => { setDetailPanelTab(key); setDetailPanelOpen(true); setSidebarOpen(false); }}
@@ -707,7 +715,7 @@ export default function ChatPage() {
 
         {/* Tabs */}
         <div style={{ display:'flex', borderBottom:'0.5px solid var(--color-border-tertiary)', flexShrink:0 }}>
-          {[['sessions','💬 Chats'],['kundlis','🪐 कुंडली']].map(([id,label]) => (
+          {[['sessions','💬 Chats'],['kundlis', uiLang === 'en' ? '🪐 Kundlis' : '🪐 कुंडली']].map(([id,label]) => (
             <button key={id} onClick={() => setPanel(id)} style={{
               flex:1, padding:'8px 4px', fontSize:'11px', border:'none', background:'none', cursor:'pointer',
               color: panel===id ? 'var(--color-brand)' : 'var(--color-text-tertiary)',
@@ -721,7 +729,7 @@ export default function ChatPage() {
         {panel === 'sessions' && (
           <div style={{ flex:1, overflowY:'auto', padding:'6px' }}>
             {sessions.length === 0
-              ? <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', padding:'12px', textAlign:'center' }}>अभी कोई chat नहीं</p>
+              ? <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', padding:'12px', textAlign:'center' }}>{uiLang === 'en' ? 'No chats yet' : 'अभी कोई chat नहीं'}</p>
               : sessions.map(s => (
                 <div key={s.id} style={{ display:'flex', alignItems:'center', gap:'2px', marginBottom:'2px' }}>
                   <div onClick={() => loadSession(s)} style={{
@@ -743,7 +751,7 @@ export default function ChatPage() {
         {panel === 'kundlis' && (
           <div style={{ flex:1, overflowY:'auto', padding:'6px' }}>
             {kundlis.length === 0 && (
-              <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', padding:'12px', textAlign:'center' }}>कोई कुंडली नहीं</p>
+              <p style={{ fontSize:'12px', color:'var(--color-text-tertiary)', padding:'12px', textAlign:'center' }}>{uiLang === 'en' ? 'No kundlis' : 'कोई कुंडली नहीं'}</p>
             )}
             {kundlis.map(k => (
               <div key={k.id} onClick={() => selectKundli(k)} style={{
@@ -757,7 +765,7 @@ export default function ChatPage() {
               </div>
             ))}
             <button onClick={() => { setAddKundliOpen(true); setMessages([]); setKundli(null); setSidebarOpen(false); }} style={{ width:'100%', marginTop:'6px', padding:'7px', fontSize:'12px', background:'none', border:'1px dashed var(--color-border-tertiary)', borderRadius:'8px', cursor:'pointer', color:'var(--color-text-tertiary)' }}>
-              + नई कुंडली
+              {uiLang === 'en' ? '+ New kundli' : '+ नई कुंडली'}
             </button>
           </div>
         )}
@@ -800,7 +808,7 @@ export default function ChatPage() {
               <button onClick={() => { setPanel('kundlis'); setSidebarOpen(true); }} style={{ flexShrink:0, padding:'4px 10px', fontSize:'11px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'20px', cursor:'pointer', color:'var(--color-text-secondary)' }}>{t('changeKundli', uiLang)}</button>
             </>
           ) : (
-            <p style={{ flex:1, fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>← बाईं तरफ से कुंडली चुनें</p>
+            <p style={{ flex:1, fontSize:'13px', color:'var(--color-text-tertiary)', margin:0 }}>{uiLang === 'en' ? '← Pick a kundli from the left' : '← बाईं तरफ से कुंडली चुनें'}</p>
           )}
           <div style={{ position:'relative', flexShrink:0 }}>
             <button
@@ -851,7 +859,7 @@ export default function ChatPage() {
             <span style={{ fontSize:'18px', flexShrink:0 }}>🌅</span>
             <div style={{ flex:1, minWidth:0 }}>
               <p style={{ margin:'0 0 3px', fontSize:'12px', fontWeight:'600', color:'var(--color-text-primary)' }}>
-                आज का गोचर — {dailyCard.planetHi} {dailyCard.house}वें भाव में
+                {uiLang === 'en' ? `Today’s transit — ${dailyCard.planet || dailyCard.planetHi} in house ${dailyCard.house}` : `आज का गोचर — ${dailyCard.planetHi} ${dailyCard.house}वें भाव में`}
               </p>
               <p style={{ margin:0, fontSize:'12px', lineHeight:'1.6', color:'var(--color-text-secondary)' }}>{dailyCard.text}</p>
             </div>
@@ -864,8 +872,8 @@ export default function ChatPage() {
           <div onClick={openNotableFinding} style={{ margin:'10px 14px 0', padding:'12px 14px', borderRadius:'12px', background:'var(--color-background-info)', border:'1px solid var(--color-text-info)', display:'flex', gap:'10px', alignItems:'center', flexShrink:0, cursor:'pointer' }}>
             <span style={{ fontSize:'18px', flexShrink:0 }}>👀</span>
             <div style={{ flex:1, minWidth:0 }}>
-              <p style={{ margin:'0 0 2px', fontSize:'12px', fontWeight:'600', color:'var(--color-text-primary)' }}>आपकी कुंडली में एक खास बात है</p>
-              <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)' }}>{notableFinding.label} — टैप करके जानें</p>
+              <p style={{ margin:'0 0 2px', fontSize:'12px', fontWeight:'600', color:'var(--color-text-primary)' }}>{uiLang === 'en' ? 'Something notable in your kundli' : 'आपकी कुंडली में एक खास बात है'}</p>
+              <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-secondary)' }}>{notableFinding.label} — {uiLang === 'en' ? 'tap to know more' : 'टैप करके जानें'}</p>
             </div>
             <button onClick={(e) => { e.stopPropagation(); dismissNotableFinding(); }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-tertiary)', fontSize:'16px', padding:'0 2px', flexShrink:0, lineHeight:1 }}>✕</button>
           </div>
@@ -878,23 +886,23 @@ export default function ChatPage() {
 
             {addKundliOpen ? (
               <form onSubmit={saveNewKundli} style={{ width:'100%', maxWidth:'380px', textAlign:'left', display:'flex', flexDirection:'column', gap:'10px' }}>
-                <h2 style={{ fontSize:'16px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 4px', textAlign:'center' }}>अपना जन्म विवरण दें</h2>
+                <h2 style={{ fontSize:'16px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 4px', textAlign:'center' }}>{uiLang === 'en' ? 'Enter your birth details' : 'अपना जन्म विवरण दें'}</h2>
                 <div>
-                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>पूरा नाम *</label>
-                  <input value={newK.full_name} onChange={e => setNewK(k => ({...k, full_name:e.target.value}))} placeholder="नाम" style={{ width:'100%', fontSize:'14px' }} required/>
+                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>{uiLang === 'en' ? 'Full name *' : 'पूरा नाम *'}</label>
+                  <input value={newK.full_name} onChange={e => setNewK(k => ({...k, full_name:e.target.value}))} placeholder={uiLang === 'en' ? 'Name' : 'नाम'} style={{ width:'100%', fontSize:'14px' }} required/>
                 </div>
                 <div>
-                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म तिथि *</label>
+                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>{uiLang === 'en' ? 'Date of birth *' : 'जन्म तिथि *'}</label>
                   <DateOfBirthInput value={newK.dob} onChange={dob => setNewK(k => ({...k, dob}))} required style={{ fontSize:'14px' }}/>
                 </div>
                 <div>
-                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म समय *</label>
+                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>{uiLang === 'en' ? 'Time of birth *' : 'जन्म समय *'}</label>
                   <input type="time" value={newK.birth_time} onChange={e => setNewK(k => ({...k, birth_time:e.target.value}))} style={{ width:'100%', fontSize:'14px' }} required/>
                 </div>
                 <div>
-                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>लिंग *</label>
+                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>{uiLang === 'en' ? 'Gender *' : 'लिंग *'}</label>
                   <div style={{ display:'flex', gap:'8px' }}>
-                    {[['male','पुरुष'],['female','महिला'],['other','अन्य']].map(([val, label]) => (
+                    {[['male', uiLang === 'en' ? 'Male' : 'पुरुष'],['female', uiLang === 'en' ? 'Female' : 'महिला'],['other', uiLang === 'en' ? 'Other' : 'अन्य']].map(([val, label]) => (
                       <button key={val} type="button"
                         onClick={() => setNewK(k => ({...k, gender: val}))}
                         style={{
@@ -909,11 +917,11 @@ export default function ChatPage() {
                   </div>
                 </div>
                 <div>
-                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>जन्म स्थान *</label>
+                  <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', display:'block', marginBottom:'4px' }}>{uiLang === 'en' ? 'Place of birth *' : 'जन्म स्थान *'}</label>
                   <div style={{ display:'flex', gap:'8px' }}>
-                    <input value={newK.birth_place} onChange={e => { setNewK(k => ({...k, birth_place:e.target.value, latitude:'', longitude:''})); setGeoResults([]); }} placeholder="जैसे: Delhi, India" style={{ flex:1, fontSize:'14px' }} required/>
+                    <input value={newK.birth_place} onChange={e => { setNewK(k => ({...k, birth_place:e.target.value, latitude:'', longitude:''})); setGeoResults([]); }} placeholder={uiLang === 'en' ? 'e.g. Delhi, India' : 'जैसे: Delhi, India'} style={{ flex:1, fontSize:'14px' }} required/>
                     <button type="button" onClick={geocodePlace} disabled={geocoding} style={{ padding:'8px 14px', fontSize:'13px', background:'var(--color-background-secondary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'8px', cursor:'pointer', whiteSpace:'nowrap' }}>
-                      {geocoding ? '...' : 'खोजें'}
+                      {geocoding ? '...' : (uiLang === 'en' ? 'Search' : 'खोजें')}
                     </button>
                   </div>
                   {geoResults.length > 0 && (
@@ -926,27 +934,27 @@ export default function ChatPage() {
                     </div>
                   )}
                   {newK.latitude && newK.longitude && (
-                    <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'6px 0 0' }}>✓ स्थान मिल गया</p>
+                    <p style={{ fontSize:'12px', color:'var(--color-text-success)', margin:'6px 0 0' }}>{uiLang === 'en' ? '✓ Place found' : '✓ स्थान मिल गया'}</p>
                   )}
                 </div>
                 {geoError && <p style={{ fontSize:'12px', color:'var(--color-text-danger)', margin:0 }}>{geoError}</p>}
                 <button type="submit" disabled={savingKundli || !newK.gender} style={{ padding:'11px', background: (savingKundli || !newK.gender) ? 'var(--color-border-tertiary)' : 'var(--color-brand)', color:'#fff', border:'none', borderRadius:'8px', cursor: (savingKundli || !newK.gender) ? 'default' : 'pointer', fontSize:'14px', fontWeight:'500', marginTop:'4px' }}>
                   {savingKundli
-                    ? <>कुंडली बन रही है<span className="lf-loading-dots"><span/><span/><span/></span></>
-                    : 'शुरू करें →'}
+                    ? <>{uiLang === 'en' ? 'Building kundli' : 'कुंडली बन रही है'}<span className="lf-loading-dots"><span/><span/><span/></span></>
+                    : (uiLang === 'en' ? 'Start →' : 'शुरू करें →')}
                 </button>
-                <button type="button" onClick={() => setAddKundliOpen(false)} style={{ background:'none', border:'none', color:'var(--color-text-tertiary)', fontSize:'12px', cursor:'pointer', padding:0 }}>← रद्द करें</button>
+                <button type="button" onClick={() => setAddKundliOpen(false)} style={{ background:'none', border:'none', color:'var(--color-text-tertiary)', fontSize:'12px', cursor:'pointer', padding:0 }}>{uiLang === 'en' ? '← Cancel' : '← रद्द करें'}</button>
               </form>
             ) : (
               <>
                 <h2 style={{ fontSize:'18px', fontWeight:'500', color:'var(--color-text-primary)', margin:'0 0 8px' }}>
-                  {kundlis.length === 0 ? 'पहले कुंडली जोड़ें' : 'कुंडली चुनें और शुरू करें'}
+                  {kundlis.length === 0 ? (uiLang === 'en' ? 'Add a kundli first' : 'पहले कुंडली जोड़ें') : (uiLang === 'en' ? 'Choose a kundli and start' : 'कुंडली चुनें और शुरू करें')}
                 </h2>
                 <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)', margin:'0 0 20px', maxWidth:'260px', lineHeight:'1.6' }}>
                   {kundlis.length === 0 ? 'अपना जन्म विवरण दें — यहीं चैट में, बस 30 सेकंड लगेंगे।' : t('selectKundliPrompt', uiLang)}
                 </p>
                 {kundlis.length === 0 ? (
-                  <button onClick={() => setAddKundliOpen(true)} style={{ padding:'10px 20px', background:'var(--color-brand)', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>कुंडली जोड़ें →</button>
+                  <button onClick={() => setAddKundliOpen(true)} style={{ padding:'10px 20px', background:'var(--color-brand)', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>{uiLang === 'en' ? 'Add kundli →' : 'कुंडली जोड़ें →'}</button>
                 ) : (
                   <div style={{ display:'flex', flexWrap:'wrap', gap:'8px', justifyContent:'center', maxWidth:'340px' }}>
                     {kundlis.map(k => (
@@ -1042,12 +1050,12 @@ export default function ChatPage() {
               return (
                 <div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
-                    <p style={{ fontSize:'12px', fontWeight:'600', color:'var(--color-text-primary)', margin:0 }}>{config.label} — पहले बताएं</p>
+                    <p style={{ fontSize:'12px', fontWeight:'600', color:'var(--color-text-primary)', margin:0 }}>{config.label} — {uiLang === 'en' ? 'tell us first' : 'पहले बताएं'}</p>
                     <button onClick={() => { setActiveQuickForm(null); setQuickFormAnswers({}); }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-tertiary)', fontSize:'14px', padding:'2px 6px' }}>✕</button>
                   </div>
                   {config.questions.map((q) => (
                     <div key={q.key} style={{ marginBottom:'8px' }}>
-                      <p style={{ fontSize:'11px', color:'var(--color-text-secondary)', margin:'0 0 4px' }}>{q.label}</p>
+                      <p style={{ fontSize:'11px', color:'var(--color-text-secondary)', margin:'0 0 4px' }}>{qaText(q, uiLang === 'en', 'label')}</p>
                       {q.type === 'choice' ? (
                         <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
                           {q.options.map(opt => (
@@ -1067,7 +1075,7 @@ export default function ChatPage() {
                           autoFocus
                           value={quickFormAnswers[q.key] || ''}
                           onChange={e => setQuickFormAnswers(a => ({ ...a, [q.key]: e.target.value }))}
-                          placeholder={q.placeholder}
+                          placeholder={qaText(q, uiLang === 'en', 'ph')}
                           style={{ width:'100%', fontSize:'12px', padding:'6px 10px' }}
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
@@ -1091,7 +1099,7 @@ export default function ChatPage() {
                     }}
                     style={{ width:'100%', marginTop:'4px', padding:'8px', fontSize:'12px', fontWeight:'600', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'8px', cursor:'pointer' }}
                   >
-                    जवाब पूछें →
+                    {uiLang === 'en' ? 'Ask →' : 'जवाब पूछें →'}
                   </button>
                 </div>
               );
@@ -1131,7 +1139,7 @@ export default function ChatPage() {
                 <button
                   type="button"
                   onClick={toggleVoiceInput}
-                  title={listening ? 'रोकें' : 'बोलकर पूछें'}
+                  title={listening ? (uiLang === 'en' ? 'Stop' : 'रोकें') : (uiLang === 'en' ? 'Ask by voice' : 'बोलकर पूछें')}
                   className={`lf-composer-icon-btn ${listening ? 'lf-mic-listening' : ''}`}
                 >
                   <svg width="17" height="17" viewBox="0 0 24 24" fill={listening ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">

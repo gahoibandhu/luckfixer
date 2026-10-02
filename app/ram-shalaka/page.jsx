@@ -20,9 +20,9 @@ import RamShalakaWheel from '@/components/RamShalakaWheel';
 export const dynamic = 'force-dynamic';
 
 const TONE_STYLE = {
-  shubh:     { label: 'शुभ उत्तर',      color: 'var(--color-text-success)', bg: 'var(--color-background-secondary)' },
-  dhairya:   { label: 'धैर्य का उत्तर',  color: 'var(--color-text-warning)', bg: 'var(--color-background-warning)' },
-  saavdhani: { label: 'सावधानी का उत्तर', color: 'var(--color-text-info)',   bg: 'var(--color-background-info)' },
+  shubh:     { label: 'शुभ उत्तर', labelEn: 'Auspicious answer',      color: 'var(--color-text-success)', bg: 'var(--color-background-secondary)' },
+  dhairya:   { label: 'धैर्य का उत्तर', labelEn: 'Answer of patience',  color: 'var(--color-text-warning)', bg: 'var(--color-background-warning)' },
+  saavdhani: { label: 'सावधानी का उत्तर', labelEn: 'Answer of caution', color: 'var(--color-text-info)',   bg: 'var(--color-background-info)' },
 };
 
 export default function RamShalakaPage() {
@@ -183,7 +183,7 @@ export default function RamShalakaPage() {
               color: TONE_STYLE[result.tone]?.color,
               background: TONE_STYLE[result.tone]?.bg,
             }}>
-              {TONE_STYLE[result.tone]?.label} · {result.kand}
+              {uiLang === 'en' ? TONE_STYLE[result.tone]?.labelEn : TONE_STYLE[result.tone]?.label} · {result.kand}
             </span>
 
             <p style={{ fontSize: '19px', lineHeight: '1.9', color: 'var(--color-text-primary)', fontWeight: '500', marginBottom: '4px' }}>

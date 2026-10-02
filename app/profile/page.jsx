@@ -183,6 +183,22 @@ export default function ProfilePage() {
       {/* Kundli cards — birth-time validation, Edit/Delete, and the optional
           "Additional info" (marital status + children) tucked behind a link so
           the card stays clean by default. */}
+      {/* Add kundli — always reachable from Profile, on mobile and desktop.
+          (Previously Profile had no way to add one; with zero kundlis the page showed nothing.) */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px', margin:'0 0 10px' }}>
+        <p style={{ margin:0, fontSize:'11px', fontWeight:500, letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)' }}>
+          {t('myKundlisHeading', uiLang)} ({kundlis.length})
+        </p>
+        <button onClick={() => router.push('/kundli?addKundli=1')} style={{ minHeight:'40px', padding:'8px 14px', fontSize:'13px', fontWeight:600, cursor:'pointer', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', whiteSpace:'nowrap' }}>
+          + {t('addKundli', uiLang)}
+        </button>
+      </div>
+      {kundlis.length === 0 && (
+        <div onClick={() => router.push('/kundli?addKundli=1')} role="button" tabIndex={0} style={{ textAlign:'center', padding:'1.5rem 1rem', marginBottom:'1rem', cursor:'pointer', border:'0.5px dashed var(--color-border-secondary)', borderRadius:'var(--border-radius-lg)', background:'var(--color-background-primary)' }}>
+          <p style={{ margin:'0 0 4px', fontSize:'14px', fontWeight:500, color:'var(--color-text-primary)' }}>{t('noKundliYet', uiLang)}</p>
+          <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-tertiary)' }}>{t('noKundliHint', uiLang)}</p>
+        </div>
+      )}
       {kundlis.length > 0 && (
         <div style={{ marginBottom:'1rem', display:'flex', flexDirection:'column', gap:'10px' }}>
           {kundlis.map(k => {

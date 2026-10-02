@@ -1,4 +1,5 @@
 'use client';
+import { useUiLang } from '@/lib/i18n';
 // components/MissingKundliFieldsModal.jsx
 //
 // Shown when someone tries to submit the add-kundli form (profile
@@ -10,6 +11,7 @@
 // field at once instead of one at a time.
 
 export default function MissingKundliFieldsModal({ missing, onClose }) {
+  const en = useUiLang() === 'en';
   if (!missing || missing.length === 0) return null;
 
   return (
@@ -32,16 +34,16 @@ export default function MissingKundliFieldsModal({ missing, onClose }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
           <span style={{ fontSize: '22px' }}>⚠️</span>
           <p style={{ fontSize: '16px', fontWeight: '600', color: 'var(--color-text-primary)', margin: 0 }}>
-            कुछ जानकारी अधूरी है
+            {en ? 'Some details are missing' : 'कुछ जानकारी अधूरी है'}
           </p>
         </div>
         <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', margin: '0 0 12px', lineHeight: '1.6' }}>
-          सही कुंडली बनाने के लिए ये भरना ज़रूरी है:
+          {en ? 'These are needed to build an accurate kundli:' : 'सही कुंडली बनाने के लिए ये भरना ज़रूरी है:'}
         </p>
         <ul style={{ margin: '0 0 18px', padding: '0 0 0 20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {missing.map((m) => (
             <li key={m.field} style={{ fontSize: '14px', color: 'var(--color-text-primary)', fontWeight: '500' }}>
-              {m.label}
+              {(en && m.labelEn ? m.labelEn : m.label)}
             </li>
           ))}
         </ul>
@@ -52,7 +54,7 @@ export default function MissingKundliFieldsModal({ missing, onClose }) {
             border: 'none', borderRadius: 'var(--border-radius-md)', cursor: 'pointer', fontSize: '14px', fontWeight: '500',
           }}
         >
-          ठीक है, भरता हूं
+          {en ? 'OK, I will fill them' : 'ठीक है, भरता हूं'}
         </button>
       </div>
     </div>

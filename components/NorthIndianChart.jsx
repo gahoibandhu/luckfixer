@@ -1,4 +1,5 @@
 'use client';
+import { useUiLang } from '@/lib/i18n';
 // components/NorthIndianChart.jsx
 //
 // North Indian style Rasi (D1/Lagna) chart — the classical diamond
@@ -12,6 +13,7 @@
 
 const SIGNS = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
 
+const PLANET_ABBR_EN = { Sun: 'Su', Moon: 'Mo', Mars: 'Ma', Mercury: 'Me', Jupiter: 'Ju', Venus: 'Ve', Saturn: 'Sa', Rahu: 'Ra', Ketu: 'Ke' };
 const PLANET_ABBR_HI = {
   Sun: 'सू', Moon: 'चं', Mars: 'मं', Mercury: 'बु',
   Jupiter: 'गु', Venus: 'शु', Saturn: 'श', Rahu: 'रा', Ketu: 'के',
@@ -38,6 +40,7 @@ const HOUSE_CELLS = {
 };
 
 export default function NorthIndianChart({ planets, lagnaSign }) {
+  const en = useUiLang() === 'en';
   if (!planets || !lagnaSign) return null;
   const lagnaIdx = SIGNS.indexOf(lagnaSign);
   if (lagnaIdx === -1) return null;
@@ -73,12 +76,12 @@ export default function NorthIndianChart({ planets, lagnaSign }) {
               )}
               <text x={cell.num[0]} y={cell.num[1]} textAnchor="middle" fontSize="12" fill="var(--color-text-tertiary)">{rasiNum}</text>
               {isLagna && (
-                <text x={cell.num[0]} y={cell.num[1] + 14} textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--color-brand)">ल</text>
+                <text x={cell.num[0]} y={cell.num[1] + 14} textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--color-brand)">{en ? 'As' : 'ल'}</text>
               )}
               <text x={cell.text[0]} y={cell.text[1]} textAnchor="middle" fontSize="13" fontWeight="600" fill="var(--color-text-primary)">
                 {occupants.map((p, i) => (
                   <tspan key={p.name} x={cell.text[0]} dy={i === 0 ? 0 : 15}>
-                    {PLANET_ABBR_HI[p.name] || p.name}{p.retro ? ' (व)' : ''}
+                    {(en ? PLANET_ABBR_EN : PLANET_ABBR_HI)[p.name] || p.name}{p.retro ? (en ? ' (R)' : ' (व)') : ''}
                   </tspan>
                 ))}
               </text>
@@ -87,7 +90,7 @@ export default function NorthIndianChart({ planets, lagnaSign }) {
         })}
       </svg>
       <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginTop: '10px', textAlign: 'center' }}>
-        छोटा अंक = राशि क्रमांक (1=मेष...12=मीन) · ल = लग्न · (व) = वक्री
+        {en ? 'Small number = sign number (1=Aries…12=Pisces) · As = Ascendant (Lagna) · (R) = retrograde' : 'छोटा अंक = राशि क्रमांक (1=मेष...12=मीन) · ल = लग्न · (व) = वक्री'}
       </p>
     </div>
   );

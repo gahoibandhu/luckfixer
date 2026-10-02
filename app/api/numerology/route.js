@@ -113,7 +113,7 @@ ${linkedKundli ? `(यह जांच उपयोगकर्ता की स
 NUMEROLOGY DATA (pre-computed, authoritative — do not recalculate):
 ${JSON.stringify(numerologyData, null, 2)}`;
 
-  const aiResult = await getLuckfixerResponse(systemPrompt, userPrompt, true);
+  const aiResult = await getLuckfixerResponse(systemPrompt, userPrompt, true, { userId: user.id, feature: 'numerology' });
 
   // ── Log the query (own record, RLS-protected) ────────────────────
   const { data: saved } = await supabase.from('numerology_queries').insert({

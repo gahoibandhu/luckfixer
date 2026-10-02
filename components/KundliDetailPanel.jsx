@@ -18,6 +18,15 @@
 import { useState, useEffect } from 'react';
 import { formatDateDDMMYYYY as fmtDate } from '@/lib/date-format';
 import NorthIndianChart from './NorthIndianChart';
+import { useUiLang } from '@/lib/i18n';
+
+// English names for the Hindi label tables below (UI follows the app language).
+const DOMAIN_EN = { character: 'Character', fortune_satisfaction: 'Fortune & contentment', lifestyle: 'Lifestyle', employment: 'Employment', business: 'Business', health: 'Health', interests: 'Interests', love: 'Love & relationships', financial: 'Finances', education: 'Education' };
+const CATEGORY_EN = { career: 'Career', financial: 'Money', relationships: 'Relationships', health: 'Health' };
+const NATURE_EN = { 'शुभ महीना': 'Favourable month', 'सामान्य महीना': 'Neutral month', 'सतर्कता का महीना': 'Month for caution' };
+const TAB_EN = { general: 'General', chart: 'Kundli chart', varshik: 'Yearly', masik: 'Monthly', saptahik: 'Weekly' };
+const EN_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const plName = (pl, en) => (en ? (pl.planet || pl.planetHi) : pl.planetHi);
 
 const LIFE_DOMAIN_LABELS = [
   ['character', 'चरित्र'],
@@ -33,6 +42,7 @@ const LIFE_DOMAIN_LABELS = [
 ];
 
 function LifeDomainAccordion({ domains }) {
+  const en = useUiLang() === 'en';
   const [openKey, setOpenKey] = useState('character');
   if (!domains) return null;
 
@@ -51,7 +61,7 @@ function LifeDomainAccordion({ domains }) {
                 border: 'none', cursor: 'pointer', textAlign: 'left',
               }}
             >
-              <span style={{ fontSize: '14px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{label}</span>
+              <span style={{ fontSize: '14px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{en ? (DOMAIN_EN[key] || label) : label}</span>
               <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>▼</span>
             </button>
             {isOpen && (
@@ -69,8 +79,9 @@ function LifeDomainAccordion({ domains }) {
 const TONE_BG = { current: 'var(--color-brand-light)', future: 'var(--color-background-secondary)' };
 
 function GocharPhalTimeline({ timeline }) {
+  const en = useUiLang() === 'en';
   const [expanded, setExpanded] = useState(false);
-  if (!timeline || timeline.length === 0) return <EmptyNote text="इस कुंडली के लिए गोचर फल उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।" />;
+  if (!timeline || timeline.length === 0) return <EmptyNote text={en ? 'Transit results are not available for this kundli — this data will be updated soon.' : 'इस कुंडली के लिए गोचर फल उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।'} />;
 
   const today = new Date().toISOString().slice(0, 10);
   const current = timeline.filter(p => p.start <= today && p.end >= today);
@@ -93,7 +104,7 @@ function GocharPhalTimeline({ timeline }) {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                 <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
-                  {p.planetHi} — {p.house}वें भाव में {isCurrent && '(अभी)'}
+                  {plName(p, en)} — {en ? `in house ${p.house}` : `${p.house}वें भाव में`} {isCurrent && (en ? '(now)' : '(अभी)')}
                 </span>
                 <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{fmtDate(p.start)} – {fmtDate(p.end)}</span>
               </div>
@@ -103,7 +114,7 @@ function GocharPhalTimeline({ timeline }) {
         })}
       </div>
       <button onClick={() => setExpanded(e => !e)} style={{ background: 'none', border: 'none', color: 'var(--color-text-info)', fontSize: '12px', cursor: 'pointer', marginTop: '8px', padding: 0 }}>
-        {expanded ? 'कम दिखाएं' : `पूरी timeline देखें (${timeline.length} periods) →`}
+        {expanded ? (en ? 'Show less' : 'कम दिखाएं') : (en ? `View full timeline (${timeline.length} periods) →` : `पूरी timeline देखें (${timeline.length} periods) →`)}
       </button>
     </div>
   );
@@ -132,14 +143,16 @@ const CATEGORY_META = [
   ['health', 'स्वास्थ्य'],
 ];
 
-function buildFallbackPeriodNarrative(p) {
-  if (!p.planets || p.planets.length === 0) return 'इस अवधि का विस्तृत विवरण उपलब्ध नहीं।';
-  const planetsStr = p.planets.map(pl => `${pl.planetHi} ${pl.house}वें भाव में`).join(', ');
+function buildFallbackPeriodNarrative(p, en = false) {
+  if (!p.planets || p.planets.length === 0) return en ? 'Detailed description of this period is not available.' : 'इस अवधि का विस्तृत विवरण उपलब्ध नहीं।';
+  const planetsStr = p.planets.map(pl => en ? `${plName(pl, true)} in house ${pl.house}` : `${pl.planetHi} ${pl.house}वें भाव में`).join(', ');
+  if (en) return `During this period ${planetsStr} — their combined influence will shape the experiences of this time. Proceed with ordinary care and take a little time and experienced advice before any important decision.`;
   return `इस अवधि में ${planetsStr} स्थित हैं — इनका संयुक्त प्रभाव इस समय के अनुभवों को आकार देगा। सामान्य सतर्कता के साथ आगे बढ़ें और किसी भी महत्वपूर्ण निर्णय से पहले थोड़ा समय और अनुभवी सलाह लें।`;
 }
 
 function VarshikTab({ varshaphal, annualTimeline, annualTransitPeriods }) {
-  if (!varshaphal) return <EmptyNote text="वार्षिक फलादेश उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।" />;
+  const en = useUiLang() === 'en';
+  if (!varshaphal) return <EmptyNote text={en ? 'Yearly forecast is not available — this data will be updated soon.' : 'वार्षिक फलादेश उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।'} />;
 
   const today = new Date().toISOString().slice(0, 10);
   // Pairing: prefer matching by period_number (the AI is asked to echo
@@ -161,14 +174,14 @@ function VarshikTab({ varshaphal, annualTimeline, annualTransitPeriods }) {
     const matched = byNumber.size > 0 ? byNumber.get(i + 1) : aiPeriods[i];
     return {
       ...p,
-      narrative: matched?.narrative || buildFallbackPeriodNarrative(p),
+      narrative: matched?.narrative || buildFallbackPeriodNarrative(p, en),
     };
   });
 
   return (
     <div>
       <div style={{ textAlign: 'center', marginBottom: '16px', padding: '14px', background: 'var(--color-background-secondary)', borderRadius: '10px' }}>
-        <p style={{ margin: '0 0 4px', fontSize: '12px', color: 'var(--color-text-tertiary)' }}>{varshaphal.period || 'वर्षेश (साल के स्वामी)'}</p>
+        <p style={{ margin: '0 0 4px', fontSize: '12px', color: 'var(--color-text-tertiary)' }}>{varshaphal.period || (en ? 'Year lord (Varsheshwar)' : 'वर्षेश (साल के स्वामी)')}</p>
         <p style={{ margin: 0, fontSize: '18px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{varshaphal.varshesh?.planetHi}</p>
         {annualTimeline?.core_theme && (
           <p style={{ margin: '8px 0 0', fontSize: '13px', color: 'var(--color-text-primary)', fontStyle: 'italic' }}>{annualTimeline.core_theme}</p>
@@ -186,7 +199,7 @@ function VarshikTab({ varshaphal, annualTimeline, annualTransitPeriods }) {
 
       {periods.length > 0 && (
         <>
-          <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 10px' }}>इस साल की चरण-दर-चरण कहानी</p>
+          <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 10px' }}>{en ? 'Step-by-step story of this year' : 'इस साल की चरण-दर-चरण कहानी'}</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
             {periods.map((p, i) => {
               const isCurrent = p.start <= today && p.end >= today;
@@ -198,7 +211,7 @@ function VarshikTab({ varshaphal, annualTimeline, annualTransitPeriods }) {
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px', flexWrap: 'wrap', gap: '4px' }}>
                     <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
-                      {p.planets?.map(pl => `${pl.planetHi} ${pl.house}वें भाव में`).join(' · ')} {isCurrent && '(अभी)'}
+                      {p.planets?.map(pl => en ? `${plName(pl, true)} in house ${pl.house}` : `${pl.planetHi} ${pl.house}वें भाव में`).join(' · ')} {isCurrent && (en ? '(now)' : '(अभी)')}
                     </span>
                     <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{fmtDate(p.start)} – {fmtDate(p.end)}</span>
                   </div>
@@ -214,10 +227,10 @@ function VarshikTab({ varshaphal, annualTimeline, annualTransitPeriods }) {
 
       {annualTimeline?.category_highlights && (
         <>
-          <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 8px' }}>क्षेत्र अनुसार — पूरे साल में</p>
+          <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 8px' }}>{en ? 'By life area — across the whole year' : 'क्षेत्र अनुसार — पूरे साल में'}</p>
           {CATEGORY_META.map(([key, label]) => annualTimeline.category_highlights[key] && (
             <div key={key} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
-              <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{label}</p>
+              <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{en ? (CATEGORY_EN[key] || label) : label}</p>
               <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.6', color: 'var(--color-text-secondary)' }}>{annualTimeline.category_highlights[key]}</p>
             </div>
           ))}
@@ -227,7 +240,7 @@ function VarshikTab({ varshaphal, annualTimeline, annualTransitPeriods }) {
       {/* Fallback for kundlis analyzed before this format existed */}
       {!annualTimeline && (
         <>
-          <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 8px' }}>क्षेत्र अनुसार</p>
+          <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 8px' }}>{en ? 'By life area' : 'क्षेत्र अनुसार'}</p>
           {varshaphal.areas?.map((a, i) => (
             <div key={i} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: i < varshaphal.areas.length - 1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
               <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{a.area}</p>
@@ -250,8 +263,9 @@ const HINDI_MONTHS = ['जनवरी','फरवरी','मार्च','अ
 // list down to whichever period(s) overlap the current calendar month,
 // since a dasha change can fall mid-month and split it into two.
 function MasikTab({ varshaphal }) {
+  const en = useUiLang() === 'en';
   const mudda = varshaphal?.muddaDasha;
-  if (!mudda || mudda.length === 0) return <EmptyNote text="मासिक फलादेश उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।" />;
+  if (!mudda || mudda.length === 0) return <EmptyNote text={en ? 'Monthly forecast is not available — this data will be updated soon.' : 'मासिक फलादेश उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।'} />;
 
   const today = new Date();
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
@@ -261,16 +275,16 @@ function MasikTab({ varshaphal }) {
   const thisMonth = mudda.filter(m => m.start <= monthEnd && m.end >= monthStart);
 
   if (thisMonth.length === 0) {
-    return <EmptyNote text="इस महीने का डेटा उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।" />;
+    return <EmptyNote text={en ? 'This month’s data is not available — this data will be updated soon.' : 'इस महीने का डेटा उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।'} />;
   }
 
   return (
     <div>
       <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--color-text-primary)', marginBottom: '4px' }}>
-        {HINDI_MONTHS[today.getMonth()]} {today.getFullYear()}
+        {(en ? EN_MONTHS : HINDI_MONTHS)[today.getMonth()]} {today.getFullYear()}
       </p>
       <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginBottom: '12px' }}>
-        इस महीने का ग्रह-स्वामी (मुद्दा दशा) — संक्षेप में।
+        {en ? 'This month’s ruling planet (Mudda Dasha) — in brief.' : 'इस महीने का ग्रह-स्वामी (मुद्दा दशा) — संक्षेप में।'}
       </p>
       {thisMonth.map((m, i) => {
         const isCurrent = m.start <= todayStr && m.end >= todayStr;
@@ -282,8 +296,8 @@ function MasikTab({ varshaphal }) {
             border: isCurrent ? '1px solid var(--color-brand)' : 'none',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-              <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{m.planetHi} {isCurrent && '(अभी)'}</span>
-              <span style={{ fontSize: '11px', color: nature.color }}>{nature.label}</span>
+              <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{en ? (m.planet || m.planetHi) : m.planetHi} {isCurrent && (en ? '(now)' : '(अभी)')}</span>
+              <span style={{ fontSize: '11px', color: nature.color }}>{en ? (NATURE_EN[nature.label] || nature.label) : nature.label}</span>
             </div>
             <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>{fmtDate(m.start)} – {fmtDate(m.end)}</span>
             {m.text && (
@@ -291,7 +305,7 @@ function MasikTab({ varshaphal }) {
             )}
             {m.remedy && (
               <p style={{ margin: '8px 0 0', fontSize: '12px', lineHeight: '1.6', color: 'var(--color-text-primary)', background: 'var(--color-background-primary)', borderRadius: '8px', padding: '8px 10px' }}>
-                <strong>उपाय:</strong> {m.remedy}
+                <strong>{en ? 'Remedy:' : 'उपाय:'}</strong> {m.remedy}
               </p>
             )}
           </div>
@@ -299,7 +313,7 @@ function MasikTab({ varshaphal }) {
       })}
       {thisMonth.length > 1 && (
         <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginTop: '8px' }}>
-          इस महीने ग्रह-स्वामी बदलता है, इसलिए दो अवधियाँ दिख रही हैं।
+          {en ? 'The ruling planet changes this month, so two periods are shown.' : 'इस महीने ग्रह-स्वामी बदलता है, इसलिए दो अवधियाँ दिख रही हैं।'}
         </p>
       )}
     </div>
@@ -309,13 +323,14 @@ function MasikTab({ varshaphal }) {
 // ── साप्ताहिक (Weekly) tab — brief, but with the actual prediction
 // text for each day (nakshatraNote / dayNote), not just labels.
 function SaptahikTab({ saptahikPhal }) {
-  if (!saptahikPhal?.days) return <EmptyNote text="साप्ताहिक फलादेश उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।" />;
+  const en = useUiLang() === 'en';
+  if (!saptahikPhal?.days) return <EmptyNote text={en ? 'Weekly forecast is not available — this data will be updated soon.' : 'साप्ताहिक फलादेश उपलब्ध नहीं — यह डेटा जल्द अपडेट होगा।'} />;
   const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div>
       <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginBottom: '12px' }}>
-        चंद्रमा के वास्तविक नक्षत्र-गोचर पर आधारित — दिन-दर-दिन ({fmtDate(saptahikPhal.weekStart)} – {fmtDate(saptahikPhal.weekEnd)})।
+        {en ? 'Based on the Moon’s actual nakshatra transit — day by day (' : 'चंद्रमा के वास्तविक नक्षत्र-गोचर पर आधारित — दिन-दर-दिन ('}{fmtDate(saptahikPhal.weekStart)} – {fmtDate(saptahikPhal.weekEnd)}){en ? '.' : '।'}
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {saptahikPhal.days.map((d, i) => {
@@ -327,19 +342,19 @@ function SaptahikTab({ saptahikPhal }) {
               border: isToday ? '1px solid var(--color-brand)' : 'none',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px', flexWrap: 'wrap', gap: '4px' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{d.dayName} {isToday && '(आज)'} · {fmtDate(d.date)}</span>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-primary)' }}>{d.dayName} {isToday && (en ? '(today)' : '(आज)')} · {fmtDate(d.date)}</span>
                 <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>🌙 {d.nakshatra} · ☀️ {d.dayLord}</span>
               </div>
               {(d.luckyColor || d.luckyNumber != null) && (
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
                   {d.luckyColor && (
                     <span style={{ fontSize: '11px', color: 'var(--color-text-info)', background: 'var(--color-background-info)', borderRadius: '20px', padding: '2px 9px' }}>
-                      🎨 शुभ रंग: {d.luckyColor}
+                      🎨 {en ? 'Lucky colour' : 'शुभ रंग'}: {d.luckyColor}
                     </span>
                   )}
                   {d.luckyNumber != null && (
                     <span style={{ fontSize: '11px', color: 'var(--color-text-info)', background: 'var(--color-background-info)', borderRadius: '20px', padding: '2px 9px' }}>
-                      🔢 शुभ अंक: {d.luckyNumber}
+                      🔢 {en ? 'Lucky number' : 'शुभ अंक'}: {d.luckyNumber}
                     </span>
                   )}
                 </div>
@@ -354,7 +369,7 @@ function SaptahikTab({ saptahikPhal }) {
 
       {saptahikPhal.remedy && (
         <div style={{ marginTop: '14px', padding: '12px 14px', borderRadius: '10px', background: 'var(--color-background-secondary)' }}>
-          <p style={{ margin: '0 0 4px', fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-info)' }}>इस हफ्ते का उपाय</p>
+          <p style={{ margin: '0 0 4px', fontSize: '11px', fontWeight: '500', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-info)' }}>{en ? 'Remedy for this week' : 'इस हफ्ते का उपाय'}</p>
           <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.65', color: 'var(--color-text-primary)' }}>{saptahikPhal.remedy}</p>
         </div>
       )}
@@ -371,6 +386,7 @@ const TABS = [
 ];
 
 export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 'general' }) {
+  const en = useUiLang() === 'en';
   const [tab, setTab] = useState(initialTab);
 
   // Keep in sync if the panel is already open and a sidebar button
@@ -416,7 +432,7 @@ export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 
                 borderBottom: tab === key ? '2px solid var(--color-brand)' : '2px solid transparent',
               }}
             >
-              {label}
+              {en ? (TAB_EN[key] || label) : label}
             </button>
           ))}
         </div>
@@ -439,7 +455,7 @@ export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 
 
               {yogas.filter(y => !y.isChallenging).length > 0 && (
                 <div style={{ marginBottom: '16px', background: 'var(--color-background-secondary)', borderRadius: '10px', padding: '12px' }}>
-                  <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 8px' }}>पहचाने गए शास्त्रीय योग</p>
+                  <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 8px' }}>{en ? 'Classical yogas identified' : 'पहचाने गए शास्त्रीय योग'}</p>
                   {yogas.filter(y => !y.isChallenging).map((y, i) => (
                     <div key={i} style={{ marginBottom: '8px', fontSize: '13px' }}>
                       <p style={{ margin: '0 0 2px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{y.name}</p>
@@ -455,14 +471,14 @@ export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 
                   silent AI-only fact — the user sees it and what to do. */}
               {yogas.filter(y => y.isChallenging).length > 0 && (
                 <div style={{ marginBottom: '16px', background: 'var(--color-background-warning)', borderRadius: '10px', padding: '12px' }}>
-                  <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-warning)', margin: '0 0 8px' }}>⚠️ सावधानी वाले योग/दोष</p>
+                  <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-warning)', margin: '0 0 8px' }}>{en ? '⚠️ Yogas / doshas needing care' : '⚠️ सावधानी वाले योग/दोष'}</p>
                   {yogas.filter(y => y.isChallenging).map((y, i) => (
                     <div key={i} style={{ marginBottom: i < yogas.filter(z => z.isChallenging).length - 1 ? '12px' : 0, paddingBottom: i < yogas.filter(z => z.isChallenging).length - 1 ? '12px' : 0, borderBottom: i < yogas.filter(z => z.isChallenging).length - 1 ? '0.5px solid var(--color-border-tertiary)' : 'none', fontSize: '13px' }}>
                       <p style={{ margin: '0 0 4px', fontWeight: '500', color: 'var(--color-text-primary)' }}>{y.name}</p>
                       <p style={{ margin: '0 0 6px', color: 'var(--color-text-secondary)', lineHeight: '1.6' }}>{y.description}</p>
                       {y.remedy && (
                         <p style={{ margin: 0, color: 'var(--color-text-primary)', lineHeight: '1.6', background: 'var(--color-background-primary)', borderRadius: '8px', padding: '8px 10px' }}>
-                          <strong>उपाय:</strong> {y.remedy}
+                          <strong>{en ? 'Remedy:' : 'उपाय:'}</strong> {y.remedy}
                         </p>
                       )}
                     </div>
@@ -475,10 +491,10 @@ export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 
                   timing + a concrete remedy, not a descriptive read) */}
               {(a?.hora_analysis || a?.actionable_seva_remedy) && (
                 <div style={{ marginBottom: '16px' }}>
-                  <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 8px' }}>आज का व्यावहारिक मार्गदर्शन</p>
+                  <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-tertiary)', margin: '0 0 8px' }}>{en ? 'Practical guidance for today' : 'आज का व्यावहारिक मार्गदर्शन'}</p>
                   {a?.hora_analysis && (
                     <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: '1.6', margin: '0 0 8px' }}>
-                      <strong style={{ color: 'var(--color-text-primary)' }}>आज के स्वामी {a.hora_analysis.ruling_planet_today}:</strong> {a.hora_analysis.best_activity_now}
+                      <strong style={{ color: 'var(--color-text-primary)' }}>{en ? 'Ruler today' : 'आज के स्वामी'} {a.hora_analysis.ruling_planet_today}:</strong> {a.hora_analysis.best_activity_now}
                     </p>
                   )}
                   {a?.actionable_seva_remedy && (
@@ -490,11 +506,11 @@ export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 
                 </div>
               )}
 
-              <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 8px' }}>गोचर फल (Transit Timeline)</p>
+              <p style={{ fontSize: '11px', fontWeight: '500', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-text-info)', margin: '0 0 8px' }}>{en ? 'Transit results (Transit Timeline)' : 'गोचर फल (Transit Timeline)'}</p>
               <GocharPhalTimeline timeline={gocharPhal} />
 
               {!a && yogas.length === 0 && (
-                <EmptyNote text="विस्तृत विश्लेषण उपलब्ध नहीं — पुरानी कुंडली।" />
+                <EmptyNote text={en ? 'Detailed analysis is not available — older kundli.' : 'विस्तृत विश्लेषण उपलब्ध नहीं — पुरानी कुंडली।'} />
               )}
 
               {kundli.planet_data?.closingVerse && (
@@ -513,7 +529,7 @@ export default function KundliDetailPanel({ kundli, open, onClose, initialTab = 
           {tab === 'chart' && (
             chartPlanets && lagnaSign
               ? <NorthIndianChart planets={chartPlanets} lagnaSign={lagnaSign} />
-              : <EmptyNote text="कुंडली चार्ट उपलब्ध नहीं — पुरानी कुंडली, कृपया एडिट करके पुनः विश्लेषण करें।" />
+              : <EmptyNote text={en ? 'Kundli chart is not available — older kundli, please edit it to re-run the analysis.' : 'कुंडली चार्ट उपलब्ध नहीं — पुरानी कुंडली, कृपया एडिट करके पुनः विश्लेषण करें।'} />
           )}
           {tab === 'varshik' && <VarshikTab varshaphal={varshaphal} annualTimeline={annualTimeline} annualTransitPeriods={annualTransitPeriods} />}
           {tab === 'masik' && <MasikTab varshaphal={varshaphal} />}

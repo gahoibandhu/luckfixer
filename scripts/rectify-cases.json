@@ -1,0 +1,60 @@
+[
+  {
+    "name": "Rourkela 1982-02-20 (confirmed 19:15)",
+    "dob": "1982-02-20",
+    "latitude": 22.2604,
+    "longitude": 84.8536,
+    "gender": "male",
+    "ayanamsa": "lahiri",
+    "true_time": "19:15",
+    "events": [
+      {
+        "type": "marriage",
+        "date": "2011-02-06"
+      },
+      {
+        "type": "foreign_travel",
+        "date": "2014-12-14"
+      },
+      {
+        "type": "child_birth",
+        "date": "2016-09-28"
+      },
+      {
+        "type": "property",
+        "date": "2023-10-20"
+      }
+    ]
+  },
+  {
+    "name": "Orai 1984-03-06 (confirmed 09:10)",
+    "dob": "1984-03-06",
+    "latitude": 25.9886,
+    "longitude": 79.4507,
+    "gender": "male",
+    "ayanamsa": "lahiri",
+    "true_time": "09:10",
+    "events": [
+      {
+        "type": "marriage",
+        "date": "2013-01-13"
+      },
+      {
+        "type": "child_birth",
+        "date": "2014-10-27"
+      },
+      {
+        "type": "child_birth",
+        "date": "2019-04-13"
+      },
+      {
+        "type": "property",
+        "date": "2019-04-15"
+      },
+      {
+        "type": "mother_death",
+        "date": "2021-06-04"
+      }
+    ]
+  }
+]

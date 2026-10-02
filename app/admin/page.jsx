@@ -97,6 +97,8 @@ export default function AdminPage() {
   const [expandedUserId, setExpandedUserId] = useState(null);
   const [userDetail, setUserDetail] = useState(null); // detail payload for expandedUserId, or 'loading'
   const [featuresData, setFeaturesData] = useState(null);
+  // "Click a number -> see who" drill-down (feature cards + AI-token rows)
+  const [drill, setDrill] = useState(null); // { feature, label, loading, users, error, truncated, showTokens }
 
   useEffect(() => { checkAuth(); }, []);
 
@@ -511,6 +513,19 @@ export default function AdminPage() {
     loadUsers(userListSearch, (usersData?.page || 0) + 1);
   }
 
+  async function openDrill(feature, label, showTokens = false) {
+    if (drill && drill.feature === feature) { setDrill(null); return; }   // click again = close
+    setDrill({ feature, label, loading: true, users: [], showTokens });
+    try {
+      const res = await fetch(`/api/admin/features/users?feature=${encodeURIComponent(feature)}`);
+      const data = await res.json();
+      if (!res.ok) setDrill({ feature, label, loading: false, users: [], error: data.error || 'Failed', showTokens });
+      else setDrill({ feature, label, loading: false, users: data.users || [], truncated: data.truncated, showTokens });
+    } catch (e) {
+      setDrill({ feature, label, loading: false, users: [], error: e.message, showTokens });
+    }
+  }
+
   async function loadFeatures() {
     const res = await fetch('/api/admin/features');
     const data = await res.json();
@@ -649,6 +664,11 @@ export default function AdminPage() {
       {/* OVERVIEW TAB */}
       {tab === 'overview' && stats && (
         <div>
+        {stats.warnings?.length > 0 && (
+          <div style={{ background:'var(--color-background-warning)', color:'var(--color-text-warning)', borderRadius:'var(--border-radius-md)', padding:'10px 12px', fontSize:'12px', lineHeight:1.5, marginBottom:'12px' }}>
+            ⚠️ कुछ आँकड़े लोड नहीं हो पाए (database timeout): {stats.warnings.join(', ')}. बाकी dashboard सही है। migration_026 चलाएँ, या थोड़ी देर बाद refresh करें।
+          </div>
+        )}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'12px', marginBottom:'1.5rem' }}>
             <MetricCard label="कुल Users" value={stats.totalUsers} />
             <MetricCard label="कुल Kundlis" value={stats.totalKundlis} />
@@ -677,6 +697,39 @@ export default function AdminPage() {
               usually means Gemini's rate limit is being hit under real load,
               and SambaNova/OpenRouter/HuggingFace/Groq don't follow the full
               system prompt as reliably as Gemini does. */}
+          {/* AI tokens by feature — chat used to be the ONLY thing counted here, so kundli
+              analysis / numerology spend was invisible. Estimates (characters / 4). Click a row
+              to see which users consumed them. Non-chat rows need migration_027. */}
+          {stats.aiUsageByFeature && stats.aiUsageByFeature.length > 0 && (
+            <div style={{ marginBottom:'1.5rem' }}>
+              <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>AI Token Usage by Feature (estimate)</p>
+              <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1.6fr 1fr 1fr 0.8fr', gap:'8px', padding:'8px 14px', fontSize:'11px', color:'var(--color-text-tertiary)', borderBottom:'0.5px solid var(--color-border-tertiary)' }}>
+                  <span>Feature</span><span>Today</span><span>Last 7 days</span><span>Calls</span>
+                </div>
+                {stats.aiUsageByFeature.map(f => {
+                  const label = ({ chat: 'Chat', kundli_analysis: 'Kundli analysis', numerology: 'Numerology' })[f.feature] || f.feature;
+                  return (
+                    <div key={f.feature} role="button" tabIndex={0} title="Click to see users"
+                      onClick={() => openDrill('ai:' + f.feature, label + ' — tokens', true)}
+                      onKeyDown={e => { if (e.key === 'Enter') openDrill('ai:' + f.feature, label + ' — tokens', true); }}
+                      style={{ display:'grid', gridTemplateColumns:'1.6fr 1fr 1fr 0.8fr', gap:'8px', padding:'9px 14px', fontSize:'13px', cursor:'pointer', borderBottom:'0.5px solid var(--color-border-tertiary)', background: drill?.feature === 'ai:' + f.feature ? 'var(--color-background-info)' : 'transparent' }}>
+                      <span style={{ color:'var(--color-text-primary)', fontWeight:500 }}>{label}</span>
+                      <span style={{ color:'var(--color-text-primary)' }}>{(f.today || 0).toLocaleString()}</span>
+                      <span style={{ color:'var(--color-text-primary)' }}>{(f.week || 0).toLocaleString()}</span>
+                      <span style={{ color:'var(--color-text-tertiary)' }}>{f.calls}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {drill && drill.showTokens && (
+                <div style={{ marginTop:'10px' }}>
+                  <DrillPanel drill={drill} onClose={() => setDrill(null)} onOpenUser={(id) => { switchTab('users'); toggleUserDetail(id); }} />
+                </div>
+              )}
+            </div>
+          )}
+
           {stats.modelBreakdown && stats.modelBreakdown.length > 0 && (
             <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'1rem 1.25rem', marginBottom:'1.5rem' }}>
               <p style={{ fontSize:'11px', fontWeight:'500', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 10px' }}>AI Model Usage (पिछले 7 दिन)</p>
@@ -817,13 +870,18 @@ export default function AdminPage() {
             {!featuresData ? (
               <p style={{ fontSize:'13px', color:'var(--color-text-tertiary)' }}>लोड हो रहा है...</p>
             ) : featuresData.features.map(f => (
-              <div key={f.key} style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'1rem' }}>
+              <div key={f.key} role="button" tabIndex={0} title="Click to see users"
+                onClick={() => openDrill(f.key, f.label)} onKeyDown={e => { if (e.key === 'Enter') openDrill(f.key, f.label); }}
+                style={{ background: drill?.feature === f.key ? 'var(--color-background-info)' : 'var(--color-background-secondary)', border:'0.5px solid ' + (drill?.feature === f.key ? 'var(--color-text-info)' : 'transparent'), borderRadius:'var(--border-radius-md)', padding:'1rem', cursor:'pointer' }}>
                 <p style={{ fontSize:'12px', color:'var(--color-text-secondary)', margin:'0 0 4px' }}>{f.label}</p>
                 <p style={{ fontSize:'22px', fontWeight:'500', color:'var(--color-text-primary)', margin:0 }}>{f.total.toLocaleString()}</p>
                 <p style={{ fontSize:'11px', color:'var(--color-text-tertiary)', margin:'2px 0 0' }}>{f.last7d} पिछले 7 दिन में</p>
               </div>
             ))}
           </div>
+          {drill && !drill.showTokens && (
+            <DrillPanel drill={drill} onClose={() => setDrill(null)} onOpenUser={(id) => { switchTab('users'); toggleUserDetail(id); }} />
+          )}
 
           {/* Prediction Brain — visibility into the accuracy-feedback
               loop (migration_014/015/021): real tracked-outcome data,
@@ -1647,6 +1705,36 @@ export default function AdminPage() {
         </div>
       )}
     </div>
+    </div>
+  );
+}
+
+// Panel shown under the feature cards / AI-token table when a number is clicked.
+function DrillPanel({ drill, onClose, onOpenUser }) {
+  if (!drill) return null;
+  return (
+    <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-secondary)', borderRadius:'var(--border-radius-lg)', padding:'0.9rem 1rem', margin:'0 0 1.5rem' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
+        <p style={{ margin:0, fontSize:'13px', fontWeight:500, color:'var(--color-text-primary)' }}>
+          {drill.label} — {drill.loading ? 'loading...' : `${drill.users.length} user${drill.users.length === 1 ? '' : 's'}`}
+        </p>
+        <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-tertiary)', fontSize:'16px' }}>✕</button>
+      </div>
+      {drill.error && <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-danger)' }}>{drill.error}</p>}
+      {!drill.loading && !drill.error && drill.users.length === 0 && <p style={{ margin:0, fontSize:'12px', color:'var(--color-text-tertiary)' }}>No usage recorded yet.</p>}
+      {drill.users.map(u => (
+        <div key={u.user_id || u.email} onClick={() => u.user_id && onOpenUser(u.user_id)} style={{ display:'flex', justifyContent:'space-between', gap:'10px', padding:'7px 0', borderTop:'0.5px solid var(--color-border-tertiary)', fontSize:'13px', cursor: u.user_id ? 'pointer' : 'default' }}>
+          <div style={{ minWidth:0 }}>
+            <span style={{ color:'var(--color-text-primary)', fontWeight:500 }}>{u.full_name || '(no name)'}</span>
+            <span style={{ color:'var(--color-text-tertiary)', marginLeft:'8px', wordBreak:'break-all' }}>{u.email}</span>
+          </div>
+          <div style={{ textAlign:'right', flexShrink:0, color:'var(--color-text-secondary)' }}>
+            {drill.showTokens ? `${u.tokens.toLocaleString()} tokens · ${u.count}×` : `${u.count}×`}
+            {u.last_at && <span style={{ color:'var(--color-text-tertiary)', marginLeft:'8px', fontSize:'11px' }}>{new Date(u.last_at).toLocaleDateString('en-IN')}</span>}
+          </div>
+        </div>
+      ))}
+      {drill.truncated && <p style={{ margin:'8px 0 0', fontSize:'11px', color:'var(--color-text-tertiary)' }}>Showing the most recent 5,000 records only.</p>}
     </div>
   );
 }
