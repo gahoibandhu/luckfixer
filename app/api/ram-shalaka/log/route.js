@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase-server';
 export async function POST(req) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!user) return Response.json({ ok: true, anonymous: true });   // public visitors: nothing is recorded
 
   const body = await req.json().catch(() => ({}));
   const tone = ['shubh', 'dhairya', 'saavdhani'].includes(body?.tone) ? body.tone : null;
