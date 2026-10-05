@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import { MOOLANK } from '@/lib/public-content';
@@ -27,9 +28,10 @@ export default async function MoolankNumber({ params }) {
   const { n } = await params; const m = get(n); if (!m) notFound();
   return (
     <PublicShell>
+      <PageHero glyph={String(m.n)}
+        title={<><Bi hi={`मूलांक ${m.n} — ${m.planet.hi}`} en={`Moolank ${m.n} — ${m.planet.en}`} /></>}
+        sub={<><Bi hi={m.summary.hi} en={m.summary.en} /></>} />
       <p style={{ margin: '0 0 4px', fontSize: '13px' }}><Link href="/moolank" style={{ color: 'var(--color-text-info)' }}><Bi hi="← सभी अंक" en="← All numbers" /></Link></p>
-      <h1 style={{ fontSize: '30px', margin: '0 0 6px' }}><Bi hi={`मूलांक ${m.n} — ${m.planet.hi}`} en={`Moolank ${m.n} — ${m.planet.en}`} /></h1>
-      <p style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text-secondary)', lineHeight: 1.75 }}><Bi hi={m.summary.hi} en={m.summary.en} /></p>
       <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--color-text-tertiary)' }}><Bi hi={`जन्म तारीख़ें: ${m.days.join(', ')}`} en={`Born on: ${m.days.join(', ')} of any month`} /></p>
       <Sec t="✦ ताकत / Strengths" d={m.strengths} />
       <Sec t="⚠ ध्यान रखें / Watch out for" d={m.watch} />

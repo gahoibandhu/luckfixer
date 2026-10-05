@@ -100,6 +100,7 @@ export default function LoginPage() {
       overflow: 'hidden',
       position: 'relative',
     }}>
+      <a href="/" style={{ position: 'absolute', top: 14, left: 16, zIndex: 5, color: '#cfd6f3', fontSize: '13px', textDecoration: 'none' }}>← {uiLang === 'en' ? 'Home' : 'होम'}</a>
       {/* ── Ambient background glow ─────────────────────────── */}
       <div style={{
         position: 'fixed',

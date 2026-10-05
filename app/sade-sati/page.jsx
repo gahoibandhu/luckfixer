@@ -1,3 +1,4 @@
+import PageHero from '@/components/PageHero';
 import PublicShell from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import SadeSatiChecker from '@/components/SadeSatiChecker';
@@ -11,10 +12,9 @@ export const metadata = {
 export default function SadeSati() {
   return (
     <PublicShell>
-      <h1 style={{ fontSize: '24px', margin: '0 0 6px', color: 'var(--color-text-primary)' }}><Bi hi="साढ़ेसाती और ढैया जाँच" en="Sade Sati & Dhaiya checker" /></h1>
-      <p style={{ margin: '0 0 14px', fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: 1.7 }}>
-        <Bi hi="शनि के असली गोचर (निरयन/लाहिड़ी राशि) के आधार पर तारीखें निकाली गई हैं। अपनी चंद्र राशि चुनें।" en="Dates are worked out from Saturn’s actual transit (sidereal / Lahiri signs). Pick your Moon sign." />
-      </p>
+      <PageHero glyph="♄"
+        title={<><Bi hi="साढ़ेसाती और ढैया जाँच" en="Sade Sati & Dhaiya checker" /></>}
+        sub={<><Bi hi="शनि के असली गोचर (निरयन/लाहिड़ी राशि) के आधार पर तारीखें निकाली गई हैं। अपनी चंद्र राशि चुनें।" en="Dates are worked out from Saturn’s actual transit (sidereal / Lahiri signs). Pick your Moon sign." /></>} />
       <SadeSatiChecker />
     </PublicShell>
   );

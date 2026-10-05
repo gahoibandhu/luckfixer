@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import { buildPanchang, inRange } from '@/lib/panchang-engine';
@@ -39,7 +40,9 @@ export default async function PanchangPage({ searchParams }) {
 
   return (
     <PublicShell>
-      <h1 style={{ fontSize: '24px', margin: '0 0 12px', color: 'var(--color-text-primary)' }}><Bi hi="आज का पंचांग" en="Daily Panchang" /></h1>
+      <PageHero glyph="☽"
+        title={<><Bi hi="आज का पंचांग" en="Daily Panchang" /></>}
+        sub={<><Bi hi="अपने शहर के सूर्योदय के अनुसार तिथि, नक्षत्र, योग, करण, राहुकाल और चौघड़िया" en="Tithi, nakshatra, yoga, karana, Rahu Kaal and choghadiya, by your city’s own sunrise" /></>} />
 
       <form method="get" style={{ ...card, display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '14px' }}>
         <label style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}><Bi hi="शहर" en="City" /><br />

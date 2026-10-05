@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import { GITA, gitaOfDay } from '@/lib/gita';
@@ -16,8 +17,9 @@ export default function GitaShlok() {
   const g = gitaOfDay(iso);
   return (
     <PublicShell>
-      <h1 style={{ fontSize: '24px', margin: '0 0 4px', color: 'var(--color-text-primary)' }}><Bi hi="आज का गीता श्लोक" en="Gita verse of the day" /></h1>
-      <p style={{ margin: '0 0 14px', fontSize: '13px', color: 'var(--color-text-tertiary)' }}>{iso} · <Bi hi="भगवद्गीता" en="Bhagavad Gita" /> {g.ref}</p>
+      <PageHero glyph="☸"
+        title={<><Bi hi="आज का गीता श्लोक" en="Gita verse of the day" /></>}
+        sub={<>{iso} · <Bi hi="भगवद्गीता" en="Bhagavad Gita" /> {g.ref}</>} />
       <section style={{ ...card, marginBottom: '12px' }}>
         <p style={{ margin: 0, fontSize: '19px', lineHeight: 2, whiteSpace: 'pre-line', color: 'var(--color-text-primary)', textAlign: 'center' }}>{g.sa}</p>
       </section>

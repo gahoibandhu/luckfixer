@@ -1,3 +1,4 @@
+import PageHero from '@/components/PageHero';
 import PublicShell from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import ManglikChecker from '@/components/ManglikChecker';
@@ -11,11 +12,10 @@ export const metadata = {
 export default function Manglik() {
   return (
     <PublicShell>
-      <h1 style={{ fontSize: '24px', margin: '0 0 6px', color: 'var(--color-text-primary)' }}><Bi hi="मांगलिक दोष जाँच" en="Manglik dosha check" /></h1>
-      <p style={{ margin: '0 0 14px', fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: 1.7 }}>
-        <Bi hi="मंगल जन्म-कुंडली में किस भाव में है, इससे मांगलिक संकेत देखा जाता है। इसके लिए जन्म का सही समय ज़रूरी है, क्योंकि लग्न हर लगभग दो घंटे में बदलता है।"
-            en="The Manglik indication is read from the house Mars occupies in the birth chart. An accurate birth time is needed, because the lagna changes about every two hours." />
-      </p>
+      <PageHero glyph="♂"
+        title={<><Bi hi="मांगलिक दोष जाँच" en="Manglik dosha check" /></>}
+        sub={<><Bi hi="मंगल जन्म-कुंडली में किस भाव में है, इससे मांगलिक संकेत देखा जाता है। इसके लिए जन्म का सही समय ज़रूरी है, क्योंकि लग्न हर लगभग दो घंटे में बदलता है।"
+            en="The Manglik indication is read from the house Mars occupies in the birth chart. An accurate birth time is needed, because the lagna changes about every two hours." /></>} />
       <ManglikChecker />
     </PublicShell>
   );

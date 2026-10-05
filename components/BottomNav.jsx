@@ -9,9 +9,10 @@
 // the mobile-only display + fixed positioning + safe-area handling.
 
 import { usePathname, useRouter } from 'next/navigation';
-import { MessageCircle, LayoutGrid, Hash, Disc3, User } from 'lucide-react';
+import { House, MessageCircle, LayoutGrid, Hash, Disc3, User } from 'lucide-react';
 
 const TABS = [
+  { href: '/',            label: 'Home',        icon: House },
   { href: '/chat',        label: 'Chat',        icon: MessageCircle },
   { href: '/kundli',      label: 'Kundli',       icon: LayoutGrid },
   { href: '/numerology',  label: 'Numerology',  icon: Hash },
@@ -40,7 +41,7 @@ export default function BottomNav() {
         // /kundli covers /kundli and /milan (matchmaking lives under it)
         const active = href === '/kundli'
           ? (pathname === '/kundli' || pathname === '/milan')
-          : pathname === href;
+          : pathname === href;   // '/' is a public path, so the bar is hidden there
         return (
           <button
             key={href}

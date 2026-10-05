@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import { VRATS, SANKRANTIS, VRAT_RANGE } from '@/lib/vrat-data';
@@ -27,10 +28,9 @@ export default function VratCalendar() {
   const sank = SANKRANTIS.filter(s => s.at.slice(0, 10) >= today).slice(0, 4);
   return (
     <PublicShell>
-      <h1 style={{ fontSize: '28px', margin: '0 0 6px' }}><Bi hi="व्रत कैलेंडर" en="Vrat calendar" /></h1>
-      <p style={{ margin: '0 0 14px', color: 'var(--color-text-secondary)', fontSize: '15px' }}>
-        <Bi hi="एकादशी, पूर्णिमा, अमावस्या और प्रदोष की तारीखें तिथि के शुरू और खत्म होने के सटीक समय के साथ। समय भारतीय मानक समय (IST) में हैं।" en="Ekadashi, Purnima, Amavasya and Pradosh dates with the exact start and end of each tithi, in Indian Standard Time (IST)." />
-      </p>
+      <PageHero glyph="☊"
+        title={<><Bi hi="व्रत कैलेंडर" en="Vrat calendar" /></>}
+        sub={<><Bi hi="एकादशी, पूर्णिमा, अमावस्या और प्रदोष की तारीखें तिथि के शुरू और खत्म होने के सटीक समय के साथ। समय भारतीय मानक समय (IST) में हैं।" en="Ekadashi, Purnima, Amavasya and Pradosh dates with the exact start and end of each tithi, in Indian Standard Time (IST)." /></>} />
       <p style={{ ...card, margin: '0 0 16px', fontSize: '13px', lineHeight: 1.75, color: 'var(--color-text-secondary)', background: 'var(--color-background-warning)' }}>
         <Bi hi="तारीख दिल्ली के सूर्योदय के नियम से दी गई है (प्रदोष के लिए सूर्यास्त के समय की तिथि)। परंपरा और शहर के अनुसार व्रत/त्योहार का दिन एक दिन आगे-पीछे हो सकता है — जैसे दिवाली प्रदोष-नियम से मनती है — इसलिए पक्का करने के लिए तिथि का समय देखें और अपने स्थानीय पंचांग/पंडित से मिलाएँ।"
             en="The date follows the Delhi-sunrise rule (for Pradosh, the tithi at sunset). By tradition and city a fast or festival can fall a day earlier or later — Diwali, for example, follows the Pradosh rule — so check the tithi times and confirm with your local almanac or priest." />

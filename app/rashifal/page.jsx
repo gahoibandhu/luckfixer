@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import StarMeter from '@/components/StarMeter';
@@ -23,8 +24,9 @@ export default async function RashifalIndex() {
   const date = fmtDate(ctx.iso, ctx.weekday);
   return (
     <PublicShell>
-      <h1 style={{ fontSize: '24px', margin: '0 0 4px', color: 'var(--color-text-primary)' }}><Bi hi="आज का राशिफल" en="Today’s horoscope" /></h1>
-      <p style={{ margin: '0 0 14px', fontSize: '13px', color: 'var(--color-text-tertiary)' }}><Bi hi={date.hi} en={date.en} /></p>
+      <PageHero glyph="♈"
+        title={<><Bi hi="आज का राशिफल" en="Today’s horoscope" /></>}
+        sub={<><Bi hi={date.hi} en={date.en} /></>} />
 
       {ctx.ok ? (
         <p style={{ ...card, margin: '0 0 14px', fontSize: '13px', lineHeight: 1.7, color: 'var(--color-text-secondary)' }}>

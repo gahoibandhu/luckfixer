@@ -1,3 +1,4 @@
+import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import RashiFinder from '@/components/RashiFinder';
@@ -11,11 +12,10 @@ export const metadata = {
 export default function MeriRashi() {
   return (
     <PublicShell>
-      <h1 style={{ fontSize: '24px', margin: '0 0 6px', color: 'var(--color-text-primary)' }}><Bi hi="मेरी राशि कौन सी है?" en="Which is my rashi?" /></h1>
-      <p style={{ margin: '0 0 14px', fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: 1.7 }}>
-        <Bi hi="वैदिक ज्योतिष में राशि का अर्थ जन्म के समय चंद्रमा की राशि है। अपनी जन्म तिथि, समय और जन्म स्थान डालें — हम आपकी चंद्र राशि, नक्षत्र, चरण और उस नक्षत्र-चरण का पारंपरिक नामाक्षर बताएँगे। जन्म समय न पता हो तो भी राशि निकल जाती है (अधिकतर)।"
-            en="In Vedic astrology your rashi is the sign the Moon occupied at birth. Enter your date, time and place of birth to get your Moon sign, nakshatra, pada and the traditional name letter for that pada. If you do not know the birth time, the rashi can still usually be found." />
-      </p>
+      <PageHero glyph="♎"
+        title={<><Bi hi="मेरी राशि कौन सी है?" en="Which is my rashi?" /></>}
+        sub={<><Bi hi="वैदिक ज्योतिष में राशि का अर्थ जन्म के समय चंद्रमा की राशि है। अपनी जन्म तिथि, समय और जन्म स्थान डालें — हम आपकी चंद्र राशि, नक्षत्र, चरण और उस नक्षत्र-चरण का पारंपरिक नामाक्षर बताएँगे। जन्म समय न पता हो तो भी राशि निकल जाती है (अधिकतर)।"
+            en="In Vedic astrology your rashi is the sign the Moon occupied at birth. Enter your date, time and place of birth to get your Moon sign, nakshatra, pada and the traditional name letter for that pada. If you do not know the birth time, the rashi can still usually be found." /></>} />
       <RashiFinder />
       <section style={{ ...card, marginTop: '16px', fontSize: '13px', lineHeight: 1.75, color: 'var(--color-text-secondary)' }}>
         <b style={{ color: 'var(--color-text-primary)' }}><Bi hi="ध्यान दें" en="Good to know" /></b>

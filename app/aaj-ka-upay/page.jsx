@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import { VAAR } from '@/lib/public-content';
@@ -31,8 +32,9 @@ export default function AajKaUpay() {
   const pc = inRange(y) ? buildPanchang(y, m, d, CITIES[0]) : null;
   return (
     <PublicShell>
-      <h1 style={{ fontSize: '28px', margin: '0 0 4px' }}><Bi hi="आज का उपाय" en="Today’s practice" /></h1>
-      <p style={{ margin: '0 0 16px', fontSize: '14px', color: 'var(--color-text-tertiary)' }}><Bi hi={`${v.hi} · ग्रह ${v.planet.hi} · ${u.deity[0]}`} en={`${v.en} · ruled by ${v.planet.en} · ${u.deity[1]}`} /></p>
+      <PageHero glyph="🪔"
+        title={<><Bi hi="आज का उपाय" en="Today’s practice" /></>}
+        sub={<><Bi hi={`${v.hi} · ग्रह ${v.planet.hi} · ${u.deity[0]}`} en={`${v.en} · ruled by ${v.planet.en} · ${u.deity[1]}`} /></>} />
 
       <section style={{ ...card, marginBottom: '12px' }}>
         <h2 style={{ fontSize: '15px', margin: '0 0 6px' }}><Bi hi="आज का सरल उपाय" en="A simple practice for today" /></h2>

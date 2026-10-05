@@ -684,7 +684,7 @@ export default function ChatPage() {
           <div style={{ display:'flex', alignItems:'center', gap:'9px', marginBottom:'10px' }}>
             <img src={LOGO_URL} alt="LF" style={{ width:'32px', height:'32px', borderRadius:'18%', objectFit:'cover', flexShrink:0 }} />
             <div>
-              <p style={{ fontSize:'13px', fontWeight:'600', color:'var(--color-text-primary)', margin:0 }}>{botName}</p>
+              <a href="/" title={uiLang === 'en' ? 'Home' : 'होम'} style={{ textDecoration:'none' }}><p style={{ fontSize:'13px', fontWeight:'600', color:'var(--color-text-primary)', margin:0 }}>{botName} <span style={{ fontWeight:400, color:'var(--color-text-tertiary)' }}>· {uiLang === 'en' ? 'Home' : 'होम'}</span></p></a>
               <p style={{ fontSize:'10px', color:'var(--color-brand)', margin:0 }}>✦ Vedic AI</p>
             </div>
           </div>

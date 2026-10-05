@@ -1,3 +1,4 @@
+import PageHero from '@/components/PageHero';
 import PublicShell from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import { BRAND } from '@/lib/brand';
@@ -6,9 +7,7 @@ import { BRAND } from '@/lib/brand';
 export default function LegalPage({ titleHi, titleEn, summaryHi, sections, updated }) {
   return (
     <PublicShell>
-      <h1 style={{ fontSize: '28px', margin: '0 0 6px' }}><Bi hi={titleHi} en={titleEn} /></h1>
-      <p style={{ margin: '0 0 6px', fontSize: '12px', color: 'var(--color-text-tertiary)' }}>{updated}</p>
-      <p style={{ margin: '0 0 18px', fontSize: '14px', lineHeight: 1.8, color: 'var(--color-text-secondary)' }}>{summaryHi}</p>
+      <PageHero glyph="§" title={<Bi hi={titleHi} en={titleEn} />} sub={<>{summaryHi}<br /><span style={{ opacity: .7, fontSize: '12px' }}>{updated}</span></>} />
       {sections.map((s, i) => (
         <section key={i} style={{ marginBottom: '18px' }}>
           <h2 style={{ fontSize: '17px', margin: '0 0 6px' }}>{s.h}</h2>

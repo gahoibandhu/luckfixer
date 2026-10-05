@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import { RASHIS } from '@/lib/public-content';
@@ -12,11 +13,10 @@ export const metadata = {
 export default function RashiIndex() {
   return (
     <PublicShell>
-      <h1 style={{ fontSize: '24px', margin: '0 0 6px', color: 'var(--color-text-primary)' }}><Bi hi="12 राशियाँ — सरल गाइड" en="The 12 rashis — a simple guide" /></h1>
-      <p style={{ margin: '0 0 16px', fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: 1.7 }}>
-        <Bi hi="राशि आपके जन्म के समय चंद्रमा जिस राशि में था, उससे तय होती है (वैदिक/निरयन गणना)। अपनी राशि चुनें और स्वभाव, ताकत, करियर और रिश्तों पर सामान्य जानकारी पढ़ें।"
-            en="Your rashi is the sign the Moon was in at your birth (Vedic / sidereal calculation). Pick your rashi to read general notes on temperament, strengths, career and relationships." />
-      </p>
+      <PageHero glyph="✦"
+        title={<><Bi hi="12 राशियाँ — सरल गाइड" en="The 12 rashis — a simple guide" /></>}
+        sub={<><Bi hi="राशि आपके जन्म के समय चंद्रमा जिस राशि में था, उससे तय होती है (वैदिक/निरयन गणना)। अपनी राशि चुनें और स्वभाव, ताकत, करियर और रिश्तों पर सामान्य जानकारी पढ़ें।"
+            en="Your rashi is the sign the Moon was in at your birth (Vedic / sidereal calculation). Pick your rashi to read general notes on temperament, strengths, career and relationships." /></>} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '12px' }}>
         {RASHIS.map(r => (
           <Link key={r.slug} href={`/rashi/${r.slug}`} style={{ ...card, textDecoration: 'none', display: 'block' }}>

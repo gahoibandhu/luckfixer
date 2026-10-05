@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import PageHero from '@/components/PageHero';
 import PublicShell from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 
@@ -29,8 +30,9 @@ const GROUPS = [
 export default function Tools() {
   return (
     <PublicShell>
-      <h1 style={{ fontSize: '28px', margin: '0 0 6px' }}><Bi hi="मुफ़्त ज्योतिष टूल" en="Free astrology tools" /></h1>
-      <p style={{ margin: '0 0 8px', color: 'var(--color-text-secondary)' }}><Bi hi="सब बिना लॉगिन। आपका जन्म-विवरण सहेजा नहीं जाता।" en="All without login. Your birth details are not saved." /></p>
+      <PageHero glyph="✦"
+        title={<><Bi hi="मुफ़्त ज्योतिष टूल" en="Free astrology tools" /></>}
+        sub={<><Bi hi="सब बिना लॉगिन। आपका जन्म-विवरण सहेजा नहीं जाता।" en="All without login. Your birth details are not saved." /></>} />
       {GROUPS.map(g => (
         <section key={g.en} className="pub-section">
           <h2 className="display"><Bi hi={g.hi} en={g.en} /></h2>

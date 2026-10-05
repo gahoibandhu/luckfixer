@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import StarMeter from '@/components/StarMeter';
@@ -29,9 +30,10 @@ export default async function RashifalSign({ params }) {
   const date = fmtDate(ctx.iso, ctx.weekday);
   return (
     <PublicShell>
+      <PageHero glyph={r.sym}
+        title={<><Bi hi={`${r.hi} राशिफल — आज`} en={`${r.en} horoscope — today`} /></>}
+        sub={<><Bi hi={date.hi} en={date.en} /></>} />
       <p style={{ margin: '0 0 4px', fontSize: '12px' }}><Link href="/rashifal" style={{ color: 'var(--color-text-info)' }}><Bi hi="← सभी राशियाँ" en="← All signs" /></Link></p>
-      <h1 style={{ fontSize: '24px', margin: '0 0 4px', color: 'var(--color-text-primary)' }}>{r.sym} <Bi hi={`${r.hi} राशिफल — आज`} en={`${r.en} horoscope — today`} /></h1>
-      <p style={{ margin: '0 0 14px', fontSize: '13px', color: 'var(--color-text-tertiary)' }}><Bi hi={date.hi} en={date.en} /></p>
 
       {!f ? (
         <p style={{ ...card, fontSize: '14px', color: 'var(--color-text-warning)' }}><Bi hi="आज का डेटा अभी लोड नहीं हो पाया। कुछ देर बाद दोबारा देखें।" en="Today’s data could not be loaded just now. Please check back shortly." /></p>

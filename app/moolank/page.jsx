@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import PageHero from '@/components/PageHero';
 import PublicShell from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import MoolankCalculator from '@/components/MoolankCalculator';
@@ -13,11 +14,10 @@ export const metadata = {
 export default function MoolankPage() {
   return (
     <PublicShell>
-      <h1 style={{ fontSize: '28px', margin: '0 0 6px' }}><Bi hi="मूलांक, भाग्यांक और लो शू ग्रिड" en="Moolank, Bhagyank & Lo Shu grid" /></h1>
-      <p style={{ margin: '0 0 14px', fontSize: '15px', color: 'var(--color-text-secondary)', lineHeight: 1.75 }}>
-        <Bi hi="भारतीय अंक ज्योतिष में जन्म-दिन से मूलांक और पूरी जन्म तिथि से भाग्यांक निकलता है। जन्म तिथि डालते ही दोनों अंक और आपका लो शू ग्रिड दिख जाता है — सब आपके ब्राउज़र में, कुछ भी सहेजा नहीं जाता।"
-            en="In Indian numerology the birth day gives the Moolank and the whole date of birth gives the Bhagyank. Enter your date of birth to see both numbers and your Lo Shu grid — all in your browser, nothing is saved." />
-      </p>
+      <PageHero glyph="☉"
+        title={<><Bi hi="मूलांक, भाग्यांक और लो शू ग्रिड" en="Moolank, Bhagyank & Lo Shu grid" /></>}
+        sub={<><Bi hi="भारतीय अंक ज्योतिष में जन्म-दिन से मूलांक और पूरी जन्म तिथि से भाग्यांक निकलता है। जन्म तिथि डालते ही दोनों अंक और आपका लो शू ग्रिड दिख जाता है — सब आपके ब्राउज़र में, कुछ भी सहेजा नहीं जाता।"
+            en="In Indian numerology the birth day gives the Moolank and the whole date of birth gives the Bhagyank. Enter your date of birth to see both numbers and your Lo Shu grid — all in your browser, nothing is saved." /></>} />
       <MoolankCalculator />
       <section className="pub-section">
         <h2 className="display"><Bi hi="1 से 9 अंक" en="The numbers 1 to 9" /></h2>

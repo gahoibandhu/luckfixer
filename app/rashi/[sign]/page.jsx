@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import { RASHIS, rashiBySlug, friendlyRashis } from '@/lib/public-content';
@@ -31,9 +32,10 @@ export default async function RashiPage({ params }) {
   const prev = RASHIS[(r.idx + 11) % 12], next = RASHIS[(r.idx + 1) % 12];
   return (
     <PublicShell>
+      <PageHero glyph={r.sym}
+        title={<><Bi hi={`${r.hi} राशि`} en={`${r.en} (${r.hi}) rashi`} /></>}
+        sub={<><Bi hi={r.summary.hi} en={r.summary.en} /></>} />
       <p style={{ margin: '0 0 4px', fontSize: '12px' }}><Link href="/rashi" style={{ color: 'var(--color-text-info)' }}><Bi hi="← सभी राशियाँ" en="← All rashis" /></Link></p>
-      <h1 style={{ fontSize: '26px', margin: '0 0 4px', color: 'var(--color-text-primary)' }}>{r.sym} <Bi hi={`${r.hi} राशि`} en={`${r.en} (${r.hi}) rashi`} /></h1>
-      <p style={{ margin: '0 0 14px', fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: 1.7 }}><Bi hi={r.summary.hi} en={r.summary.en} /></p>
 
       <div style={{ ...card, marginBottom: '12px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', fontSize: '13px' }}>
         <div><div style={{ color: 'var(--color-text-tertiary)', fontSize: '11px' }}><Bi hi="स्वामी ग्रह" en="Ruling planet" /></div><b style={{ color: 'var(--color-text-primary)' }}><Bi hi={r.lord.hi} en={r.lord.en} /></b></div>
