@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import ChatLink from '@/components/ChatLink';
 import PageHero from '@/components/PageHero';
 import PublicShell from '@/components/PublicShell';
 import Bi from '@/components/Bi';
@@ -25,11 +26,8 @@ const GROUPS = [
     { href: '/manglik', g: '♂', hi: 'मांगलिक जाँच', en: 'Manglik check', dh: 'लग्न और चंद्रमा से मंगल का भाव', de: 'Mars house from Lagna and Moon' },
     { href: '/vrat-calendar', g: '☊', hi: 'व्रत कैलेंडर', en: 'Vrat calendar', dh: 'एकादशी, पूर्णिमा, अमावस्या, प्रदोष, संक्रांति', de: 'Ekadashi, Purnima, Amavasya, Pradosh, Sankranti' } ] },
   { hi: 'श्रद्धा', en: 'Devotion', items: [
-    { href: '/tyohar', g: '🪔', hi: 'त्योहार कैलेंडर', en: 'Festival calendar', dh: 'व्रत-त्योहार और क्षेत्रीय पर्व, तिथि के सटीक समय के साथ', de: 'Festivals and regional celebrations with exact tithi timings' },
     { href: '/vrat', g: '☊', hi: 'व्रत की पूजा विधि और कथा', en: 'Vrat puja vidhi & katha', dh: 'एकादशी, पूर्णिमा, अमावस्या, प्रदोष, श्राद्ध', de: 'Ekadashi, Purnima, Amavasya, Pradosh, Shraddh' },
-    { href: '/aarti', g: '🕉', hi: 'आरती और चालीसा', en: 'Aarti & Chalisa', dh: 'हनुमान चालीसा और 7 प्रमुख आरतियाँ', de: 'Hanuman Chalisa and seven main aartis' },
-    { href: '/vrat', g: '☊', hi: 'व्रत की पूजा विधि और कथा', en: 'Vrat puja vidhi & katha', dh: 'एकादशी, पूर्णिमा, अमावस्या, प्रदोष, श्राद्ध', de: 'Ekadashi, Purnima, Amavasya, Pradosh, Shraddh' },
-    { href: '/aarti', g: '🪔', hi: 'आरती और चालीसा', en: 'Aarti & Chalisa', dh: 'हनुमान चालीसा और 7 प्रमुख आरतियाँ, बड़े अक्षरों में', de: 'Hanuman Chalisa and 7 major aartis, in large type' },
+    { href: '/aarti', g: '🕉', hi: 'आरती और चालीसा', en: 'Aarti & Chalisa', dh: 'हनुमान चालीसा और 7 प्रमुख आरतियाँ, बड़े अक्षरों में', de: 'Hanuman Chalisa and 7 major aartis, in large type' },
     { href: '/ram-shalaka', g: '🕉', hi: 'राम शलाका', en: 'Ram Shalaka', dh: 'मन में प्रश्न रखकर रामचरितमानस से उत्तर', de: 'Hold a question in mind; receive a Ramcharitmanas answer' } ] },
 ];
 
@@ -56,7 +54,7 @@ export default function Tools() {
         <div style={{ background: 'var(--color-background-primary)', border: '1px solid var(--color-border-tertiary)', borderRadius: '16px', padding: '20px' }}>
           <h2 className="display" style={{ margin: '0 0 6px' }}><Bi hi="अपनी कुंडली पर सीधे पूछें" en="Ask about your own kundli" /></h2>
           <p style={{ margin: '0 0 12px', color: 'var(--color-text-secondary)', fontSize: '15px' }}><Bi hi="कुंडली, दशा, उपाय और कुंडली मिलान — लॉगिन करके, AI के साथ।" en="Kundli, dasha, remedies and matching — after login, with the AI." /></p>
-          <Link href="/login" className="pub-btn pub-btn-gold"><Bi hi="AI चैट खोलें" en="Open the AI chat" /></Link>
+          <ChatLink className="pub-btn pub-btn-gold"><Bi hi="AI चैट खोलें" en="Open the AI chat" /></ChatLink>
         </div>
       </section>
     </PublicShell>

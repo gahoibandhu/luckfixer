@@ -6,6 +6,7 @@ import { buildPanchang, inRange } from '@/lib/panchang-engine';
 import { CITIES, cityBySlug, fmt } from '@/lib/panchang';
 import { VAAR, RASHIS } from '@/lib/public-content';
 import { todayIST } from '@/lib/rashifal';
+import { formatDateLong } from '@/lib/date-format';
 
 export const metadata = {
   title: 'आज का पंचांग — तिथि, नक्षत्र, योग, राहुकाल, चौघड़िया | Daily Panchang',
@@ -61,7 +62,7 @@ export default async function PanchangPage({ searchParams }) {
       ) : (
         <>
           <p style={{ margin: '0 0 12px', fontSize: '14px', color: 'var(--color-text-secondary)' }}>
-            <b style={{ color: 'var(--color-text-primary)' }}><Bi hi={`${VAAR[pc.weekday].hi}, ${d}/${m}/${y}`} en={`${VAAR[pc.weekday].en}, ${d}/${m}/${y}`} /></b> · <Bi hi={city.hi} en={city.en} /> · <Bi hi={`सूर्योदय ${fmt(pc.sunrise)} · सूर्यास्त ${fmt(pc.sunset)}`} en={`Sunrise ${fmt(pc.sunrise)} · Sunset ${fmt(pc.sunset)}`} />
+            <b style={{ color: 'var(--color-text-primary)' }}><Bi hi={`${VAAR[pc.weekday].hi}, ${formatDateLong(y, m, d, 'hi')}`} en={`${VAAR[pc.weekday].en}, ${formatDateLong(y, m, d, 'en')}`} /></b> · <Bi hi={city.hi} en={city.en} /> · <Bi hi={`सूर्योदय ${fmt(pc.sunrise)} · सूर्यास्त ${fmt(pc.sunset)}`} en={`Sunrise ${fmt(pc.sunrise)} · Sunset ${fmt(pc.sunset)}`} />
           </p>
 
           <section style={{ ...card, marginBottom: '14px' }}>

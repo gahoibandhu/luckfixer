@@ -55,6 +55,22 @@ export default function LoginPage() {
     setSavedUiLang(next);
   }
 
+  // Already signed in? Never show the login screen again — go to the chat (or the page they came from).
+  const [inApp, setInApp] = useState(false);
+  useEffect(() => {
+    try {
+      const ua = navigator.userAgent || '';
+      // Google blocks sign-in inside in-app browsers (WhatsApp / Instagram / Facebook / Line / Snapchat webviews)
+      setInApp(/FBAN|FBAV|Instagram|Line\/|Snapchat|Twitter|MiuiBrowser.*Instagram|; wv\)/i.test(ua) || /WhatsApp/i.test(ua));
+    } catch {}
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return;
+      const next = new URLSearchParams(window.location.search).get('next');
+      router.replace(next && next.startsWith('/') && !next.startsWith('//') ? next : '/chat');
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     // Trigger assembly animation after a brief pause
     const t = setTimeout(() => setAnimated(true), 120);
@@ -199,6 +215,13 @@ export default function LoginPage() {
             textAlign: 'center',
             letterSpacing: '-0.3px',
           }}>{t('welcomeHeading', uiLang)}</h1>
+          {inApp && (
+            <p style={{ margin: '0 0 12px', padding: '8px 10px', borderRadius: '8px', background: 'rgba(200,131,26,0.15)', color: '#f3d9a4', fontSize: '12px', lineHeight: 1.5, textAlign: 'center' }}>
+              {uiLang === 'en'
+                ? 'Google sign-in may not work inside this app. Open this page in Chrome or Safari, or use Email OTP below.'
+                : 'इस ऐप के अंदर Google लॉगिन शायद न चले। इस पेज को Chrome/Safari में खोलें, या नीचे Email OTP से लॉगिन करें।'}
+            </p>
+          )}
           <p style={{
             fontSize: '11px',
             color: 'rgba(255,255,255,0.35)',

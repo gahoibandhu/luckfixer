@@ -2,6 +2,7 @@ import Link from 'next/link';
 import PublicShell from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import StarMeter from '@/components/StarMeter';
+import ChatLink from '@/components/ChatLink';
 import AuthRedirect from '@/components/AuthRedirect';
 import { RASHIS } from '@/lib/public-content';
 import { buildPanchang, inRange } from '@/lib/panchang-engine';
@@ -91,7 +92,7 @@ export default async function Home() {
                   en="Create your kundli from your birth details in a minute, then ask about career, relationships, dasha and remedies in Hindi or English. Software does the planetary calculation; the AI explains it in plain words." />
             </p>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <Link href="/login" className="pub-btn pub-btn-gold" style={{ minHeight: '52px', fontSize: '16px' }}>💬 <Bi hi="लॉगिन करके चैट करें" en="Log in and chat" /></Link>
+              <ChatLink className="pub-btn pub-btn-gold" style={{ minHeight: '52px', fontSize: '16px' }} authedChildren={<>💬 <Bi hi="चैट खोलें" en="Open chat" /></>}>💬 <Bi hi="लॉगिन करके चैट करें" en="Log in and chat" /></ChatLink>
               <Link href="/tools" className="pub-btn pub-btn-line"><Bi hi="मुफ़्त टूल देखें" en="Free tools" /></Link>
             </div>
             <ul style={{ margin: '16px 0 0', padding: 0, listStyle: 'none', display: 'flex', flexWrap: 'wrap', gap: '8px 16px', fontSize: '14px', color: '#c9d1ee' }}>
@@ -109,7 +110,7 @@ export default async function Home() {
                   en="It looks at how the lord of your running dasha relates to your career houses, and tells you how supportive this period is for a change and which window is better. You also get one simple remedy and one thing to do today." />
               <div style={{ fontSize: '11px', color: '#8d98c9', marginTop: '6px' }}><Bi hi="* उदाहरण — आपका जवाब आपकी कुंडली के हिसाब से होगा" en="* Sample — your reply will follow your own kundli" /></div>
             </div>
-            <Link href="/login" className="fake"><span><Bi hi="अपना सवाल पूछें…" en="Ask your question…" /></span><b><Bi hi="चैट शुरू करें" en="Start chat" /></b></Link>
+            <ChatLink className="fake"><span><Bi hi="अपना सवाल पूछें…" en="Ask your question…" /></span><b><Bi hi="चैट शुरू करें" en="Start chat" /></b></ChatLink>
           </div>
         </div>
       </section>
@@ -133,7 +134,7 @@ export default async function Home() {
           <p className="lead"><Bi hi="किसी भी सवाल पर टैप करें — लॉगिन के बाद चैट वहीं से शुरू होगी।" en="Tap any question — after login the chat starts right there." /></p>
           <div className="pub-ask">
             {ASK.map((a, i) => (
-              <Link key={i} href="/login"><small><Bi hi={a.t.hi} en={a.t.en} /></small><Bi hi={a.q.hi} en={a.q.en} /></Link>
+              <ChatLink key={i}><small><Bi hi={a.t.hi} en={a.t.en} /></small><Bi hi={a.q.hi} en={a.q.en} /></ChatLink>
             ))}
           </div>
         </section>
@@ -145,7 +146,7 @@ export default async function Home() {
             <div className="pub-step"><div className="n">2</div><b><Bi hi="कुंडली बनाएँ" en="Create your kundli" /></b><p style={{ margin: '4px 0 0', fontSize: '14px', color: 'var(--color-text-secondary)' }}><Bi hi="जन्म तिथि, समय और स्थान डालें।" en="Enter date, time and place of birth." /></p></div>
             <div className="pub-step"><div className="n">3</div><b><Bi hi="पूछना शुरू करें" en="Start asking" /></b><p style={{ margin: '4px 0 0', fontSize: '14px', color: 'var(--color-text-secondary)' }}><Bi hi="करियर, रिश्ते, दशा, उपाय — जो भी मन में हो।" en="Career, relationships, dasha, remedies — whatever is on your mind." /></p></div>
           </div>
-          <div style={{ marginTop: '16px' }}><Link href="/login" className="pub-btn pub-btn-gold"><Bi hi="अभी चैट शुरू करें" en="Start chatting now" /></Link></div>
+          <div style={{ marginTop: '16px' }}><ChatLink className="pub-btn pub-btn-gold"><Bi hi="अभी चैट शुरू करें" en="Start chatting now" /></ChatLink></div>
         </section>
 
         <section className="pub-section">
@@ -200,7 +201,7 @@ export default async function Home() {
           <div className="pub-cta-band">
             <h2 className="display"><Bi hi="आपकी कुंडली आपका इंतज़ार कर रही है" en="Your kundli is waiting" /></h2>
             <p style={{ margin: '0 0 16px', color: '#c9d1ee' }}><Bi hi="लॉगिन करें, कुंडली बनाएँ और अपना पहला सवाल पूछें।" en="Log in, create your kundli and ask your first question." /></p>
-            <Link href="/login" className="pub-btn pub-btn-gold" style={{ minHeight: '52px', fontSize: '16px' }}>💬 <Bi hi="लॉगिन करके चैट करें" en="Log in and chat" /></Link>
+            <ChatLink className="pub-btn pub-btn-gold" style={{ minHeight: '52px', fontSize: '16px' }} authedChildren={<>💬 <Bi hi="चैट खोलें" en="Open chat" /></>}>💬 <Bi hi="लॉगिन करके चैट करें" en="Log in and chat" /></ChatLink>
           </div>
         </section>
       </div>

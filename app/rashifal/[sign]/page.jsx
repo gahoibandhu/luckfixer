@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import ChatLink from '@/components/ChatLink';
 import { notFound } from 'next/navigation';
 import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
@@ -124,7 +125,7 @@ export default async function RashifalSign({ params, searchParams }) {
 
       <div style={{ ...card, marginBottom: '12px', background: 'var(--color-background-info)' }}>
         <p style={{ margin: '0 0 8px', fontSize: '14px', color: 'var(--color-text-info)', lineHeight: 1.6 }}><Bi hi="यह आपकी राशि वाले सभी लोगों के लिए सामान्य राशिफल है। अपनी कुंडली के हिसाब से निजी गोचर जानना चाहें तो AI से पूछें।" en="This is a general reading for everyone of this sign. For a transit reading based on your own kundli, ask the AI." /></p>
-        <Link href="/login" className="pub-btn pub-btn-gold" style={{ minHeight: '42px', fontSize: '14px' }}>💬 <Bi hi="अपनी कुंडली पर AI से पूछें" en="Ask the AI about your kundli" /></Link>
+        <ChatLink className="pub-btn pub-btn-gold" style={{ minHeight: '42px', fontSize: '14px' }}>💬 <Bi hi="अपनी कुंडली पर AI से पूछें" en="Ask the AI about your kundli" /></ChatLink>
       </div>
       <p style={{ margin: '0 0 10px', fontSize: '12px', color: 'var(--color-text-tertiary)', lineHeight: 1.7 }}><Bi hi="राशिफल चंद्र गोचर पर आधारित सामान्य मार्गदर्शन है — चिकित्सा, कानूनी या वित्तीय सलाह नहीं।" en="The horoscope is general guidance based on the Moon’s transit — not medical, legal or financial advice." /></p>
       <p style={{ margin: '0 0 10px', fontSize: '14px' }}><Link href={`/rashi/${r.slug}`} style={{ color: 'var(--color-text-info)' }}><Bi hi={`→ ${r.hi} राशि का पूरा गाइड`} en={`→ Full ${r.en} guide`} /></Link></p>

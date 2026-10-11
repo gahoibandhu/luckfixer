@@ -1,5 +1,6 @@
 // components/PublicShell.jsx — header / footer for the no-login public pages. Server component.
 import Link from 'next/link';
+import ChatLink from '@/components/ChatLink';
 import Bi from '@/components/Bi';
 import LangToggle from '@/components/LangToggle';
 import { BRAND } from '@/lib/brand';
@@ -31,14 +32,14 @@ export default function PublicShell({ children, flush = false }) {
             <span className="pub-brand">{BRAND.name}</span>
           </Link>
           <LangToggle />
-          <Link href="/login" className="pub-btn pub-btn-gold" style={{ minHeight: '38px', padding: '0 14px', fontSize: '14px', whiteSpace: 'nowrap', color: '#251a00' }}><Bi hi="AI चैट" en="AI chat" /></Link>
+          <ChatLink className="pub-btn pub-btn-gold" style={{ minHeight: '38px', padding: '0 14px', fontSize: '14px', whiteSpace: 'nowrap', color: '#251a00' }} authedChildren={<Bi hi="चैट खोलें" en="Open chat" />}><Bi hi="AI चैट" en="AI chat" /></ChatLink>
           <nav className="pub-nav" aria-label="Main">
             {NAV.map(n => <Link key={n.href} href={n.href}><Bi hi={n.hi} en={n.en} /></Link>)}
           </nav>
         </div>
       </header>
       {flush ? children : <main className="pub-wrap" style={{ paddingTop: '22px', paddingBottom: '8px' }}>{children}</main>}
-      <Link href="/login" className="pub-fab" aria-label="AI chat"><span aria-hidden="true">💬</span><Bi hi="AI से चैट करें" en="Chat with AI" /></Link>
+      <ChatLink className="pub-fab" aria-label="AI chat"><span aria-hidden="true">💬</span><Bi hi="AI से चैट करें" en="Chat with AI" /></ChatLink>
       <footer className="pub-footer">
         <div className="pub-wrap" style={{ padding: '26px 16px 30px', lineHeight: 1.8 }}>
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '10px' }}>

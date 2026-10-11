@@ -4,6 +4,7 @@ import PwaRegister from '@/components/PwaRegister';
 import BottomNav from '@/components/BottomNav';
 import SessionMark from '@/components/SessionMark';
 import AppTopBar from '@/components/AppTopBar';
+import { Analytics } from '@vercel/analytics/next';
 
 const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
 const SITE_URL = 'https://luckfixer.jaigahoi.in';
@@ -66,6 +67,7 @@ export default function RootLayout({ children }) {
         <AppTopBar />
         {children}
         <BottomNav />
+        <Analytics />
       </body>
     </html>
   );

@@ -12,6 +12,7 @@
     "@google/genai": ">=1.0.0 <3.0.0",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
+    "@vercel/analytics": "2.0.1",
     "astronomy-engine": "latest",
     "groq-sdk": "latest",
     "lucide-react": "^0.460.0",
