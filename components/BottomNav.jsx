@@ -25,7 +25,7 @@ const TABS = [
 const OWNS_ITS_OWN_SPACE = ['/chat'];
 
 // Public no-login pages have their own header/footer; the app's tab bar would send logged-out visitors to /login.
-const PUBLIC_PREFIXES = ['/rashi', '/rashifal', '/moolank', '/panchang', '/meri-rashi', '/manglik', '/sade-sati', '/vrat-calendar', '/gita-shlok', '/aaj-ka-upay', '/tools', '/about', '/privacy', '/terms'];
+const PUBLIC_PREFIXES = ['/rashi', '/rashifal', '/moolank', '/panchang', '/meri-rashi', '/manglik', '/sade-sati', '/vrat-calendar', '/gita-shlok', '/aaj-ka-upay', '/aarti', '/vrat', '/tyohar', '/tools', '/about', '/privacy', '/terms'];
 const isPublicPath = (p) => p === '/' || PUBLIC_PREFIXES.some(x => p === x || p.startsWith(x + '/'));
 
 export default function BottomNav() {

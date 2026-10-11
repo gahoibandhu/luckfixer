@@ -7,7 +7,7 @@ import { useUiLang } from '@/lib/i18n';
 import { BRAND } from '@/lib/brand';
 
 const HIDE = ['/chat', '/login', '/admin', '/auth'];
-const PUBLIC = ['/rashi', '/rashifal', '/moolank', '/panchang', '/meri-rashi', '/manglik', '/sade-sati', '/vrat-calendar', '/gita-shlok', '/aaj-ka-upay', '/tools', '/about', '/privacy', '/terms'];
+const PUBLIC = ['/rashi', '/rashifal', '/moolank', '/panchang', '/meri-rashi', '/manglik', '/sade-sati', '/vrat-calendar', '/gita-shlok', '/aaj-ka-upay', '/aarti', '/vrat', '/tyohar', '/tools', '/about', '/privacy', '/terms'];
 
 export default function AppTopBar() {
   const pathname = usePathname();

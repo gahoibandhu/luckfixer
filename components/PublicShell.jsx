@@ -10,6 +10,8 @@ export const NAV = [
   { href: '/',            hi: 'होम',          en: 'Home' },
   { href: '/panchang',    hi: 'पंचांग',       en: 'Panchang' },
   { href: '/rashifal',    hi: 'राशिफल',       en: 'Horoscope' },
+  { href: '/tyohar',      hi: 'त्योहार',       en: 'Festivals' },
+  { href: '/aarti',       hi: 'आरती-चालीसा',  en: 'Aarti' },
   { href: '/meri-rashi',  hi: 'मेरी राशि',    en: 'My rashi' },
   { href: '/moolank',     hi: 'अंक ज्योतिष',  en: 'Numerology' },
   { href: '/tools',       hi: 'सभी टूल',      en: 'All tools' },
@@ -46,6 +48,9 @@ export default function PublicShell({ children, flush = false }) {
             <Link href="/"><Bi hi="होम" en="Home" /></Link>
             <Link href="/rashi"><Bi hi="राशि गाइड" en="Rashi guide" /></Link>
             <Link href="/vrat-calendar"><Bi hi="व्रत कैलेंडर" en="Vrat calendar" /></Link>
+            <Link href="/tyohar"><Bi hi="त्योहार" en="Festivals" /></Link>
+            <Link href="/aarti"><Bi hi="आरती-चालीसा" en="Aarti & Chalisa" /></Link>
+            <Link href="/vrat"><Bi hi="व्रत विधि व कथा" en="Vrat vidhi & katha" /></Link>
           </div>
           <p style={{ margin: '0 0 6px' }}><Bi hi={DISCLAIMER.hi} en={DISCLAIMER.en} /></p>
           <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
