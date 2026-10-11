@@ -11,6 +11,7 @@ export const NAV = [
   { href: '/',            hi: 'होम',          en: 'Home' },
   { href: '/panchang',    hi: 'पंचांग',       en: 'Panchang' },
   { href: '/rashifal',    hi: 'राशिफल',       en: 'Horoscope' },
+  { href: '/calendar',    hi: 'कैलेंडर',       en: 'Calendar' },
   { href: '/tyohar',      hi: 'त्योहार',       en: 'Festivals' },
   { href: '/aarti',       hi: 'आरती-चालीसा',  en: 'Aarti' },
   { href: '/meri-rashi',  hi: 'मेरी राशि',    en: 'My rashi' },

@@ -7,11 +7,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const base = BRAND.site;
   const now = new Date();
   const daily = ['/', '/panchang', '/rashifal', '/gita-shlok', '/aaj-ka-upay'];
-  const guides = ['/tyohar', '/vrat', '/aarti'];
+  const guides = ['/calendar', '/tyohar', '/vrat', '/aarti'];
+  const calendarYears = [2026, 2027, 2028].map(y => `/calendar?v=agenda&y=${y}`);
   const stable = ['/tyohar', '/vrat', '/aarti', '/tools', '/meri-rashi', '/moolank', '/sade-sati', '/manglik', '/vrat-calendar', '/ram-shalaka', '/rashi', '/about', '/privacy', '/terms', '/login'];
   return [
     ...daily.map((p, i) => ({ url: base + (p === '/' ? '' : p), lastModified: now, changeFrequency: 'daily' as const, priority: p === '/' ? 1 : 0.9 - i * 0.02 })),
     ...stable.map(p => ({ url: base + p, lastModified: now, changeFrequency: 'monthly' as const, priority: p === '/login' ? 0.5 : 0.7 })),
+    ...calendarYears.map(p => ({ url: base + p, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.8 })),
     ...guides.map(p => ({ url: base + p, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.8 })),
     ...['ekadashi', 'purnima', 'amavasya', 'pradosh', 'shraddh'].map(s => ({ url: `${base}/vrat/${s}`, lastModified: now, changeFrequency: 'monthly' as const, priority: 0.7 })),
     ...['hanuman-chalisa', 'ganesh-aarti', 'om-jai-jagdish-hare', 'shiv-aarti', 'hanuman-aarti', 'lakshmi-aarti', 'durga-aarti', 'santoshi-mata-aarti'].map(s => ({ url: `${base}/aarti/${s}`, lastModified: now, changeFrequency: 'monthly' as const, priority: 0.7 })),
