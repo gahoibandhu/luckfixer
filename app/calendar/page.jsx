@@ -54,7 +54,7 @@ export default async function CalendarPage({ searchParams }) {
           const base = { display: 'block', textDecoration: 'none', color: 'var(--color-text-primary)', borderRadius: big ? '8px' : '6px', border: isToday ? '2px solid var(--pub-gold)' : '1px solid ' + (ev.length ? 'var(--color-border-secondary)' : 'transparent'), background: ev.length ? 'var(--color-background-secondary)' : 'transparent', padding: big ? '4px 5px' : '2px 0', textAlign: big ? 'left' : 'center', minHeight: big ? '66px' : '26px', overflow: 'hidden' };
           const label = ev.map(e => e.en).join(', ');
           return (
-            <Link key={s} href={`/panchang?date=${s}`} style={base} aria-label={`${d} ${MON_S[m - 1]} ${year}${label ? ': ' + label : ''}`}>
+            <Link key={s} href={`/panchang/${s}`} style={base} aria-label={`${d} ${MON_S[m - 1]} ${year}${label ? ': ' + label : ''}`}>
               <span style={{ fontSize: big ? '13px' : '11px', fontWeight: isToday ? 800 : 500 }}>{d}</span>
               {big ? ev.slice(0, 2).map((e, k) => (
                 <span key={k} style={{ display: 'block', fontSize: '10px', lineHeight: 1.25, marginTop: '2px', color: TYPES[e.type].color, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Bi hi={e.hi} en={e.en} /></span>
