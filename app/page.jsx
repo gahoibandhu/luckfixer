@@ -25,7 +25,13 @@ const TOOLS = [
   { href: '/moolank', g: '☉', hi: 'मूलांक और भाग्यांक', en: 'Moolank & Bhagyank', dh: 'जन्म तिथि से अंक, उनका स्वभाव और लो शू ग्रिड।', de: 'Your numbers, their temperament and the Lo Shu grid.' },
   { href: '/sade-sati', g: '♄', hi: 'साढ़ेसाती / ढैया', en: 'Sade Sati / Dhaiya', dh: 'शनि के असली गोचर से तारीखें।', de: 'Dates from Saturn’s actual transit.' },
   { href: '/manglik', g: '♂', hi: 'मांगलिक जाँच', en: 'Manglik check', dh: 'मंगल लग्न और चंद्रमा से किस भाव में है।', de: 'Which house Mars holds from Lagna and Moon.' },
+  { href: '/tyohar', g: '🎆', hi: 'त्योहार कैलेंडर', en: 'Festival calendar', dh: 'दीपावली, होली, नवरात्रि और अन्य पर्व, तिथि के साथ।', de: 'Diwali, Holi, Navratri and more, with tithi timings.' },
+  { href: '/vrat', g: '🙏', hi: 'व्रत विधि और कथा', en: 'Vrat vidhi & katha', dh: 'एकादशी, पूर्णिमा, प्रदोष की पूजा विधि और कथा।', de: 'Puja vidhi and katha for Ekadashi, Purnima, Pradosh.' },
+  { href: '/aarti', g: '🪔', hi: 'आरती और चालीसा', en: 'Aarti & Chalisa', dh: 'हनुमान चालीसा और प्रमुख आरतियाँ, बड़े अक्षरों में।', de: 'Hanuman Chalisa and major aartis, in large type.' },
   { href: '/vrat-calendar', g: '☊', hi: 'व्रत कैलेंडर', en: 'Vrat calendar', dh: 'एकादशी, पूर्णिमा, अमावस्या, प्रदोष और संक्रांति।', de: 'Ekadashi, Purnima, Amavasya, Pradosh and Sankranti.' },
+  { href: '/tyohar', g: '🪔', hi: 'त्योहार कैलेंडर', en: 'Festival calendar', dh: 'व्रत-त्योहार तिथि के सटीक समय के साथ।', de: 'Festivals with exact tithi timings.' },
+  { href: '/vrat', g: '☊', hi: 'व्रत विधि और कथा', en: 'Vrat vidhi & katha', dh: 'एकादशी, पूर्णिमा, अमावस्या, प्रदोष की पूजा।', de: 'Puja for Ekadashi, Purnima, Amavasya, Pradosh.' },
+  { href: '/aarti', g: '🔱', hi: 'आरती और चालीसा', en: 'Aarti & Chalisa', dh: 'हनुमान चालीसा और प्रमुख आरतियाँ, बड़े अक्षरों में।', de: 'Hanuman Chalisa and main aartis in large type.' },
   { href: '/ram-shalaka', g: '🕉', hi: 'राम शलाका', en: 'Ram Shalaka', dh: 'मन में प्रश्न रखकर रामचरितमानस से उत्तर।', de: 'Hold a question in mind and receive a Ramcharitmanas answer.' },
   { href: '/gita-shlok', g: '☸', hi: 'आज का गीता श्लोक', en: 'Gita verse of the day', dh: 'रोज़ एक श्लोक, सरल अर्थ के साथ।', de: 'One verse a day with a simple meaning.' },
 ];

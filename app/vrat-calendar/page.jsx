@@ -60,7 +60,7 @@ export default function VratCalendar() {
                 <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}><Bi hi={l.w[0]} en={l.w[1]} /></div>
               </div>
               <div>
-                <div style={{ fontWeight: 600, fontSize: '15px' }}>{k.g} <Bi hi={name[0]} en={name[1]} /></div>
+                <div style={{ fontWeight: 600, fontSize: '15px' }}>{k.g} <Bi hi={name[0]} en={name[1]} /> <Link href={`/vrat/${v.k}`} style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-info)', marginLeft: '6px' }}><Bi hi="पूजा विधि व कथा →" en="Vidhi & katha →" /></Link></div>
                 <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
                   <Bi hi={`तिथि: ${tlabel(v.start)} से ${tlabel(v.end)} तक`} en={`Tithi: ${tlabel(v.start)} to ${tlabel(v.end)}`} />
                   {v.dates.length > 1 && <> · <Bi hi={`दो दिन: ${v.dates.map(x => dlabel(x).d + ' ' + dlabel(x).mon).join(', ')}`} en={`Spans two days: ${v.dates.map(x => dlabel(x).d + ' ' + dlabel(x).mon).join(', ')}`} /></>}
@@ -70,7 +70,7 @@ export default function VratCalendar() {
         })}
         <p style={{ margin: '12px 0 0', fontSize: '12px', color: 'var(--color-text-tertiary)' }}><Bi hi={`${VRAT_RANGE[0]}–${VRAT_RANGE[1]} तक की तारीखें उपलब्ध हैं।`} en={`Dates available for ${VRAT_RANGE[0]}–${VRAT_RANGE[1]}.`} /></p>
       </section>
-      <p style={{ marginTop: '14px', fontSize: '14px' }}><Link href="/panchang" style={{ color: 'var(--color-text-info)' }}><Bi hi="→ आज का पंचांग" en="→ Today’s panchang" /></Link></p>
+      <p style={{ marginTop: '14px', fontSize: '14px', lineHeight: 2 }}><Link href="/tyohar" style={{ color: 'var(--color-text-info)' }}><Bi hi="→ त्योहार कैलेंडर (दीपावली, होली, नवरात्रि और बाकी)" en="→ Festival calendar (Diwali, Holi, Navratri and more)" /></Link><br /><Link href="/panchang" style={{ color: 'var(--color-text-info)' }}><Bi hi="→ आज का पंचांग" en="→ Today’s panchang" /></Link></p>
     </PublicShell>
   );
 }
