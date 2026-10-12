@@ -1,5 +1,5 @@
 // /calendar/ics?y=2026&t=ekadashi,tyohar — downloadable / subscribable iCalendar (all-day events, IST civil dates)
-import { eventsForYear, CAL_RANGE, TYPE_ORDER, addDays } from '@/lib/calendar-events';
+import { eventsForYear, matchesTypes, CAL_RANGE, TYPE_ORDER, addDays } from '@/lib/calendar-events';
 import { BRAND } from '@/lib/brand';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,7 @@ export async function GET(req) {
   const lang = sp.get('l') === 'en' ? 'en' : 'hi';
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:-//${BRAND.name}//Hindu calendar//${lang.toUpperCase()}`, 'CALSCALE:GREGORIAN', `X-WR-CALNAME:${esc(BRAND.name + (lang === 'en' ? ' — Hindu calendar' : ' — हिंदू कैलेंडर'))}`];
   for (const y of years) for (const e of eventsForYear(y)) {
-    if (types.length && !types.includes(e.type)) continue;
+    if (!matchesTypes(e, types)) continue;
     lines.push('BEGIN:VEVENT',
       `UID:${ymd(e.date)}-${e.type}-${esc(e.en).replace(/[^A-Za-z0-9]/g, '').toLowerCase()}@${new URL(req.url).host}`,
       `DTSTAMP:20260101T000000Z`,

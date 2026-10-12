@@ -15,6 +15,7 @@ const GROUPS = [
     { href: '/panchang', g: '☽', hi: 'आज का पंचांग', en: 'Daily panchang', dh: 'तिथि, नक्षत्र, योग, राहुकाल, चौघड़िया', de: 'Tithi, nakshatra, yoga, Rahu Kaal, choghadiya' },
     { href: '/rashifal', g: '♈', hi: 'आज का राशिफल', en: 'Daily horoscope', dh: 'चंद्र गोचर पर आधारित, 12 राशियाँ', de: 'Based on the Moon’s transit, all 12 signs' },
     { href: '/calendar', g: '📅', hi: 'हिंदू कैलेंडर', en: 'Hindu calendar', dh: 'साल, महीना, सूची — व्रत और त्योहार, ICS के साथ', de: 'Year, month and list views with ICS export' },
+    { href: '/ekadashi', g: '☊', hi: 'एकादशी — तिथि, कथा, पारण', en: 'Ekadashi dates, katha, pāraṇa', dh: 'सभी 24 एकादशी के नाम, तिथि और संक्षिप्त कथा', de: 'All 24 Ekadashis with dates and a short katha' },
     { href: '/tyohar', g: '🎆', hi: 'त्योहार कैलेंडर', en: 'Festival calendar', dh: 'दीपावली, होली, नवरात्रि और 57 पर्व — तिथि सहित', de: 'Diwali, Holi, Navratri and 57 festivals — with tithi' },
     { href: '/aaj-ka-upay', g: '🪔', hi: 'आज का उपाय', en: 'Today’s practice', dh: 'वार के हिसाब से सरल उपाय', de: 'A simple practice for the weekday' },
     { href: '/gita-shlok', g: '☸', hi: 'आज का गीता श्लोक', en: 'Gita verse of the day', dh: 'सरल अर्थ के साथ', de: 'With a simple meaning' } ] },

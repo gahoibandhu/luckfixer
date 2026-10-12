@@ -2,7 +2,7 @@ import Link from 'next/link';
 import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
-import { eventsForYear, eventsByDate, TYPES, TYPE_ORDER, CAL_RANGE } from '@/lib/calendar-events';
+import { eventsForYear, eventsByDate, matchesTypes, TYPES, TYPE_ORDER, CAL_RANGE } from '@/lib/calendar-events';
 import { todayIST } from '@/lib/rashifal';
 
 export const metadata = {
@@ -85,7 +85,7 @@ export default async function CalendarPage({ searchParams }) {
     );
   }
 
-  const yearEvents = eventsForYear(year).filter(e => !types.length || types.includes(e.type));
+  const yearEvents = eventsForYear(year).filter(e => matchesTypes(e, types));
   const monthEvents = yearEvents.filter(e => Number(e.date.slice(5, 7)) === month);
 
   return (
