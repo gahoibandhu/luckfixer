@@ -4,6 +4,8 @@ import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import { ekadashiOccurrences, MONTH_TABLE, MONTHS } from '@/lib/ekadashi';
 import { EKADASHI } from '@/lib/ekadashi-content';
+import { EKADASHI_GENERAL_PRAYER } from '@/lib/ekadashi-hi';
+import { GENERAL_PRAYER_EN } from '@/lib/ekadashi-msg-en';
 import { formatDateLong } from '@/lib/date-format';
 import { todayIST } from '@/lib/rashifal';
 
@@ -71,6 +73,11 @@ export default async function EkadashiIndex({ searchParams }) {
             <Link href="/ekadashi/padmini" style={{ color: 'var(--color-text-info)' }}><Bi hi="पद्मिनी (शुक्ल)" en="Padmini (S)" /></Link><br />
             <Link href="/ekadashi/parama" style={{ color: 'var(--color-text-info)' }}><Bi hi="परमा (कृष्ण)" en="Parama (K)" /></Link></div>
         </div>
+      </section>
+
+      <section style={{ ...card, marginBottom: '14px' }}>
+        <h2 className="display" style={{ margin: '0 0 8px', fontSize: '18px' }}><Bi hi="एकादशी की सरल प्रार्थना" en="A simple Ekadashi prayer" /></h2>
+        <p style={{ margin: 0, lineHeight: 1.9, fontSize: '15px', textAlign: 'center', whiteSpace: 'pre-line' }}><Bi hi={EKADASHI_GENERAL_PRAYER.join('\n')} en={GENERAL_PRAYER_EN.join('\n')} /></p>
       </section>
 
       <p style={{ ...card, fontSize: '13px', lineHeight: 1.75, color: 'var(--color-text-secondary)', background: 'var(--color-background-warning)' }}>

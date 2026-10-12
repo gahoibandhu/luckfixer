@@ -53,9 +53,11 @@ export default async function EkadashiPage({ params }) {
       </section>
 
       <section style={{ ...card, marginBottom: '14px' }}>
-        <h2 className="display" style={{ margin: '0 0 6px', fontSize: '18px' }}><Bi hi="संक्षिप्त कथा" en="Short katha" /></h2>
-        <p style={{ margin: 0, lineHeight: 1.85, fontSize: '15px' }}><Bi hi={c.katha.hi} en={c.katha.en} /></p>
-        <p style={{ margin: '10px 0 0', fontSize: '12px', color: 'var(--color-text-tertiary)' }}><Bi hi="यह पुराणों में आई कथा का सार है; पूरी कथा और क्षेत्रीय रूप आपकी परंपरा या पंडित जी से मिल जाएँगे।" en="This is a summary of the Puranic katha; the full text and regional versions are best had from your own tradition or priest." /></p>
+        <h2 className="display" style={{ margin: '0 0 6px', fontSize: '18px' }}><Bi hi="कथा" en="Katha" /></h2>
+        <p style={{ margin: 0, lineHeight: 1.85, fontSize: '15px', whiteSpace: 'pre-line' }}><Bi hi={c.katha.hi} en={c.katha.en} /></p>
+        {c.msg && <p style={{ margin: '12px 0 0', lineHeight: 1.8, fontSize: '15px', fontWeight: 600 }}><Bi hi={c.msg.hi} en={c.msg.en} /></p>}
+        {c.pray && <p style={{ margin: '12px 0 0', lineHeight: 1.8, fontSize: '15px', color: 'var(--color-text-info)' }}>🙏 <Bi hi={c.pray.hi} en={c.pray.en} /></p>}
+        <p style={{ margin: '10px 0 0', fontSize: '12px', color: 'var(--color-text-tertiary)' }}><Bi hi="यह सरल हिन्दी में भक्ति-पाठ के लिए तैयार संक्षिप्त कथा है। अलग-अलग ग्रंथों और क्षेत्रों में नाम और विवरण भिन्न मिल सकते हैं; पूरी कथा अपनी परंपरा या पंडित जी से मिलाएँ।" en="A short devotional retelling in simple language. Names and details differ between texts and regions; check the full katha with your own tradition or priest." /></p>
       </section>
 
       <section style={{ ...card, marginBottom: '14px', padding: '10px 14px' }}>

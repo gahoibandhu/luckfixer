@@ -33,7 +33,7 @@ function Body({ item, en }) {
       {s.kind === 'steps' && (s.bullets
         ? <ul style={{ margin: 0, paddingLeft: '20px', ...base, fontSize: '14px' }}>{s.steps.map((x, k) => <li key={k}>{pick(x, en)}</li>)}</ul>
         : <ol style={{ margin: 0, paddingLeft: '20px', ...base, fontSize: '14px' }}>{s.steps.map((x, k) => <li key={k} style={{ marginBottom: '4px' }}>{pick(x, en)}</li>)}</ol>)}
-      {s.kind === 'paras' && s.paras.map((p, k) => <p key={k} style={{ margin: '0 0 10px', ...base }}>{pick(p, en)}</p>)}
+      {s.kind === 'paras' && s.paras.map((p, k) => pick(p, en) ? <p key={k} style={{ margin: '0 0 10px', whiteSpace: 'pre-line', ...base }}>{pick(p, en)}</p> : null)}
       {s.kind === 'mantra' && <p style={{ margin: 0, textAlign: 'center', fontSize: '21px', fontWeight: 600 }}>{s.text}</p>}
       {s.kind === 'note' && <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-tertiary)' }}>{pick(s.note, en)}</p>}
     </div>
