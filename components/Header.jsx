@@ -8,7 +8,7 @@ const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/
 
 export default function Header({ subtitle, showHome = true }) {
   const router = useRouter();
-  const [botName, setBotName] = useState('Luckfixer 2.0');
+  const [botName, setBotName] = useState('AstroBharat');
   const [uiLang, setUiLang] = useState('hi');
 
   useEffect(() => {

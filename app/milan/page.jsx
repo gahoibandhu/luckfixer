@@ -66,7 +66,7 @@ export default function MilanPage() {
 
   function shareOnWhatsApp(m) {
     const enMsg = uiLang === 'en';
-    const text = `🔮 *Luckfixer 2.0 — ${enMsg ? 'Kundli Matching' : 'कुंडली मिलान'}*\n\n${kName(boyId)} + ${kName(girlId)}\n\n*${enMsg ? 'Score' : 'अंक'}: ${m.totalScore}/36* (${m.percentage}%)\n*${enMsg ? m.verdict : m.verdictHi}*\n\n${m.doshas.length > 0 ? '⚠️ ' + m.doshas.map(d=>d.name).join(', ') + '\n\n' : ''}${m.recommendation}\n\n✦ ${enMsg ? 'Check your kundli match' : 'अपनी कुंडली मिलान चेक करें'}: ${BRAND.host}`;
+    const text = `🔮 *AstroBharat — ${enMsg ? 'Kundli Matching' : 'कुंडली मिलान'}*\n\n${kName(boyId)} + ${kName(girlId)}\n\n*${enMsg ? 'Score' : 'अंक'}: ${m.totalScore}/36* (${m.percentage}%)\n*${enMsg ? m.verdict : m.verdictHi}*\n\n${m.doshas.length > 0 ? '⚠️ ' + m.doshas.map(d=>d.name).join(', ') + '\n\n' : ''}${m.recommendation}\n\n✦ ${enMsg ? 'Check your kundli match' : 'अपनी कुंडली मिलान चेक करें'}: ${BRAND.host}`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   }
@@ -77,7 +77,7 @@ export default function MilanPage() {
     <div className="lf-page" style={{ maxWidth:'680px', margin:'0 auto', padding:'1.5rem 1rem' }}>
       <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'1.5rem' }}>
         <button onClick={() => router.push('/kundli')} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-secondary)', fontSize:'14px', padding:0 }}>{t('backBtn', uiLang)}</button>
-        <img src={LOGO_URL} alt="Luckfixer" className="lf-logo-sm" />
+        <img src={LOGO_URL} alt="AstroBharat" className="lf-logo-sm" />
         <h1 style={{ fontSize:'20px', fontWeight:'500', color:'var(--color-text-primary)', margin:0 }}>{t('milanTitle', uiLang)}</h1>
       </div>
 

@@ -1,6 +1,6 @@
 {
-  "name": "Luckfixer 2.0 — वैदिक ज्योतिष AI",
-  "short_name": "Luckfixer",
+  "name": "AstroBharat — वैदिक ज्योतिष AI",
+  "short_name": "AstroBharat",
   "description": "Parashari, Lal Kitab और Jaimini पर आधारित AI ज्योतिष सहायक — सभी के लिए",
   "start_url": "/chat",
   "scope": "/",

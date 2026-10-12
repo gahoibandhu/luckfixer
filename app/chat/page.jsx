@@ -177,7 +177,7 @@ export default function ChatPage() {
   const utteranceRef   = useRef(null);
 
   const [userId,           setUserId]           = useState(null);
-  const [botName,          setBotName]          = useState('Luckfixer 2.0');
+  const [botName,          setBotName]          = useState('AstroBharat');
   const [kundlis,          setKundlis]          = useState([]);
   const [kundli,           setKundli]           = useState(null);
   const [dailyCard,        setDailyCard]        = useState(null); // today's proactive gochar insight, dismissible

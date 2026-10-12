@@ -178,7 +178,7 @@ export default function LoginPage() {
           {/* The logo itself — static, no looping animation */}
           <img
             src={LOGO_URL}
-            alt="Luckfixer"
+            alt="AstroBharat"
             style={{
               width: 'min(48vw, 200px)',
               height: 'min(48vw, 200px)',

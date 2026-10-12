@@ -168,7 +168,7 @@ export default async function CalendarPage({ searchParams }) {
       </section>
 
       <p style={{ ...card, margin: '14px 0 0', fontSize: '13px', lineHeight: 1.75, color: 'var(--color-text-secondary)', background: 'var(--color-background-warning)' }}>
-        <Bi hi="यह कैलेंडर Luckfixer ने दिल्ली (IST) के लिए गणना से बनाया है। परंपरा और शहर के अनुसार व्रत/त्योहार का दिन एक दिन आगे-पीछे हो सकता है — कृपया अपने स्थानीय पंचांग या पंडित जी से पुष्टि कर लें। बहु-दिवसीय त्योहार हर दिन दिखते हैं।" en="This calendar is computed by Luckfixer for Delhi (IST). Depending on tradition and city, a fast or festival can fall a day earlier or later — please confirm with your local panchang or pandit. Multi-day festivals show on every day." />
+        <Bi hi="यह कैलेंडर AstroBharat ने दिल्ली (IST) के लिए गणना से बनाया है। परंपरा और शहर के अनुसार व्रत/त्योहार का दिन एक दिन आगे-पीछे हो सकता है — कृपया अपने स्थानीय पंचांग या पंडित जी से पुष्टि कर लें। बहु-दिवसीय त्योहार हर दिन दिखते हैं।" en="This calendar is computed by AstroBharat for Delhi (IST). Depending on tradition and city, a fast or festival can fall a day earlier or later — please confirm with your local panchang or pandit. Multi-day festivals show on every day." />
       </p>
     </PublicShell>
   );

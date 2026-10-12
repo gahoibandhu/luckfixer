@@ -128,7 +128,7 @@ export default function SupportPage() {
               <p style={{ margin:'0 0 8px', fontSize:'13px', color:'var(--color-text-secondary)', whiteSpace:'pre-line' }}>{h.message}</p>
               {h.admin_reply && (
                 <div style={{ background:'var(--color-background-secondary)', borderRadius:'var(--border-radius-md)', padding:'10px 12px', marginTop:'6px' }}>
-                  <p style={{ margin:'0 0 3px', fontSize:'11px', fontWeight:'500', color:'var(--color-text-tertiary)' }}>{en ? 'Reply from the Luckfixer team:' : 'Luckfixer टीम का जवाब:'}</p>
+                  <p style={{ margin:'0 0 3px', fontSize:'11px', fontWeight:'500', color:'var(--color-text-tertiary)' }}>{en ? 'Reply from the AstroBharat team:' : 'AstroBharat टीम का जवाब:'}</p>
                   <p style={{ margin:0, fontSize:'13px', color:'var(--color-text-primary)', whiteSpace:'pre-line' }}>{h.admin_reply}</p>
                 </div>
               )}

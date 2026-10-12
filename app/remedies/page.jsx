@@ -149,7 +149,7 @@ export default function RemediesPage() {
     <div style={{ maxWidth:'680px', margin:'0 auto', padding:'1.5rem 1rem' }}>
       <button onClick={() => router.push('/profile')} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-secondary)', fontSize:'14px', padding:0, marginBottom:'1rem' }}>{t('backBtn', uiLang)}</button>
 
-      <p style={{ fontSize:'11px', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 4px' }}>Luckfixer</p>
+      <p style={{ fontSize:'11px', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 4px' }}>AstroBharat</p>
       <h1 style={{ fontSize:'22px', fontWeight:'500', margin:'0 0 1rem', color:'var(--color-text-primary)' }}>{t('remediesTitle', uiLang)}</h1>
 
       {remedies.length === 0 ? (

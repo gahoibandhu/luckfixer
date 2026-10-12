@@ -1,6 +1,6 @@
 // public/sw.js
 //
-// Luckfixer 2.0 — MINIMAL "wrapper" service worker
+// AstroBharat — MINIMAL "wrapper" service worker
 //
 // The whole point of this PWA is to be a thin installable shell around
 // the live website — NOT an offline-capable cached app. It intentionally
@@ -21,7 +21,7 @@
 // instead — replacing it with a branded page here is a pure UX win
 // with no update-freshness trade-off.
 
-const SW_VERSION = 'luckfixer-v2';
+const SW_VERSION = 'astrobharat-v1';
 const OFFLINE_URL = '/offline.html';
 
 self.addEventListener('install', (event) => {

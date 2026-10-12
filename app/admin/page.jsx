@@ -366,7 +366,7 @@ export default function AdminPage() {
       label: '🆕 नया फीचर',
       subject: 'आपकी कुंडली में नया अपडेट है 🔮',
       headline: 'कुछ नया आया है आपके लिए! 🙏',
-      bodyText: 'नमस्ते! Luckfixer 2.0 में हमने एक नया फीचर जोड़ा है जो आपकी कुंडली का विश्लेषण और बेहतर बनाता है। एक बार ज़रूर देखें — शायद आपकी अगली बड़ी जानकारी यहीं छुपी हो।',
+      bodyText: 'नमस्ते! AstroBharat में हमने एक नया फीचर जोड़ा है जो आपकी कुंडली का विश्लेषण और बेहतर बनाता है। एक बार ज़रूर देखें — शायद आपकी अगली बड़ी जानकारी यहीं छुपी हो।',
       ctaLabel: 'अभी देखें →',
     },
     {
@@ -380,7 +380,7 @@ export default function AdminPage() {
       label: '🪔 त्योहार शुभकामनाएं',
       subject: 'त्योहार की हार्दिक शुभकामनाएं 🪔',
       headline: 'त्योहार की शुभकामनाएं! 🙏',
-      bodyText: 'इस शुभ अवसर पर Luckfixer 2.0 परिवार की ओर से आपको और आपके परिवार को हार्दिक शुभकामनाएं। यह समय नए संकल्प और सही दिशा तय करने का है — अपनी कुंडली देखकर जानिए आने वाला समय आपके लिए कैसा रहेगा।',
+      bodyText: 'इस शुभ अवसर पर AstroBharat परिवार की ओर से आपको और आपके परिवार को हार्दिक शुभकामनाएं। यह समय नए संकल्प और सही दिशा तय करने का है — अपनी कुंडली देखकर जानिए आने वाला समय आपके लिए कैसा रहेगा।',
       ctaLabel: 'कुंडली देखें →',
     },
   ];
@@ -418,7 +418,7 @@ export default function AdminPage() {
     const res = await fetch('/api/admin/config');
     const data = await res.json();
     const row = data.config?.find(c => c.key === 'bot_display_name');
-    setBotNameForm(row?.value || 'Luckfixer');
+    setBotNameForm(row?.value || 'AstroBharat');
     setAskAgeForm(data.config?.find(c => c.key === 'relationship_ask_age')?.value || '30');
     setBotNameLoaded(true);
   }
@@ -633,7 +633,7 @@ export default function AdminPage() {
     <div>
       <Header subtitle="Admin Panel" />
     <div style={{ maxWidth:'900px', margin:'0 auto', padding:'1.5rem 1rem' }}>
-      <p style={{ fontSize:'11px', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 4px' }}>Luckfixer Admin</p>
+      <p style={{ fontSize:'11px', letterSpacing:'2px', textTransform:'uppercase', color:'var(--color-text-tertiary)', margin:'0 0 4px' }}>AstroBharat Admin</p>
       <h1 style={{ fontSize:'22px', fontWeight:'500', margin:'0 0 1.5rem', color:'var(--color-text-primary)' }}>एडमिन पैनल</h1>
 
       {/* Tabs — horizontally scrollable on mobile so 10 tabs don't
@@ -1384,7 +1384,7 @@ export default function AdminPage() {
           <form onSubmit={saveBotName} style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
             <div>
               <label style={{ fontSize:'12px', color:'var(--color-text-secondary)', fontWeight:'500', display:'block', marginBottom:'4px' }}>Bot Name — चैट, कुंडली विश्लेषण और साइट पर हर जगह दिखेगा</label>
-              <input type="text" value={botNameForm} onChange={e => setBotNameForm(e.target.value)} placeholder="Luckfixer" required />
+              <input type="text" value={botNameForm} onChange={e => setBotNameForm(e.target.value)} placeholder="AstroBharat" required />
             </div>
             {botNameMsg && <p style={{ fontSize:'12px', color: botNameMsg.startsWith('✓') ? 'var(--color-text-success)' : 'var(--color-text-danger)', margin:0 }}>{botNameMsg}</p>}
             <button type="submit" disabled={botNameSaving || !botNameForm.trim()} style={{ padding:'10px', background:'var(--color-text-primary)', color:'var(--color-background-primary)', border:'none', borderRadius:'var(--border-radius-md)', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}>

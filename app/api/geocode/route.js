@@ -17,7 +17,7 @@ export async function GET(req) {
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5`,
       {
         headers: {
-          'User-Agent': 'Luckfixer2.0/1.0 (astrology app)',
+          'User-Agent': 'AstroBharat/1.0 (astrology app)',
           'Accept-Language': 'en',
         },
       }

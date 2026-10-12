@@ -290,7 +290,7 @@ button:active { transform: scale(0.98); }
   position: relative;
 }
 .lf-watermark::after {
-  content: 'Luckfixer 2.0 · luckfixer.jaigahoi.in';
+  content: 'AstroBharat · astrobharat.in';
   position: absolute;
   bottom: 6px;
   right: 10px;

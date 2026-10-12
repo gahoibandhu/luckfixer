@@ -9,7 +9,7 @@
 //    RLS since migration_002; just wasn't surfaced in the admin UI).
 //
 // Both were always meant to be seen only by the person who wrote them
-// and the Luckfixer team — this route is the "team" side of that.
+// and the AstroBharat team — this route is the "team" side of that.
 
 import { createClient } from '@/lib/supabase-server';
 import { requireAdmin } from '@/lib/admin-auth';

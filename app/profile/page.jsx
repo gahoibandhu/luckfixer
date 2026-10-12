@@ -326,7 +326,7 @@ export default function ProfilePage() {
       {/* Rating — kept at the very bottom of the page, on its own,
           so it doesn't compete with the actions above it. The 1-5
           star average is public (everyone sees it); the written note
-          is private, read only by the Luckfixer team. */}
+          is private, read only by the AstroBharat team. */}
       <div style={{ marginTop:'2rem' }}>
         <SiteRatingWidget feature="overall" lang={uiLang} title={t('rateTitle', uiLang)} />
       </div>

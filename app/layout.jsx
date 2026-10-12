@@ -12,7 +12,7 @@ const SITE_URL = BRAND.site;
 const DESCRIPTION = 'AI ज्योतिषी से सीधे चैट करें — शादी, करियर, स्वास्थ्य, पैसा, हर सवाल का जवाब पाएं। Parashari, Lal Kitab और Jaimini — तीन शास्त्रीय प्रणालियों पर आधारित सटीक कुंडली विश्लेषण, दशा भविष्य, कुंडली मिलान और उपाय — सभी के लिए, बिल्कुल मुफ्त।';
 
 export const metadata = {
-  title: { default: 'Luckfixer 2.0 — AI ज्योतिष Chat | कुंडली विश्लेषण', template: '%s | Luckfixer 2.0' },
+  title: { default: 'AstroBharat — AI ज्योतिष Chat | कुंडली विश्लेषण', template: '%s | AstroBharat' },
   description: DESCRIPTION,
   keywords: ['AI ज्योतिष चैट', 'ज्योतिष चैटबॉट', 'कुंडली', 'जन्म कुंडली', 'वैदिक ज्योतिष', 'लाल किताब', 'जैमिनी ज्योतिष', 'कुंडली मिलान', 'अष्टकूट', 'दशा भविष्य', 'AI Astrology Chat', 'Astrology Chatbot', 'Vedic Astrology India', 'Kundli Online', 'Kundli Milan', 'Ask Astrologer Online'],
   metadataBase: new URL(SITE_URL),
@@ -21,20 +21,20 @@ export const metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Luckfixer',
+    title: 'AstroBharat',
   },
   openGraph: {
-    title: 'Luckfixer 2.0 — AI ज्योतिषी से चैट करें',
+    title: 'AstroBharat — AI ज्योतिषी से चैट करें',
     description: DESCRIPTION,
     url: SITE_URL,
-    siteName: 'Luckfixer 2.0',
-    images: [{ url: LOGO_URL, width: 512, height: 512, alt: 'Luckfixer 2.0 — AI ज्योतिष Chat' }],
+    siteName: 'AstroBharat',
+    images: [{ url: LOGO_URL, width: 512, height: 512, alt: 'AstroBharat — AI ज्योतिष Chat' }],
     type: 'website',
     locale: 'hi_IN',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Luckfixer 2.0 — AI ज्योतिषी से चैट करें',
+    title: 'AstroBharat — AI ज्योतिषी से चैट करें',
     description: DESCRIPTION,
     images: [LOGO_URL],
   },
