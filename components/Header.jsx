@@ -3,8 +3,9 @@
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { getSavedUiLang, setSavedUiLang } from '@/lib/i18n';
+import { BRAND } from '@/lib/brand';
 
-const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
+const LOGO_URL = BRAND.logo;
 
 export default function Header({ subtitle, showHome = true }) {
   const router = useRouter();

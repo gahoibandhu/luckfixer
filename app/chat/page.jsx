@@ -12,10 +12,11 @@ import DateOfBirthInput from '@/components/DateOfBirthInput';
 import MissingKundliFieldsModal from '@/components/MissingKundliFieldsModal';
 import { getMissingKundliFields } from '@/lib/kundli-form-validation';
 import { t } from '@/lib/i18n';
+import { BRAND } from '@/lib/brand';
 
 export const dynamic = 'force-dynamic';
 
-const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
+const LOGO_URL = BRAND.logo;
 
 // Hinglish (Roman-script Hindi + English blended naturally) is the
 // product's default — it's what the target audience actually reads

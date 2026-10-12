@@ -682,8 +682,8 @@ button:active { transform: scale(0.98); }
     radial-gradient(1.4px 1.4px at 64% 70%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 30% 80%, #fff 50%, transparent 51%),
     radial-gradient(1.2px 1.2px at 90% 55%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 46% 12%, #fff 50%, transparent 51%),
     radial-gradient(1px 1px at 8% 62%, #fff 50%, transparent 51%), radial-gradient(1.3px 1.3px at 55% 40%, #fff 50%, transparent 51%); }
-.pub-hero-grid { position: relative; display: grid; grid-template-columns: 1.1fr .9fr; gap: 28px; align-items: center; padding: 44px 0 52px; }
-@media (max-width: 800px) { .pub-hero-grid { grid-template-columns: 1fr; padding: 28px 0 36px; } }
+.pub-hero-grid { position: relative; display: grid; grid-template-columns: 1.1fr .9fr; gap: 28px; align-items: center; padding: 44px 16px 52px; }
+@media (max-width: 800px) { .pub-hero-grid { grid-template-columns: 1fr; padding: 28px 16px 36px; } }
 .pub-hero h1 { font-size: clamp(30px, 5.2vw, 46px); line-height: 1.2; margin: 0 0 14px; color: #fff; }
 .pub-sky { background: var(--color-background-primary); color: var(--color-text-primary); border-radius: 18px; padding: 18px; box-shadow: 0 18px 40px rgba(5,8,30,.35); }
 .pub-sky dl { margin: 0; }
@@ -745,7 +745,7 @@ button:active { transform: scale(0.98); }
 /* ── Header: logo + brand, two rows on phones (nav pills never get squeezed) ── */
 .pub-header-in { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding-top: 8px; padding-bottom: 6px; }
 .pub-brandlink { display: flex; align-items: center; gap: 10px; margin-right: auto; text-decoration: none; min-width: 0; }
-.pub-logo { border-radius: 10px; object-fit: cover; box-shadow: 0 0 0 1.5px rgba(240,168,28,.6); background: #fff; flex: 0 0 auto; }
+.pub-logo { border-radius: 22%; object-fit: contain; background: transparent; flex: 0 0 auto; }
 .pub-header .pub-nav { order: 3; flex: 1 0 100%; padding-bottom: 2px; }
 @media (min-width: 900px) {
   .pub-brandlink { margin-right: 0; }

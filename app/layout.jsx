@@ -7,7 +7,7 @@ import AppTopBar from '@/components/AppTopBar';
 import { Analytics } from '@vercel/analytics/next';
 import { BRAND } from '@/lib/brand';
 
-const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
+const LOGO_URL = BRAND.ogImage;
 const SITE_URL = BRAND.site;
 const DESCRIPTION = 'AI ज्योतिषी से सीधे चैट करें — शादी, करियर, स्वास्थ्य, पैसा, हर सवाल का जवाब पाएं। Parashari, Lal Kitab और Jaimini — तीन शास्त्रीय प्रणालियों पर आधारित सटीक कुंडली विश्लेषण, दशा भविष्य, कुंडली मिलान और उपाय — सभी के लिए, बिल्कुल मुफ्त।';
 
@@ -28,7 +28,7 @@ export const metadata = {
     description: DESCRIPTION,
     url: SITE_URL,
     siteName: 'AstroBharat',
-    images: [{ url: LOGO_URL, width: 512, height: 512, alt: 'AstroBharat — AI ज्योतिष Chat' }],
+    images: [{ url: LOGO_URL, width: 1200, height: 630, alt: 'AstroBharat — AI ज्योतिष Chat' }],
     type: 'website',
     locale: 'hi_IN',
   },
@@ -38,7 +38,10 @@ export const metadata = {
     description: DESCRIPTION,
     images: [LOGO_URL],
   },
-  icons: { icon: '/api/icon', apple: '/api/icon' },
+  icons: {
+    icon: [{ url: '/favicon.ico', sizes: 'any' }, { url: '/brand/icon-192.png', sizes: '192x192', type: 'image/png' }],
+    apple: [{ url: '/brand/apple-touch-icon.png', sizes: '180x180' }],
+  },
 };
 
 export const viewport = {
@@ -53,7 +56,6 @@ export default function RootLayout({ children }) {
     <html lang="hi">
       <head>
         {/* Preconnect to external resources for faster load */}
-        <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="preconnect" href="https://jdxrwbhspautnqetjlhg.supabase.co" />
         {/* Preload the logo so it renders instantly on all pages */}
         <link rel="preload" href={LOGO_URL} as="image" />

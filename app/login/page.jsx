@@ -8,7 +8,7 @@ import { BRAND } from '@/lib/brand';
 
 export const dynamic = 'force-dynamic';
 
-const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
+const LOGO_URL = BRAND.logo;
 
 // Assembly animation: 8 "pieces" fly in from different directions and converge
 // onto the logo — simulates fixing/assembling the luck

@@ -71,7 +71,7 @@ export default function MilanPage() {
     window.open(url, '_blank');
   }
 
-  const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
+  const LOGO_URL = BRAND.logo;
 
   return (
     <div className="lf-page" style={{ maxWidth:'680px', margin:'0 auto', padding:'1.5rem 1rem' }}>
