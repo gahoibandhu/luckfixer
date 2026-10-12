@@ -69,11 +69,14 @@ function TypewriterText({ text, enabled, onDone }) {
 
   const done = count >= chars.length;
 
+  // One stable <span> wraps everything and the cursor is always present (shown/hidden with CSS), so React never has to add/remove a bare
+  // text node. A bare text node that a browser or extension (e.g. Chrome translate) has replaced makes React's removeChild throw
+  // "The node to be removed is not a child of this node" and the whole chat goes blank.
   return (
-    <>
-      {chars.slice(0, count).join('')}
-      {enabled && !done && <span className="lf-type-cursor">▌</span>}
-    </>
+    <span translate="no">
+      <span>{chars.slice(0, count).join('')}</span>
+      <span className="lf-type-cursor" aria-hidden="true" style={{ display: enabled && !done ? 'inline' : 'none' }}>▌</span>
+    </span>
   );
 }
 
@@ -988,7 +991,7 @@ export default function ChatPage() {
                         ? <TypewriterText text={m.content} enabled={true} onDone={() => {
                             setMessages(prev => prev.map((mm, idx) => idx === i ? { ...mm, _animate: false } : mm));
                           }} />
-                        : m.content}
+                        : <span translate="no">{m.content}</span>}
                   </div>
                   {m._lifeAsk && (
                     m._lifeAsk.answered && m._lifeAsk.answered !== 'later' ? (

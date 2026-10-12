@@ -7,7 +7,8 @@ import AppTopBar from '@/components/AppTopBar';
 import { Analytics } from '@vercel/analytics/next';
 import { BRAND } from '@/lib/brand';
 
-const LOGO_URL = BRAND.ogImage;
+const LOGO_URL = BRAND.logo;          // small header mark - this is what pages actually draw, so this is what we preload
+const OG_IMAGE = BRAND.ogImage;       // 1200x630 share card, only for link previews
 const SITE_URL = BRAND.site;
 const DESCRIPTION = 'AI ज्योतिषी से सीधे चैट करें — शादी, करियर, स्वास्थ्य, पैसा, हर सवाल का जवाब पाएं। Parashari, Lal Kitab और Jaimini — तीन शास्त्रीय प्रणालियों पर आधारित सटीक कुंडली विश्लेषण, दशा भविष्य, कुंडली मिलान और उपाय — सभी के लिए, बिल्कुल मुफ्त।';
 
@@ -18,6 +19,7 @@ export const metadata = {
   metadataBase: new URL(SITE_URL),
   alternates: { canonical: SITE_URL },
   manifest: '/manifest.json',
+  other: { google: 'notranslate' },   // the site has its own Hindi/English switch; browser auto-translate rewrites the DOM and crashes React
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -28,7 +30,7 @@ export const metadata = {
     description: DESCRIPTION,
     url: SITE_URL,
     siteName: 'AstroBharat',
-    images: [{ url: LOGO_URL, width: 1200, height: 630, alt: 'AstroBharat — AI ज्योतिष Chat' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'AstroBharat — AI ज्योतिष Chat' }],
     type: 'website',
     locale: 'hi_IN',
   },
@@ -36,7 +38,7 @@ export const metadata = {
     card: 'summary_large_image',
     title: 'AstroBharat — AI ज्योतिषी से चैट करें',
     description: DESCRIPTION,
-    images: [LOGO_URL],
+    images: [OG_IMAGE],
   },
   icons: {
     icon: [{ url: '/favicon.ico', sizes: 'any' }, { url: '/brand/icon-192.png', sizes: '192x192', type: 'image/png' }],
@@ -53,7 +55,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="hi">
+    <html lang="hi" translate="no">
       <head>
         {/* Preconnect to external resources for faster load */}
         <link rel="preconnect" href="https://jdxrwbhspautnqetjlhg.supabase.co" />

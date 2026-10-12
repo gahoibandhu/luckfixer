@@ -17,7 +17,7 @@ export const metadata = {
   title: `${BRAND.name} — अपनी कुंडली से AI चैट | AI Vedic Astrology Chat, Panchang & Horoscope`,
   description: 'अपनी कुंडली बनाकर AI से करियर, रिश्ते, दशा और उपाय पर पूछें। साथ में आज का पंचांग, राहुकाल, राशिफल और मुफ़्त ज्योतिष टूल — हिंदी और English में। Chat with an AI about your own kundli; free panchang and horoscope tools.',
   alternates: { canonical: '/' },
-  openGraph: { title: `${BRAND.name} — Vedic astrology, in plain words`, description: 'Daily panchang, horoscope and free Vedic astrology tools — plus an AI chat that knows your kundli.', type: 'website' },
+  openGraph: { title: `${BRAND.name} — Vedic astrology, in plain words`, description: 'Daily panchang, horoscope and free Vedic astrology tools — plus an AI chat that knows your kundli.', type: 'website', images: [{ url: BRAND.ogImage, width: 1200, height: 630, alt: BRAND.name }] },
 };
 
 const TOOLS = [
