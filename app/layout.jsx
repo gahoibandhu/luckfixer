@@ -5,9 +5,10 @@ import BottomNav from '@/components/BottomNav';
 import SessionMark from '@/components/SessionMark';
 import AppTopBar from '@/components/AppTopBar';
 import { Analytics } from '@vercel/analytics/next';
+import { BRAND } from '@/lib/brand';
 
 const LOGO_URL = 'https://res.cloudinary.com/dtcrife6i/image/upload/v1781362788/new-project-28_1709384728_m3doei.jpg';
-const SITE_URL = 'https://luckfixer.jaigahoi.in';
+const SITE_URL = BRAND.site;
 const DESCRIPTION = 'AI ज्योतिषी से सीधे चैट करें — शादी, करियर, स्वास्थ्य, पैसा, हर सवाल का जवाब पाएं। Parashari, Lal Kitab और Jaimini — तीन शास्त्रीय प्रणालियों पर आधारित सटीक कुंडली विश्लेषण, दशा भविष्य, कुंडली मिलान और उपाय — सभी के लिए, बिल्कुल मुफ्त।';
 
 export const metadata = {

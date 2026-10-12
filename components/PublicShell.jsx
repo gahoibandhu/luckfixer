@@ -33,6 +33,7 @@ export default function PublicShell({ children, flush = false }) {
             <span className="pub-brand">{BRAND.name}</span>
           </Link>
           <LangToggle />
+          <Link href="/search" aria-label="Search / खोजें" className="pub-btn pub-btn-line" style={{ minHeight: '38px', minWidth: '38px', padding: '0 10px', fontSize: '16px' }}>🔍</Link>
           <ChatLink className="pub-btn pub-btn-gold" style={{ minHeight: '38px', padding: '0 14px', fontSize: '14px', whiteSpace: 'nowrap', color: '#251a00' }} authedChildren={<Bi hi="चैट खोलें" en="Open chat" />}><Bi hi="AI चैट" en="AI chat" /></ChatLink>
           <nav className="pub-nav" aria-label="Main">
             {NAV.map(n => <Link key={n.href} href={n.href}><Bi hi={n.hi} en={n.en} /></Link>)}

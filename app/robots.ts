@@ -1,4 +1,5 @@
 import { MetadataRoute } from 'next';
+import { BRAND } from '@/lib/brand';
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -7,6 +8,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/admin', '/api/'],
     },
-    sitemap: 'https://luckfixer.jaigahoi.in/sitemap.xml',
+    sitemap: `${BRAND.site}/sitemap.xml`,
   };
 }

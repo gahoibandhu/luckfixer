@@ -8,6 +8,7 @@ import { VAAR } from '@/lib/public-content';
 import { todayIST } from '@/lib/rashifal';
 import { formatDateLong } from '@/lib/date-format';
 import { eventsByDate, TYPES } from '@/lib/calendar-events';
+import { BRAND } from '@/lib/brand';
 
 const addDay = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const when = (e) => `${fmt(e.min)}${e.dayOff ? ` (+${e.dayOff}d)` : ''}`;
@@ -36,7 +37,7 @@ export default function PanchangView({ iso, citySlug }) {
   const isToday = iso === today;
   const dayHi = pc ? `${VAAR[pc.weekday].hi}, ${formatDateLong(y, m, d, 'hi')}` : '';
   const dayEn = pc ? `${VAAR[pc.weekday].en}, ${formatDateLong(y, m, d, 'en')}` : '';
-  const shareText = pc ? encodeURIComponent(`${dayEn} — ${city.en}\nTithi: ${pc.tithi[0].label.en}\nNakshatra: ${pc.nakshatra[0].label.en}\nRahu Kaal: ${fmt(pc.rahukaal.from)} – ${fmt(pc.rahukaal.to)}\n${obs.length ? obs.map(e => e.en).join(', ') + '\n' : ''}https://luckfixer.jaigahoi.in/panchang/${iso}${cq}`) : '';
+  const shareText = pc ? encodeURIComponent(`${dayEn} — ${city.en}\nTithi: ${pc.tithi[0].label.en}\nNakshatra: ${pc.nakshatra[0].label.en}\nRahu Kaal: ${fmt(pc.rahukaal.from)} – ${fmt(pc.rahukaal.to)}\n${obs.length ? obs.map(e => e.en).join(', ') + '\n' : ''}${BRAND.site}/panchang/${iso}${cq}`) : '';
 
   return (
     <PublicShell>

@@ -28,14 +28,14 @@ export default async function VratGuide({ params }) {
 
       <section style={{ ...card, marginBottom: '12px' }}><H><Bi hi="नियम" en="Rules" /></H><List items={v.niyam} /></section>
       <section style={{ ...card, marginBottom: '12px' }}><H><Bi hi="पूजन सामग्री" en="Puja materials" /></H><p style={{ margin: 0, fontSize: '14px', lineHeight: 1.85, color: 'var(--color-text-secondary)' }}><Bi hi={v.samagri.hi} en={v.samagri.en} /></p></section>
-      <section style={{ ...card, marginBottom: '12px' }}><H><Bi hi="पूजा विधि" en="Puja vidhi" /></H><List items={v.vidhi} ordered /></section>
+      <section id="vidhi" style={{ ...card, marginBottom: '12px', scrollMarginTop: '80px' }}><H><Bi hi="पूजा विधि" en="Puja vidhi" /></H><List items={v.vidhi} ordered /></section>
       {v.parana && <section style={{ ...card, marginBottom: '12px' }}><H><Bi hi="पारण (व्रत खोलना)" en="Parana (breaking the fast)" /></H><p style={{ margin: 0, fontSize: '14px', lineHeight: 1.85, color: 'var(--color-text-secondary)' }}><Bi hi={v.parana.hi} en={v.parana.en} /></p></section>}
       <section style={{ ...card, marginBottom: '12px', textAlign: 'center' }}>
         <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}><Bi hi="मंत्र" en="Mantra" /></div>
         <div style={{ fontSize: '22px', fontWeight: 600, margin: '4px 0' }}>{v.mantra}</div>
       </section>
       {v.katha && (
-        <section style={{ ...card, marginBottom: '12px' }}>
+        <section id="katha" style={{ ...card, marginBottom: '12px', scrollMarginTop: '80px' }}>
           <H><Bi hi={`कथा — ${v.katha.title.hi}`} en={`Katha — ${v.katha.title.en}`} /></H>
           {v.katha.body.map((p, i) => <p key={i} style={{ margin: '0 0 10px', fontSize: '15px', lineHeight: 1.9 }}><Bi hi={p.hi} en={p.en} /></p>)}
           <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-tertiary)' }}><Bi hi="परंपरागत कथा का संक्षिप्त पुनःकथन; अलग-अलग ग्रंथों और क्षेत्रों में रूप थोड़ा भिन्न मिलता है।" en="A short retelling of a traditional account; versions differ slightly between texts and regions." /></p>

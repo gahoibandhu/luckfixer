@@ -7,7 +7,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const base = BRAND.site;
   const now = new Date();
   const daily = ['/', '/panchang', '/rashifal', '/gita-shlok', '/aaj-ka-upay'];
-  const guides = ['/calendar', '/ekadashi', '/tyohar', '/vrat', '/aarti'];
+  const guides = ['/search', '/calendar', '/ekadashi', '/tyohar', '/vrat', '/aarti'];
   const calendarYears = [2026, 2027, 2028].map(y => `/calendar?v=agenda&y=${y}`);
   const stable = ['/tyohar', '/vrat', '/aarti', '/tools', '/meri-rashi', '/moolank', '/sade-sati', '/manglik', '/vrat-calendar', '/ram-shalaka', '/rashi', '/about', '/privacy', '/terms', '/login'];
   // the next 90 days of day pages (inside the generated 2026-2028 range)

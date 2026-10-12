@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import { t, getSavedUiLang, setSavedUiLang } from '@/lib/i18n';
+import { BRAND } from '@/lib/brand';
 
 export const dynamic = 'force-dynamic';
 
@@ -289,7 +290,7 @@ export default function LoginPage() {
           </button>
 
           <p style={{ fontSize:'10px', color:'rgba(255,255,255,0.2)', marginTop:'20px', letterSpacing:'0.5px' }}>
-            luckfixer.jaigahoi.in · {t('footerTagline', uiLang)}
+            {BRAND.host} · {t('footerTagline', uiLang)}
           </p>
         </>}
 

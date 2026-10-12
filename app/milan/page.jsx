@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import { t, getSavedUiLang } from '@/lib/i18n';
+import { BRAND } from '@/lib/brand';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,7 +66,7 @@ export default function MilanPage() {
 
   function shareOnWhatsApp(m) {
     const enMsg = uiLang === 'en';
-    const text = `🔮 *Luckfixer 2.0 — ${enMsg ? 'Kundli Matching' : 'कुंडली मिलान'}*\n\n${kName(boyId)} + ${kName(girlId)}\n\n*${enMsg ? 'Score' : 'अंक'}: ${m.totalScore}/36* (${m.percentage}%)\n*${enMsg ? m.verdict : m.verdictHi}*\n\n${m.doshas.length > 0 ? '⚠️ ' + m.doshas.map(d=>d.name).join(', ') + '\n\n' : ''}${m.recommendation}\n\n✦ ${enMsg ? 'Check your kundli match' : 'अपनी कुंडली मिलान चेक करें'}: luckfixer.jaigahoi.in`;
+    const text = `🔮 *Luckfixer 2.0 — ${enMsg ? 'Kundli Matching' : 'कुंडली मिलान'}*\n\n${kName(boyId)} + ${kName(girlId)}\n\n*${enMsg ? 'Score' : 'अंक'}: ${m.totalScore}/36* (${m.percentage}%)\n*${enMsg ? m.verdict : m.verdictHi}*\n\n${m.doshas.length > 0 ? '⚠️ ' + m.doshas.map(d=>d.name).join(', ') + '\n\n' : ''}${m.recommendation}\n\n✦ ${enMsg ? 'Check your kundli match' : 'अपनी कुंडली मिलान चेक करें'}: ${BRAND.host}`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   }
