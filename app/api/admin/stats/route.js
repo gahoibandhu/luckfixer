@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase-server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { abortAfter } from '@/lib/supabase-fetch';
 
 function getSupabaseAdmin() {
   return createAdminClient(
@@ -11,6 +12,10 @@ function getSupabaseAdmin() {
 }
 
 export const dynamic = 'force-dynamic';
+
+// Last fully-loaded dashboard, kept in memory (per server instance). If the database stalls and most queries fail, the admin still sees
+// the last good numbers (clearly marked stale) instead of an empty page.
+let LAST_GOOD = null;
 
 export async function GET() {
   const supabase = await createClient();
@@ -23,7 +28,7 @@ export async function GET() {
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
   // ── Resilient loading ─────────────────────────────────────────
-  // Every query below runs in parallel, each with its own 9s abort and its own
+  // Every query below runs in parallel, each with its own 6s abort and its own
   // error capture. One slow or failing query (e.g. Postgres 57014 "statement
   // timeout") used to silently blank its part of the dashboard — and the
   // dashboard just looked broken. Now the rest still loads, and the response
@@ -31,7 +36,7 @@ export async function GET() {
   const warnings = [];
   async function run(label, makeQuery) {
     try {
-      const r = await makeQuery().abortSignal(AbortSignal.timeout(9000));
+      const r = await makeQuery().abortSignal(abortAfter(6000));
       if (r.error) { console.error(`[Admin stats] ${label}:`, r.error.message); warnings.push(label); return { data: null, count: null }; }
       return r;
     } catch (e) {
@@ -142,6 +147,7 @@ export async function GET() {
     const perPage = 1000;
     const maxPages = 10; // safety cap — 10,000 users
     const pagesNeeded = Math.min(Math.max(Math.ceil((totalUsers || 0) / perPage), 1), maxPages);
+    if (totalUsers === null || totalUsers === undefined) throw new Error('skipped: user count unavailable (database not answering)');
     const pageResults = await Promise.all(
       Array.from({ length: pagesNeeded }, (_, i) => adminSupabase.auth.admin.listUsers({ page: i + 1, perPage }))
     );
@@ -209,7 +215,7 @@ export async function GET() {
     completion_pct: rTotal > 0 ? Math.round((rDone || 0) / rTotal * 100) : null,
   } : null;
 
-  return Response.json({
+  const payload = {
     totalUsers: totalUsers || 0,
     totalAuthUsers,
     totalKundlis: totalKundlis || 0,
@@ -225,5 +231,10 @@ export async function GET() {
     modelBreakdown: modelBreakdownList,
     aiUsageByFeature,
     warnings: [...new Set(warnings)],
-  });
+  };
+  if (new Set(warnings).size <= 2) LAST_GOOD = { at: Date.now(), payload };
+  if (new Set(warnings).size >= 6 && LAST_GOOD && Date.now() - LAST_GOOD.at < 30 * 60000) {
+    return Response.json({ ...LAST_GOOD.payload, warnings: [...new Set(warnings)], stale: true, staleMinutes: Math.round((Date.now() - LAST_GOOD.at) / 60000) });
+  }
+  return Response.json(payload);
 }

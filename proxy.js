@@ -1,8 +1,9 @@
-// proxy.js (Next.js 16 name for middleware) — keeps the Supabase login cookie fresh.
-// Without this, the access token (~1 hour) is only refreshed when some page or API call happens to ask for it,
-// and a refreshed token written during a server request is lost. This runs BEFORE the page, refreshes the
-// token if needed and writes the new cookies back onto the response.
-// The matcher is deliberately narrow: public pages (panchang, rashifal, aarti...) skip it, so they stay static and fast.
+// proxy.js (Next.js 16 name for middleware) — keeps the Supabase login cookie fresh for PAGE requests.
+// Without it the access token (~1 hour) is only refreshed when something happens to ask for it, and a refreshed token written during a
+// server render is lost.
+// Cost control (important when Supabase is slow): getSession() reads the token from the cookie and only calls Supabase when it is about
+// to expire, so a normal request does NO network call here; the refresh is capped at 2s so a stalled auth service can never hold a page.
+// API routes are NOT matched: they call supabase.auth.getUser() themselves and can write refreshed cookies from the route handler.
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 
@@ -24,17 +25,14 @@ export async function proxy(request) {
   });
 
   try {
-    // getClaims() verifies the token (locally when the project uses asymmetric keys) and triggers the refresh.
-    if (typeof supabase.auth.getClaims === 'function') await supabase.auth.getClaims();
-    else await supabase.auth.getUser();
+    await Promise.race([supabase.auth.getSession(), new Promise(resolve => setTimeout(resolve, 2000))]);
   } catch { /* never block a page because the refresh failed */ }
 
-  // Signed-in pages must never be cached by a CDN. (API routes keep whatever caching they set themselves.)
-  if (!request.nextUrl.pathname.startsWith('/api/')) response.headers.set('Cache-Control', 'private, no-store');
+  response.headers.set('Cache-Control', 'private, no-store');   // signed-in pages must never sit in a CDN
   return response;
 }
 
 export const config = {
   matcher: ['/login', '/auth/:path*', '/chat/:path*', '/profile/:path*', '/kundli/:path*', '/milan/:path*',
-            '/numerology/:path*', '/remedies/:path*', '/support/:path*', '/admin/:path*', '/api/((?!public|geocode|icon|warmup|cron).*)'],
+            '/numerology/:path*', '/remedies/:path*', '/support/:path*', '/admin/:path*'],
 };
