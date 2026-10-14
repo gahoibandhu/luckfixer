@@ -615,7 +615,7 @@ export default function ChatPage() {
         body: JSON.stringify({
           messages: (replay ? messages : [...messages, userMsg]).filter(m => m.role !== 'system' && !m._lifeAsk).slice(-10),
           sessionId: sid, kundliId: pendingKundliId || kundli?.id || null,
-          kundliContext: buildContext(kundli), langPref,
+          kundliContext: buildContext(kundli), langPref, uiLang,   // uiLang = portal language: in Auto mode a Hindi portal gets Devanagari replies
           pendingFollowUpId: pendingFollowUpId || null,
           skipLifeAsk: replay || undefined,
         }),
