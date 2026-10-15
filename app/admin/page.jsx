@@ -666,7 +666,12 @@ export default function AdminPage() {
         <div>
         {stats.warnings?.length > 0 && (
           <div style={{ background:'var(--color-background-warning)', color:'var(--color-text-warning)', borderRadius:'var(--border-radius-md)', padding:'10px 12px', fontSize:'12px', lineHeight:1.5, marginBottom:'12px' }}>
-            ⚠️ कुछ आँकड़े लोड नहीं हो पाए (database timeout): {stats.warnings.join(', ')}. बाकी dashboard सही है। migration_026 चलाएँ, या थोड़ी देर बाद refresh करें।
+            ⚠️ कुछ आँकड़े लोड नहीं हो पाए: {stats.warnings.join(', ')}. बाकी dashboard सही है।{' '}
+            {stats.needsMigration
+              ? 'कुछ function/table database में नहीं मिले — संबंधित migration चलाएँ।'
+              : 'यह migration की कमी नहीं लगती — database धीमा या जवाब नहीं दे रहा। थोड़ी देर बाद refresh करें, और /api/admin/health खोलकर देखें।'}
+            {stats.stale && <span> (पुराना saved data, {stats.staleMinutes} मिनट पहले का)</span>}
+            {stats.warningDetails?.[0] && <span style={{ display:'block', opacity:0.75, marginTop:'4px' }}>कारण: {stats.warningDetails[0].error}</span>}
           </div>
         )}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'12px', marginBottom:'1.5rem' }}>

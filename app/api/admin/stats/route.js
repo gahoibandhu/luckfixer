@@ -34,14 +34,20 @@ export async function GET() {
   // dashboard just looked broken. Now the rest still loads, and the response
   // carries `warnings` naming exactly what failed so the admin panel can say so.
   const warnings = [];
+  const warningDetails = [];   // { label, error } — the REAL reason, so the panel can say "timeout" vs "function missing"
+  let needsMigration = false;  // true only when Postgres says a function/table does not exist (not for timeouts)
+  const noteFailure = (label, msg, code) => {
+    warnings.push(label); warningDetails.push({ label, error: String(msg || '').slice(0, 160) });
+    if (/could not find the function|does not exist|PGRST202|42883|42P01/i.test(`${msg} ${code}`)) needsMigration = true;
+  };
   async function run(label, makeQuery) {
     try {
       const r = await makeQuery().abortSignal(abortAfter(6000));
-      if (r.error) { console.error(`[Admin stats] ${label}:`, r.error.message); warnings.push(label); return { data: null, count: null }; }
+      if (r.error) { console.error(`[Admin stats] ${label}:`, r.error.message); noteFailure(label, r.error.message, r.error.code); return { data: null, count: null }; }
       return r;
     } catch (e) {
       console.error(`[Admin stats] ${label}:`, e.message);
-      warnings.push(label);
+      noteFailure(label, e.message, e.code);
       return { data: null, count: null };
     }
   }
@@ -76,7 +82,7 @@ export async function GET() {
     // Model usage breakdown (last 7 days): chat replies + background AI calls
     // (kundli creation / reanalysis / backfill), aggregated INSIDE Postgres by
     // admin_model_breakdown() (migration_026) — only a handful of rows come back.
-    run('model breakdown (run migration_026)', () => adminSupabase.rpc('admin_model_breakdown', { since: sevenDaysAgo.toISOString() })),
+    run('model breakdown', () => adminSupabase.rpc('admin_model_breakdown', { since: sevenDaysAgo.toISOString() })),
     countOf('outcome_tracking', 'outcome', null),
     countOf('outcome_tracking', 'outcome', 'confirmed'),
     countOf('outcome_tracking', 'outcome', 'denied'),
@@ -87,7 +93,7 @@ export async function GET() {
     countOf('user_remedies', 'status', 'pending'),
     countOf('user_remedies', 'status', 'skipped'),
     // AI token ledger for every non-chat feature (migration_027). Bounded to 7 days.
-    run('ai usage ledger (run migration_027)', () => adminSupabase.from('ai_usage_log').select('feature, tokens_est, created_at').gte('created_at', sevenDaysAgo.toISOString()).limit(10000)),
+    run('ai usage ledger', () => adminSupabase.from('ai_usage_log').select('feature, tokens_est, created_at').gte('created_at', sevenDaysAgo.toISOString()).limit(10000)),
   ]);
 
   // Sum rows per model name (the same model can appear in both the chat and background halves).
@@ -231,10 +237,12 @@ export async function GET() {
     modelBreakdown: modelBreakdownList,
     aiUsageByFeature,
     warnings: [...new Set(warnings)],
+    warningDetails,
+    needsMigration,
   };
   if (new Set(warnings).size <= 2) LAST_GOOD = { at: Date.now(), payload };
   if (new Set(warnings).size >= 6 && LAST_GOOD && Date.now() - LAST_GOOD.at < 30 * 60000) {
-    return Response.json({ ...LAST_GOOD.payload, warnings: [...new Set(warnings)], stale: true, staleMinutes: Math.round((Date.now() - LAST_GOOD.at) / 60000) });
+    return Response.json({ ...LAST_GOOD.payload, warnings: [...new Set(warnings)], warningDetails, needsMigration, stale: true, staleMinutes: Math.round((Date.now() - LAST_GOOD.at) / 60000) });
   }
   return Response.json(payload);
 }
