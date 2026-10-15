@@ -13,7 +13,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // the next 90 days of day pages (inside the generated 2026-2028 range)
   const dayPages = Array.from({ length: 90 }, (_, i) => new Date(now.getTime() + (i * 24 + 5.5) * 3600 * 1000).toISOString().slice(0, 10)).filter(d => d >= '2026-01-01' && d <= '2028-12-31');
   const ekadashiPages = ['kamada', 'papmochani', 'varuthini', 'mohini', 'apara', 'nirjala', 'yogini', 'devshayani', 'kamika', 'shravana-putrada', 'aja', 'parivartini', 'indira', 'papankusha', 'rama', 'devutthana', 'utpanna', 'mokshada', 'saphala', 'pausha-putrada', 'shattila', 'jaya', 'vijaya', 'amalaki', 'padmini', 'parama'].map(k => `/ekadashi/${k}`);
+  const festivalPages = ['dussehra', 'karwa-chauth', 'ahoi-ashtami', 'dhanteras', 'choti-diwali', 'diwali', 'govardhan-puja', 'bhai-dooj', 'chhath', 'tulsi-vivah'].map(k => `/tyohar/${k}`);
   return [
+    ...festivalPages.map(p => ({ url: base + p, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.8 })),
     ...ekadashiPages.map(p => ({ url: base + p, lastModified: now, changeFrequency: 'monthly' as const, priority: 0.7 })),
     ...dayPages.map(d => ({ url: `${base}/panchang/${d}`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.6 })),
     ...daily.map((p, i) => ({ url: base + (p === '/' ? '' : p), lastModified: now, changeFrequency: 'daily' as const, priority: p === '/' ? 1 : 0.9 - i * 0.02 })),

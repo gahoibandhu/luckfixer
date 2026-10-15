@@ -7,6 +7,7 @@ import { FESTIVAL_DATES, FESTIVAL_RANGE, ADHIKA } from '@/lib/festival-data';
 import { SANKRANTIS } from '@/lib/vrat-data';
 import { RASHIS } from '@/lib/public-content';
 import { todayIST } from '@/lib/rashifal';
+import { FEST_SLUG_BY_KEY } from '@/lib/festival-pages';
 
 export const metadata = {
   title: 'त्योहार कैलेंडर — व्रत, पर्व और क्षेत्रीय उत्सव (तिथि सहित) | Hindu Festival Calendar',
@@ -103,6 +104,7 @@ export default async function Tyohar({ searchParams }) {
                     {f.note && <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '2px' }}><Bi hi={f.note[0]} en={f.note[1]} /></div>}
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '6px', fontSize: '12px' }}>
                       <span style={{ color: 'var(--color-text-tertiary)' }}><Bi hi={RLABEL[f.r][0]} en={RLABEL[f.r][1]} /></span>
+                      {FEST_SLUG_BY_KEY[f.k] && <Link href={`/tyohar/${FEST_SLUG_BY_KEY[f.k]}`} style={{ color: 'var(--color-text-info)', fontWeight: 600 }}><Bi hi="विधि और कथा →" en="Vidhi and katha →" /></Link>}
                       {f.guide && <Link href={`/${f.guide}`} style={{ color: 'var(--color-text-info)', fontWeight: 600 }}><Bi hi="पूजा / पाठ →" en="Puja / text →" /></Link>}
                     </div>
                   </div>
