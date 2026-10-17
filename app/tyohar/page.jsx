@@ -8,6 +8,8 @@ import { SANKRANTIS } from '@/lib/vrat-data';
 import { RASHIS } from '@/lib/public-content';
 import { todayIST } from '@/lib/rashifal';
 import { FEST_SLUG_BY_KEY } from '@/lib/festival-pages';
+import MonthGrid from '@/components/MonthGrid';
+import { eventsByDate } from '@/lib/calendar-events';
 
 export const metadata = {
   title: 'त्योहार कैलेंडर — व्रत, पर्व और क्षेत्रीय उत्सव (तिथि सहित) | Hindu Festival Calendar',
@@ -56,6 +58,12 @@ export default async function Tyohar({ searchParams }) {
   const keep = (f) => !REGION[region] || f.r === 'all' || REGION[region].includes(f.r);
   const list = rows.filter(r => keep(r.f)), und = undated.filter(keep);
   const byMonth = {}; list.forEach(r => { const m = D(r.a).m; (byMonth[m] ||= []).push(r); });
+  // month grids use the same events as /calendar (festival type only), filtered by the chosen region
+  const gridByDate = {};
+  for (const [date, evs] of Object.entries(eventsByDate(year, ['tyohar']))) {
+    const kept = evs.filter(e => keep({ r: e.r || 'all' }));
+    if (kept.length) gridByDate[date] = kept;
+  }
   const adhika = ADHIKA.filter(a => a[0].startsWith(String(year)));
   const link = (o) => { const p = new URLSearchParams({ y: String(o.y ?? year), r: o.r ?? region }); return `/tyohar?${p}`; };
   const chip = (on) => ({ padding: '7px 13px', borderRadius: '999px', fontSize: '13px', textDecoration: 'none', border: '1px solid ' + (on ? 'var(--pub-gold)' : 'var(--color-border-secondary)'), background: on ? 'var(--color-background-warning)' : 'var(--color-background-primary)', color: 'var(--color-text-primary)', fontWeight: on ? 700 : 400 });
@@ -72,6 +80,10 @@ export default async function Tyohar({ searchParams }) {
         {Object.keys(REGION).map(r => <Link key={r} href={link({ r })} style={chip(r === region)}><Bi hi={RLABEL[r]?.[0] ?? ({ north: 'उत्तर', south: 'दक्षिण', east: 'पूर्व', west: 'पश्चिम' })[r]} en={RLABEL[r]?.[1] ?? ({ north: 'North', south: 'South', east: 'East', west: 'West' })[r]} /></Link>)}
       </div>
 
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '0 0 14px' }}>
+        <Link href={`/calendar?v=month&y=${year}&t=tyohar`} className="pub-btn pub-btn-gold" style={{ minHeight: '42px', fontSize: '14px' }}>📅 <Bi hi="पूरा कैलेंडर देखें (साल / महीना / सूची)" en="Open the full calendar (year / month / list)" /></Link>
+        <Link href={`/calendar/ics?y=${year}&t=tyohar&l=hi`} className="pub-btn pub-btn-line" style={{ minHeight: '42px', fontSize: '14px', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-secondary)' }}>⬇ <Bi hi="फ़ोन के कैलेंडर में जोड़ें" en="Add to phone calendar" /></Link>
+      </div>
       <p style={{ ...card, margin: '0 0 14px', fontSize: '13px', lineHeight: 1.8, color: 'var(--color-text-secondary)', background: 'var(--color-background-warning)' }}>
         <Bi hi="जब तिथि दो दिनों में फैली हो, तो त्योहार किस दिन मनाया जाए यह परंपरा और स्थानीय पंचांग तय करते हैं (जैसे दीपावली प्रदोष में, करवा चौथ चंद्रोदय पर, राखी भद्रा के बाद)। इसलिए हम तिथि के सटीक शुरू-खत्म का समय (IST, दिल्ली) देते हैं, और 2026 के लिए जहाँ कई प्रकाशित पंचांग एक राय हैं वहाँ वह दिन भी दिखाते हैं। निर्णय से पहले अपने स्थानीय पंचांग/पंडित से मिलान करें।"
             en="When a tithi spans two days, tradition and your local almanac decide the day a festival is observed (Diwali at Pradosh, Karwa Chauth at moonrise, Rakhi after Bhadra). So we give the exact start and end of the tithi (IST, Delhi) and, for 2026, the day where several published calendars agree. Please confirm with your local almanac or priest before you decide." />
@@ -85,6 +97,7 @@ export default async function Tyohar({ searchParams }) {
       {Object.keys(byMonth).map(Number).sort((a, b) => a - b).map(m => (
         <section key={m} style={{ marginBottom: '16px' }}>
           <h2 className="display" style={{ fontSize: '20px', margin: '0 0 8px' }}><Bi hi={`${MON_FULL[m - 1][0]} ${year}`} en={`${MON_FULL[m - 1][1]} ${year}`} /></h2>
+          <div style={{ ...card, padding: '10px', marginBottom: '10px' }}><MonthGrid year={year} month={m} byDate={gridByDate} today={today} big /></div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {byMonth[m].map((r, i) => {
               const f = r.f, w = D(r.a).w;
@@ -92,7 +105,9 @@ export default async function Tyohar({ searchParams }) {
                 <div key={i} style={{ ...card, display: 'grid', gridTemplateColumns: '92px 1fr', gap: '14px' }}>
                   <div style={{ textAlign: 'center', background: 'var(--color-background-secondary)', borderRadius: '10px', padding: '8px 4px', alignSelf: 'start' }}>
                     <div style={{ fontSize: r.a === r.b ? '24px' : '16px', fontWeight: 700, lineHeight: 1.2 }}>{range(r.a, r.b)}</div>
-                    {r.a === r.b && <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}><Bi hi={WD[w][0]} en={WD[w][1]} /></div>}
+                    <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
+                      {r.a === r.b ? <Bi hi={WD[w][0]} en={WD[w][1]} /> : <><Bi hi={WD[w][0]} en={WD[w][1]} /> – <Bi hi={WD[D(r.b).w][0]} en={WD[D(r.b).w][1]} /></>}
+                    </div>
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '16px' }}><Bi hi={f.hi} en={f.en} /></div>
