@@ -81,3 +81,15 @@ tiers agree. `ephemeris-service/main.py` accepts optional `tz_offset`.
 - Profile page: per-kundli card — clear "Confirm now" button when the time is unknown/approximate (subtle "Not sure of the time?" link otherwise), plus a visible, editable "life details" row with a "Remove these details" option.
 - Admin > Plan tab: "Relationship Question Rule" age setting.
 - RectifyModal: tap-able icon cards for events (pre-selected from marital/children status), animated clock while scanning, rotating progress lines, zodiac symbols on results.
+
+## Fix: admin dashboard "canceling statement due to statement timeout" (57014)
+- Cause: the Overview stats route filtered chat_messages / predictions_log / usage_log by
+  date with NO index on those columns (full table scans on tables that grow with every
+  chat / analysis), and downloaded every matching row to count in JS (also silently capped
+  at 1000 rows by the API). Failed queries were swallowed, so the dashboard just looked empty.
+- migration_026: partial/INCLUDE indexes for those lookups + `admin_model_breakdown()` SQL
+  function (service_role only) that aggregates the model usage in Postgres.
+- `app/api/admin/stats/route.js`: each query has its own 9s abort + error capture; outcome /
+  remedy stats use exact COUNTs; model breakdown comes from the RPC; response carries
+  `warnings` and the Overview shows a banner naming anything that failed instead of
+  silently showing zeros.
