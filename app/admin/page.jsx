@@ -111,9 +111,18 @@ export default function AdminPage() {
     }
     setAuthorized(true);
     loadStats();
-    checkMigrationStatus();
-    checkLifeDomainsStatus();
-    checkSupportChainStatus();
+    loadMigrationOverview();   // ONE request for all three backfill cards (was three full-table scans on every load)
+  }
+
+  async function loadMigrationOverview() {
+    try {
+      const res = await fetch('/api/admin/migrate-status');
+      if (!res.ok) return;
+      const d = await res.json();
+      setMigrationStatus(d.lagna);
+      setSupportChainStatus(d.supportChain);
+      setLifeDomainsStatus(d.lifeDomains);
+    } catch { /* cards simply stay hidden; the individual buttons below still work */ }
   }
 
   async function loadStats() {

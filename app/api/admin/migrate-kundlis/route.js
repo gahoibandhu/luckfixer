@@ -6,6 +6,7 @@
 // unless explicitly asked, since AI calls cost money/quota).
 import { createClient } from '@/lib/supabase-server';
 import { requireAdmin } from '@/lib/admin-auth';
+import { getKundliOverview, fetchKundlisByIds, invalidateKundliOverview } from '@/lib/kundli-status';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { buildFactSheet } from '@/lib/astro-facts';
 import { calcVimshottari } from '@/lib/vimshottari';
@@ -32,14 +33,12 @@ export async function GET() {
   const admin = await requireAdmin(supabase);
   if (!admin) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
-  const adminDb = getSupabaseAdmin();
-  const { data: kundlis } = await adminDb.from('saved_kundlis').select('id, planet_data');
-
-  const needsMigration = (kundlis || []).filter(k => !k.planet_data?.factSheet?.lagna);
+  // one cheap database-side check (lib/kundli-status.js) — no planet_data is pulled into Vercel
+  const ov = await getKundliOverview(getSupabaseAdmin());
   return Response.json({
-    total: kundlis?.length || 0,
-    needsMigration: needsMigration.length,
-    ids: needsMigration.map(k => k.id),
+    total: ov.total,
+    needsMigration: ov.lagnaMissingIds.length,
+    ids: ov.lagnaMissingIds,
   });
 }
 
@@ -53,11 +52,16 @@ export async function POST(req) {
   const onlyIds = body.ids || null; // optional: migrate specific IDs only
 
   const adminDb = getSupabaseAdmin();
-  let query = adminDb.from('saved_kundlis').select('*');
-  if (onlyIds) query = query.in('id', onlyIds);
-  const { data: kundlis } = await query;
-
   const results = { migrated: 0, skipped: 0, failed: 0, errors: [] };
+
+  // Only fetch the rows that actually need work (in small chunks) — never the whole table.
+  let ids = onlyIds;
+  if (!ids) {
+    const ov = await getKundliOverview(adminDb, { fresh: true });
+    ids = ov.lagnaMissingIds;
+    results.skipped += ov.total - ids.length;   // already migrated — counted the same way as before
+  }
+  const kundlis = await fetchKundlisByIds(adminDb, ids);
 
   for (const k of (kundlis || [])) {
     // Skip if already has lagna (already migrated / created after the feature)
@@ -111,5 +115,6 @@ export async function POST(req) {
     }
   }
 
+  invalidateKundliOverview();   // the next status check must see the new state
   return Response.json(results);
 }

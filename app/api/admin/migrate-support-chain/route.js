@@ -15,6 +15,7 @@
 
 import { createClient } from '@/lib/supabase-server';
 import { requireAdmin } from '@/lib/admin-auth';
+import { getKundliOverview, fetchKundlisByIds, invalidateKundliOverview } from '@/lib/kundli-status';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { pickGemstoneRecommendation } from '@/lib/gemstone-policy';
 import { evaluateSupportChain } from '@/lib/graha-support-chain';
@@ -29,27 +30,18 @@ function getSupabaseAdmin() {
   );
 }
 
-function needsMigration(k) {
-  const fs = k.planet_data?.factSheet;
-  if (!fs) return false;          // no factSheet at all — out of scope, migrate-kundlis handles that case first
-  if (!fs.lagna) return false;    // lagna missing too — let migrate-kundlis run first (it rebuilds factSheet wholesale)
-  return !fs.supportChain || !fs.remedyPlan;
-}
-
 // GET — count how many kundlis need this migration
 export async function GET() {
   const supabase = await createClient();
   const admin = await requireAdmin(supabase);
   if (!admin) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
-  const adminDb = getSupabaseAdmin();
-  const { data: kundlis } = await adminDb.from('saved_kundlis').select('id, planet_data');
-
-  const pending = (kundlis || []).filter(needsMigration);
+  // one cheap database-side check (lib/kundli-status.js) — no planet_data is pulled into Vercel
+  const ov = await getKundliOverview(getSupabaseAdmin());
   return Response.json({
-    total: kundlis?.length || 0,
-    needsMigration: pending.length,
-    ids: pending.map(k => k.id),
+    total: ov.total,
+    needsMigration: ov.supportChainIds.length,
+    ids: ov.supportChainIds,
   });
 }
 
@@ -63,11 +55,16 @@ export async function POST(req) {
   const onlyIds = body.ids || null;
 
   const adminDb = getSupabaseAdmin();
-  let query = adminDb.from('saved_kundlis').select('*');
-  if (onlyIds) query = query.in('id', onlyIds);
-  const { data: kundlis } = await query;
-
   const results = { migrated: 0, skipped: 0, failed: 0, errors: [] };
+
+  // Only fetch the rows that actually need work (in small chunks) — never the whole table.
+  let ids = onlyIds;
+  if (!ids) {
+    const ov = await getKundliOverview(adminDb, { fresh: true });
+    ids = ov.supportChainIds;
+    results.skipped += ov.total - ids.length;   // already migrated, or waiting for migrate-kundlis first — counted as skipped, as before
+  }
+  const kundlis = await fetchKundlisByIds(adminDb, ids);
 
   for (const k of (kundlis || [])) {
     const fs = k.planet_data?.factSheet;
@@ -110,5 +107,6 @@ export async function POST(req) {
     }
   }
 
+  invalidateKundliOverview();   // the next status check must see the new state
   return Response.json(results);
 }
