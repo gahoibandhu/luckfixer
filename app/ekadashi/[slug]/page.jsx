@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import { notFound } from 'next/navigation';
 import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
@@ -80,7 +80,7 @@ export default async function EkadashiPage({ params }) {
       <section style={{ ...card, marginBottom: '14px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
         <Link href="/vrat/ekadashi" className="pub-btn pub-btn-gold" style={{ minHeight: '42px', fontSize: '14px' }}><Bi hi="व्रत-विधि और नियम" en="Vrat vidhi and rules" /></Link>
         <Link href="/aarti/om-jai-jagdish-hare" className="pub-btn pub-btn-line" style={{ minHeight: '42px', fontSize: '14px', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-secondary)' }}><Bi hi="विष्णु आरती" en="Vishnu aarti" /></Link>
-        <Link href="/calendar?v=agenda&t=ekadashi" className="pub-btn pub-btn-line" style={{ minHeight: '42px', fontSize: '14px', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-secondary)' }}><Bi hi="कैलेंडर में देखें" en="See in calendar" /></Link>
+        <Link href="/calendar" className="pub-btn pub-btn-line" style={{ minHeight: '42px', fontSize: '14px', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-secondary)' }}><Bi hi="कैलेंडर में देखें" en="See in calendar" /></Link>
       </section>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '13px' }}>

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import ChatLink from '@/components/ChatLink';
 import PageHero from '@/components/PageHero';
 import PublicShell from '@/components/PublicShell';

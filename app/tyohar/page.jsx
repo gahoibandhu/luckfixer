@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
@@ -81,7 +81,7 @@ export default async function Tyohar({ searchParams }) {
       </div>
 
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '0 0 14px' }}>
-        <Link href={`/calendar?v=month&y=${year}&t=tyohar`} className="pub-btn pub-btn-gold" style={{ minHeight: '42px', fontSize: '14px' }}>📅 <Bi hi="पूरा कैलेंडर देखें (साल / महीना / सूची)" en="Open the full calendar (year / month / list)" /></Link>
+        <Link href={year === Number(today.slice(0, 4)) ? '/calendar' : `/calendar/${year}/1`} className="pub-btn pub-btn-gold" style={{ minHeight: '42px', fontSize: '14px' }}>📅 <Bi hi="पूरा कैलेंडर देखें (हर दिन का पंचांग)" en="Open the full calendar (panchang for every day)" /></Link>
         <Link href={`/calendar/ics?y=${year}&t=tyohar&l=hi`} className="pub-btn pub-btn-line" style={{ minHeight: '42px', fontSize: '14px', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-secondary)' }}>⬇ <Bi hi="फ़ोन के कैलेंडर में जोड़ें" en="Add to phone calendar" /></Link>
       </div>
       <p style={{ ...card, margin: '0 0 14px', fontSize: '13px', lineHeight: 1.8, color: 'var(--color-text-secondary)', background: 'var(--color-background-warning)' }}>

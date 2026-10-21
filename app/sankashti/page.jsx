@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
@@ -60,7 +60,7 @@ export default async function SankashtiPage({ searchParams }) {
       </section>
       <section style={{ ...card, display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
         <Link href="/aarti/ganesh-aarti" className="pub-btn pub-btn-gold" style={{ minHeight: '42px', fontSize: '14px' }}><Bi hi="गणेश आरती" en="Ganesh aarti" /></Link>
-        <Link href="/calendar?v=agenda&t=sankashti" className="pub-btn pub-btn-line" style={{ minHeight: '42px', fontSize: '14px', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-secondary)' }}>📅 <Bi hi="कैलेंडर में देखें" en="See in calendar" /></Link>
+        <Link href="/calendar" className="pub-btn pub-btn-line" style={{ minHeight: '42px', fontSize: '14px', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-secondary)' }}>📅 <Bi hi="कैलेंडर में देखें" en="See in calendar" /></Link>
       </section>
       <p style={{ ...card, fontSize: '13px', lineHeight: 1.75, color: 'var(--color-text-secondary)', background: 'var(--color-background-warning)' }}>
         <Bi hi="तिथि और चंद्रोदय दिल्ली (IST) के लिए खगोलीय गणना से निकाले गए हैं; आपके शहर में चंद्रोदय कुछ मिनट आगे-पीछे होगा। जब चतुर्थी दो दिन चंद्रोदय पर मिलती है तो परंपरा के अनुसार दिन भिन्न हो सकता है — अपने पंचांग या पंडित जी से पुष्टि कर लें।" en="Tithi and moonrise are computed astronomically for Delhi (IST); in your city moonrise will differ by a few minutes. When Chaturthi is present at moonrise on two days the observed day can differ by tradition — confirm with your panchang or priest." />

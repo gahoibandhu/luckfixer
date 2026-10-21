@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
@@ -49,7 +49,7 @@ export default async function PurnimaIndex({ searchParams }) {
       </section>
       <section style={{ ...card, display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
         <Link href="/vrat/purnima" className="pub-btn pub-btn-gold" style={{ minHeight: '42px', fontSize: '14px' }}><Bi hi="पूर्णिमा व्रत-विधि और कथा" en="Purnima vrat vidhi and katha" /></Link>
-        <Link href="/calendar?v=agenda&t=purnima" className="pub-btn pub-btn-line" style={{ minHeight: '42px', fontSize: '14px', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-secondary)' }}>📅 <Bi hi="कैलेंडर में देखें" en="See in calendar" /></Link>
+        <Link href="/calendar" className="pub-btn pub-btn-line" style={{ minHeight: '42px', fontSize: '14px', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-secondary)' }}>📅 <Bi hi="कैलेंडर में देखें" en="See in calendar" /></Link>
       </section>
       <p style={{ ...card, fontSize: '13px', lineHeight: 1.75, color: 'var(--color-text-secondary)', background: 'var(--color-background-warning)' }}>
         <Bi hi="यहाँ पूर्णिमा तिथि का दिन दिखाया गया है। रक्षाबंधन, शरद पूर्णिमा, होलिका दहन जैसे पर्वों के अपने नियम हैं (भद्रा, रात्रि, प्रदोष), इसलिए उनका दिन एक दिन आगे-पीछे हो सकता है — उनकी तारीख़ त्योहार के पेज पर देखें। गणना दिल्ली (IST) के लिए है।" en="This shows the day of the Purnima tithi. Festivals such as Raksha Bandhan, Sharad Purnima and Holika Dahan have their own rules (Bhadra, night, Pradosh), so their day can differ by one — see the festival’s own page for its date. Computed for Delhi (IST)." />

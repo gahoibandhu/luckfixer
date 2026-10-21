@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import Bi from '@/components/Bi';
 
 export const metadata = {

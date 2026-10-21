@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import ChatLink from '@/components/ChatLink';
 import { notFound } from 'next/navigation';
 import PageHero from '@/components/PageHero';
@@ -40,9 +40,9 @@ export default async function RashifalSign({ params, searchParams }) {
     <PublicShell>
       <PageHero glyph={r.sym} title={<Bi hi={`${r.hi} राशिफल`} en={`${r.en} horoscope`} />} sub={<Bi hi={date.hi} en={date.en} />} />
       <div style={{ display: 'flex', gap: '14px', fontSize: '14px', marginBottom: '14px', flexWrap: 'wrap' }}>
-        <Link href={q(addDay(ctx.iso, -1))} style={{ color: 'var(--color-text-info)' }}>← <Bi hi="पिछला दिन" en="Previous day" /></Link>
-        <Link href={q(today)} style={{ color: 'var(--color-text-info)' }}><Bi hi="आज" en="Today" /></Link>
-        <Link href={q(addDay(ctx.iso, 1))} style={{ color: 'var(--color-text-info)' }}><Bi hi="अगला दिन" en="Next day" /> →</Link>
+        <Link rel="nofollow" href={q(addDay(ctx.iso, -1))} style={{ color: 'var(--color-text-info)' }}>← <Bi hi="पिछला दिन" en="Previous day" /></Link>
+        <Link rel="nofollow" href={q(today)} style={{ color: 'var(--color-text-info)' }}><Bi hi="आज" en="Today" /></Link>
+        <Link rel="nofollow" href={q(addDay(ctx.iso, 1))} style={{ color: 'var(--color-text-info)' }}><Bi hi="अगला दिन" en="Next day" /> →</Link>
         <Link href={`/rashifal?d=${ctx.iso}`} style={{ color: 'var(--color-text-secondary)', marginLeft: 'auto' }}><Bi hi="सभी राशियाँ" en="All signs" /></Link>
       </div>
 

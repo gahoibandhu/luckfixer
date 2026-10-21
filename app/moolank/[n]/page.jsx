@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import { notFound } from 'next/navigation';
 import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import PublicShell from '@/components/PublicShell';
 import Bi from '@/components/Bi';
 import StarMeter from '@/components/StarMeter';
