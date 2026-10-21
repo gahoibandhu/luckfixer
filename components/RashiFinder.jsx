@@ -1,7 +1,7 @@
 'use client';
 // components/RashiFinder.jsx — "Meri rashi kaun si hai" + nakshatra, pada and traditional baby-name letter.
 import { useState } from 'react';
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import BirthForm from '@/components/BirthForm';
 import { RASHIS } from '@/lib/public-content';
 import { NAKSHATRAS, babyLetter } from '@/lib/baby-names';

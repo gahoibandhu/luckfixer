@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import PageHero from '@/components/PageHero';
 import PublicShell, { card } from '@/components/PublicShell';
 import Bi from '@/components/Bi';
@@ -51,9 +51,9 @@ export default function PanchangView({ iso, citySlug }) {
         <label style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}><Bi hi="तारीख" en="Date" /><br /><input type="date" name="date" defaultValue={iso} min="2026-01-01" max="2028-12-31" /></label>
         <button type="submit" style={{ padding: '8px 14px', cursor: 'pointer' }}><Bi hi="देखें" en="Show" /></button>
         <span style={{ marginLeft: 'auto', display: 'flex', gap: '12px', fontSize: '13px' }}>
-          <Link href={q(addDay(iso, -1))} style={{ color: 'var(--color-text-info)' }}>← <Bi hi="पिछला दिन" en="Prev" /></Link>
-          <Link href={q(today)} style={{ color: 'var(--color-text-info)' }}><Bi hi="आज" en="Today" /></Link>
-          <Link href={q(addDay(iso, 1))} style={{ color: 'var(--color-text-info)' }}><Bi hi="अगला दिन" en="Next" /> →</Link>
+          <Link rel="nofollow" href={q(addDay(iso, -1))} style={{ color: 'var(--color-text-info)' }}>← <Bi hi="पिछला दिन" en="Prev" /></Link>
+          <Link rel="nofollow" href={q(today)} style={{ color: 'var(--color-text-info)' }}><Bi hi="आज" en="Today" /></Link>
+          <Link rel="nofollow" href={q(addDay(iso, 1))} style={{ color: 'var(--color-text-info)' }}><Bi hi="अगला दिन" en="Next" /> →</Link>
         </span>
       </form>
 
@@ -78,7 +78,7 @@ export default function PanchangView({ iso, citySlug }) {
             </section>
           )}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '0 0 14px' }}>
-            <Link href={`/calendar?v=month&y=${y}&m=${m}`} className="pub-btn pub-btn-line" style={{ minHeight: '40px', fontSize: '13px', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-secondary)' }}>📅 <Bi hi="पूरा महीना देखें" en="See the whole month" /></Link>
+            <Link href={inRange(y) ? `/calendar/${y}/${m}` : '/calendar'} className="pub-btn pub-btn-line" style={{ minHeight: '40px', fontSize: '13px', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-secondary)' }}>📅 <Bi hi="पूरा महीना देखें" en="See the whole month" /></Link>
             <a href={`https://wa.me/?text=${shareText}`} target="_blank" rel="noopener noreferrer" className="pub-btn pub-btn-line" style={{ minHeight: '40px', fontSize: '13px', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-secondary)' }}>↗ <Bi hi="WhatsApp पर भेजें" en="Share on WhatsApp" /></a>
           </div>
 

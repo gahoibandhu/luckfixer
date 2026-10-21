@@ -1,5 +1,5 @@
 // components/PublicShell.jsx — header / footer for the no-login public pages. Server component.
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import ChatLink from '@/components/ChatLink';
 import Bi from '@/components/Bi';
 import LangToggle from '@/components/LangToggle';

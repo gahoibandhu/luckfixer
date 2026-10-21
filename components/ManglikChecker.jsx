@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import BirthForm from '@/components/BirthForm';
 import { useUiLang } from '@/lib/i18n';
 

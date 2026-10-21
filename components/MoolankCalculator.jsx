@@ -1,7 +1,7 @@
 'use client';
 // Moolank / Bhagyank / Lo Shu grid — all computed in the browser; the date of birth never leaves the device.
 import { useState } from 'react';
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import DateOfBirthInput from '@/components/DateOfBirthInput';
 import { MOOLANK, moolankOf, bhagyankOf, loShuOf, LO_SHU_LAYOUT } from '@/lib/public-content';
 import { useUiLang } from '@/lib/i18n';

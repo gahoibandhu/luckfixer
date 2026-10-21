@@ -1,6 +1,6 @@
 // components/MonthGrid.jsx — one month as a calendar grid (Sunday first). Shared by /calendar and /tyohar.
 // byDate: { 'YYYY-MM-DD': [ { type, hi, en, ... } ] }. Each day links to that day's panchang.
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import Bi from '@/components/Bi';
 import { TYPES } from '@/lib/calendar-events';
 

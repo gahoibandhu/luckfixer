@@ -3,7 +3,7 @@
 // Signed out -> /login (label = children). Signed in -> /chat (label = authedChildren, if given).
 // Public pages stay static/cached: the login state is read in the browser after load, never on the server,
 // so a cached page can never show the wrong state to a signed-in visitor.
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 

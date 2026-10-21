@@ -1,5 +1,5 @@
 // small shared pieces for the Pradosh / Purnima / Amavasya pages
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import Bi from '@/components/Bi';
 import { formatDateLong } from '@/lib/date-format';
 

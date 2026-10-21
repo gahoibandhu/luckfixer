@@ -3,7 +3,7 @@
 // Shown as THREE clear lines (one per phase) + a colour timeline; Saturn's retrograde re-entries are folded into each
 // phase's span and listed only under "exact stretches".
 import { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import { RASHIS } from '@/lib/public-content';
 import { SATURN_STAYS } from '@/lib/saturn-ingress';
 import { useUiLang } from '@/lib/i18n';

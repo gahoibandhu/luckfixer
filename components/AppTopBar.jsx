@@ -1,7 +1,7 @@
 'use client';
 // Desktop-only slim bar on the logged-in app pages so every page has a visible link back to the home page.
 // (On mobile the bottom tab bar has a Home tab; /chat has the link in its sidebar.)
-import Link from 'next/link';
+import Link from '@/components/PLink';
 import { usePathname } from 'next/navigation';
 import { useUiLang } from '@/lib/i18n';
 import { BRAND } from '@/lib/brand';
