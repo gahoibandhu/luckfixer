@@ -4,6 +4,9 @@ import { BRAND } from '@/lib/brand';
 import { AARTIS } from '@/lib/aarti';
 
 // Every public (no-login) page. Daily pages change every day; guides rarely.
+// Rebuilt once a day so the rolling "next 90 days" of day pages stays current without a redeploy.
+export const revalidate = 86400;
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = BRAND.site;
   const now = new Date();

@@ -4,6 +4,10 @@
 
 export const dynamic = 'force-dynamic';
 
+// A place name always resolves to the same coordinates, so a good answer can be kept: one day in the browser, 30 days on the CDN.
+// Repeat searches (Delhi, Mumbai, Jalgaon …) then neither run this function nor call OpenStreetMap again. Errors are never cached.
+const KEEP = { 'Cache-Control': 'public, max-age=86400, s-maxage=2592000' };
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const query = searchParams.get('q');
@@ -30,7 +34,7 @@ export async function GET(req) {
     const results = await res.json();
 
     if (!results || results.length === 0) {
-      return Response.json({ found: false, results: [] });
+      return Response.json({ found: false, results: [] }, { headers: KEEP });
     }
 
     return Response.json({
@@ -40,7 +44,7 @@ export async function GET(req) {
         longitude: parseFloat(r.lon),
         display_name: r.display_name,
       })),
-    });
+    }, { headers: KEEP });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
   }

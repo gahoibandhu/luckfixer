@@ -9,5 +9,6 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const botName = await getBotDisplayName();
-  return Response.json({ botName });
+  // same for every visitor and rarely changed: a few minutes on the CDN (and a minute in the browser) instead of one function run per chat-page load
+  return Response.json({ botName }, { headers: { 'Cache-Control': 'public, max-age=60, s-maxage=300' } });
 }
