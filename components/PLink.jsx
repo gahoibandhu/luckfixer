@@ -1,23 +1,48 @@
-// components/PLink.jsx — next/link with one difference: no automatic prefetch for pages that are rendered on the server per request.
+'use client';
+// components/PLink.jsx — next/link that does not spend a request per link on every page view.
 //
-// Why: <Link> prefetches every link that scrolls into view. For a server-rendered page with no loading.js, that prefetch is a request
-// that runs a server function, is not cacheable, and comes back as a ~200-byte empty stub — it preloads nothing. The calendar alone
-// has 365 such day links in its year view, and every public page's nav has more, so each visit caused dozens to hundreds of useless
-// function invocations. Pages that are static (e.g. /ekadashi/kamada, /tyohar/diwali) are still prefetched exactly as before — they
-// come from the CDN for free and make navigation instant. Pass `prefetch` explicitly on a link to override this.
+// Next.js preloads every <Link> that scrolls into view. On this site that was the biggest repeat cost per page view:
+// each public page has ~19 chrome links (logo, 9 menu items, search, 9 footer links), and each preload is a request to the CDN or
+// a function. /search alone is a 54 KB payload (the whole library is embedded in it) fetched on every single page view.
+//
+//   • server-rendered pages (/panchang, /rashifal, /tyohar …): the preload is a ~200-byte empty stub that still runs a function → never preloaded.
+//   • heavy static pages (/search, /calendar, /calendar/<y>/<m>) and links marked `intent` (the logo, menu and footer): preloaded only
+//     when the visitor shows intent — hovers (desktop) or touches (phone) the link — so the next page is still ready by the time of the
+//     click, but only for links somebody is actually about to use.
+//   • every other link keeps Next.js's normal behaviour.
+// Pass `prefetch` explicitly to override any of this.
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
-// the public pages that read ?query params / "today" and therefore render per request (see the "ƒ" routes in `next build`),
-// plus /calendar (static, but each month page is large — not worth preloading from every nav link)
-const DYNAMIC_INDEX = new Set(['/panchang', '/rashifal', '/calendar', '/tyohar', '/ekadashi', '/pradosh', '/purnima', '/amavasya', '/sankashti']);
-const DYNAMIC_CHILD = /^\/(panchang|rashifal)\/[^/]+$|^\/calendar\/\d{4}(\/\d{1,2})?$/;   // /panchang/<date>, /rashifal/<sign>, /calendar/<year>/<month> (static, but a full page of data per link)
+// public pages that read ?query params / "today" and therefore render per request (see the "ƒ" routes in `next build`)
+const DYNAMIC_INDEX = new Set(['/panchang', '/rashifal', '/tyohar', '/ekadashi', '/pradosh', '/purnima', '/amavasya', '/sankashti']);
+const DYNAMIC_CHILD = /^\/(panchang|rashifal)\/[^/]+$/;                    // /panchang/<date>, /rashifal/<sign>
+const HEAVY_STATIC = new Set(['/search', '/calendar']);
+const HEAVY_CHILD = /^\/calendar\/\d{4}(\/\d{1,2})?$/;                      // /calendar/<year>/<month>
 
-export function isDynamicPublicPath(href) {
+const pathOf = (href) => {
   const raw = typeof href === 'string' ? href : (href && href.pathname) || '';
-  const path = raw.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
-  return DYNAMIC_INDEX.has(path) || DYNAMIC_CHILD.test(path);
+  return raw.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
+};
+
+/** 'off' | 'intent' | 'auto' — what a link to this href gets when the caller has not chosen. */
+export function linkMode(href, intent = false) {
+  const p = pathOf(href);
+  if (DYNAMIC_INDEX.has(p) || DYNAMIC_CHILD.test(p)) return 'off';
+  if (intent || HEAVY_STATIC.has(p) || HEAVY_CHILD.test(p)) return 'intent';
+  return 'auto';
 }
 
-export default function PLink({ href, prefetch, ...props }) {
-  return <Link href={href} prefetch={prefetch ?? (isDynamicPublicPath(href) ? false : undefined)} {...props} />;
+export default function PLink({ href, prefetch, intent = false, onMouseEnter, onTouchStart, ...props }) {
+  const router = useRouter();
+  if (prefetch !== undefined && prefetch !== null) return <Link href={href} prefetch={prefetch} onMouseEnter={onMouseEnter} onTouchStart={onTouchStart} {...props} />;
+  const mode = linkMode(href, intent);
+  if (mode === 'auto') return <Link href={href} onMouseEnter={onMouseEnter} onTouchStart={onTouchStart} {...props} />;
+  if (mode === 'off') return <Link href={href} prefetch={false} onMouseEnter={onMouseEnter} onTouchStart={onTouchStart} {...props} />;
+  const warm = () => { try { router.prefetch(typeof href === 'string' ? href : (href.pathname || '/')); } catch { /* prefetching is only a speed-up */ } };
+  return (
+    <Link href={href} prefetch={false} {...props}
+      onMouseEnter={(e) => { if (onMouseEnter) onMouseEnter(e); warm(); }}
+      onTouchStart={(e) => { if (onTouchStart) onTouchStart(e); warm(); }} />
+  );
 }

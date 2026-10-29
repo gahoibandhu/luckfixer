@@ -27,16 +27,16 @@ export default function PublicShell({ children, flush = false }) {
     <div className={`pub ${mukta.variable} ${tiro.variable}`} style={{ minHeight: '100vh' }}>
       <header className="pub-header">
         <div className="pub-wrap pub-header-in">
-          <Link href="/" className="pub-brandlink" aria-label={`${BRAND.name} home`}>
+          <Link intent href="/" className="pub-brandlink" aria-label={`${BRAND.name} home`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={BRAND.logo} alt={BRAND.name} width="38" height="38" className="pub-logo" />
             <span className="pub-brand">{BRAND.name}</span>
           </Link>
           <LangToggle />
-          <Link href="/search" aria-label="Search / खोजें" className="pub-btn pub-btn-line" style={{ minHeight: '38px', minWidth: '38px', padding: '0 10px', fontSize: '16px' }}>🔍</Link>
+          <Link intent href="/search" aria-label="Search / खोजें" className="pub-btn pub-btn-line" style={{ minHeight: '38px', minWidth: '38px', padding: '0 10px', fontSize: '16px' }}>🔍</Link>
           <ChatLink className="pub-btn pub-btn-gold" style={{ minHeight: '38px', padding: '0 14px', fontSize: '14px', whiteSpace: 'nowrap', color: '#251a00' }} authedChildren={<Bi hi="चैट खोलें" en="Open chat" />}><Bi hi="AI चैट" en="AI chat" /></ChatLink>
           <nav className="pub-nav" aria-label="Main">
-            {NAV.map(n => <Link key={n.href} href={n.href}><Bi hi={n.hi} en={n.en} /></Link>)}
+            {NAV.map(n => <Link intent key={n.href} href={n.href}><Bi hi={n.hi} en={n.en} /></Link>)}
           </nav>
         </div>
       </header>
@@ -45,15 +45,15 @@ export default function PublicShell({ children, flush = false }) {
       <footer className="pub-footer">
         <div className="pub-wrap" style={{ padding: '26px 16px 30px', lineHeight: 1.8 }}>
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '10px' }}>
-            <Link href="/about"><Bi hi="हमारे बारे में" en="About" /></Link>
-            <Link href="/privacy"><Bi hi="गोपनीयता नीति" en="Privacy" /></Link>
-            <Link href="/terms"><Bi hi="नियम व शर्तें" en="Terms" /></Link>
-            <Link href="/"><Bi hi="होम" en="Home" /></Link>
-            <Link href="/rashi"><Bi hi="राशि गाइड" en="Rashi guide" /></Link>
-            <Link href="/vrat-calendar"><Bi hi="व्रत कैलेंडर" en="Vrat calendar" /></Link>
-            <Link href="/tyohar"><Bi hi="त्योहार" en="Festivals" /></Link>
-            <Link href="/aarti"><Bi hi="आरती-चालीसा" en="Aarti & Chalisa" /></Link>
-            <Link href="/vrat"><Bi hi="व्रत विधि व कथा" en="Vrat vidhi & katha" /></Link>
+            <Link intent href="/about"><Bi hi="हमारे बारे में" en="About" /></Link>
+            <Link intent href="/privacy"><Bi hi="गोपनीयता नीति" en="Privacy" /></Link>
+            <Link intent href="/terms"><Bi hi="नियम व शर्तें" en="Terms" /></Link>
+            <Link intent href="/"><Bi hi="होम" en="Home" /></Link>
+            <Link intent href="/rashi"><Bi hi="राशि गाइड" en="Rashi guide" /></Link>
+            <Link intent href="/vrat-calendar"><Bi hi="व्रत कैलेंडर" en="Vrat calendar" /></Link>
+            <Link intent href="/tyohar"><Bi hi="त्योहार" en="Festivals" /></Link>
+            <Link intent href="/aarti"><Bi hi="आरती-चालीसा" en="Aarti & Chalisa" /></Link>
+            <Link intent href="/vrat"><Bi hi="व्रत विधि व कथा" en="Vrat vidhi & katha" /></Link>
           </div>
           <p style={{ margin: '0 0 6px' }}><Bi hi={DISCLAIMER.hi} en={DISCLAIMER.en} /></p>
           <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
