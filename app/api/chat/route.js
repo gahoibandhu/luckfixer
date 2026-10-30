@@ -1,6 +1,7 @@
 // app/api/chat/route.js
 import { createClient } from '@/lib/supabase-server';
 import { getChatResponse, detectLanguage } from '@/lib/ai-engine';
+import { promptTrimFlags, trimStaticRules } from '@/lib/chat-prompt-trim';
 import { checkUsageAllowed, recordUsage } from '@/lib/usage-guard';
 import { decideLifeAsk, askQuestionText, buildLifeContextBlock, MARITAL_OPTIONS, CHILDREN_OPTIONS, DEFAULT_ASK_AGE } from '@/lib/life-details';
 import { getBotDisplayName, getAppConfig } from '@/lib/app-config';
@@ -956,7 +957,10 @@ export async function POST(req) {
 
     const dateBlock = `\n\n[AAJKI TITHI — server-side injected, 100% accurate — kabhi bhi khud calculate mat karo, yahi use karo]\nआज: ${todayStr} (${dayHi}) — दिन स्वामी: ${DAY_LORD_HI[now.getDay()]} — शुभ होरा: ${todayHora.shubhTime} — सतर्कता: ${todayHora.avoidTime}\nकल: ${tomorrowStr} (${tomorrowDayHi}) — दिन स्वामी: ${DAY_LORD_HI[tomorrow.getDay()]} — शुभ होरा: ${tomorrowHora.shubhTime} — सतर्कता: ${tomorrowHora.avoidTime}\nISO today: ${now.toISOString().split('T')[0]}\nIMPORTANT: Jab user kisi specific date ka din pooche (jaise "23 June ko kaunsa din hai"), toh seedha upar diye gaye data se answer do — kabhi apni training se guess mat karo. Agar user ne koi aur specific date mention ki hai (neeche "USER-MENTIONED DATE" section dekho), usi ko use karo — kabhi khud calculate mat karo.${mentionedDateBlock}`;
 
-    let systemPrompt = LUCKFIXER_SYSTEM_PROMPT.replace(/\{\{BOT_NAME\}\}/g, await getBotDisplayName()) + dateBlock;
+    // Long rules that only matter for investment / remedy / accuracy questions are sent in full only when the conversation is about them
+    // (lib/chat-prompt-trim.js; CHAT_PROMPT_TRIM=off restores the old always-full prompt).
+    const promptTrim = promptTrimFlags(messages, detectLifeArea);
+    let systemPrompt = trimStaticRules(LUCKFIXER_SYSTEM_PROMPT.replace(/\{\{BOT_NAME\}\}/g, await getBotDisplayName()), promptTrim) + dateBlock;
 
     // ── User's real prediction track record — lets the AI honestly answer
     // "tumhari prediction kitni sahi rahi" instead of guessing. Deliberately
@@ -1020,10 +1024,10 @@ Lagna: ${fs?.lagna?.signHi || fs?.lagna?.sign || '—'}
 Planets: ${compactPlanets || '—'}
 Event Scores: ${compactEventScores || '—'}
 D9 Navamsa (key placements): ${fs?.d9Chart ? JSON.stringify(fs.d9Chart) : '—'}
-Weakest planet: ${fs?.weakestPlanet?.planet || fs?.weakestPlanet?.name || '—'} (${fs?.weakestPlanet?.dignity || ''}, ${fs?.weakestPlanet?.sign || ''})
-Gemstone-eligible planet (STRICT — see GEMSTONE GATING rule above): ${fs?.gemstoneGuidance?.planet || 'कोई नहीं — केवल मंत्र/दान'}${fs?.neechaBhanga?.some(nb => nb.isNeechaBhanga) ? `\nNeecha Bhanga active for: ${fs.neechaBhanga.filter(nb => nb.isNeechaBhanga).map(nb => nb.planet).join(', ')} (see यह ग्रह-specific detail ऊपर detected yogas में)` : ''}
+Weakest planet: ${fs?.weakestPlanet?.planet || fs?.weakestPlanet?.name || '—'} (${fs?.weakestPlanet?.dignity || ''}, ${fs?.weakestPlanet?.sign || ''})${promptTrim.remedy ? `
+Gemstone-eligible planet (STRICT — see GEMSTONE GATING rule above): ${fs?.gemstoneGuidance?.planet || 'कोई नहीं — केवल मंत्र/दान'}` : ''}${fs?.neechaBhanga?.some(nb => nb.isNeechaBhanga) ? `\nNeecha Bhanga active for: ${fs.neechaBhanga.filter(nb => nb.isNeechaBhanga).map(nb => nb.planet).join(', ')} (see यह ग्रह-specific detail ऊपर detected yogas में)` : ''}${promptTrim.remedy ? `
 Support-Chain verdict for weakest planet (STRICT — see SUPPORT-CHAIN FOCUS rule above): ${fs?.remedyPlan ? `${fs.remedyPlan.verdict}${fs.remedyPlan.supportPlanet ? `, support planet: ${fs.remedyPlan.supportPlanet}` : ''}, focus planets for remedy: ${fs.remedyPlan.focusPlanets?.join(', ')}` : 'N/A'}
-Remedy plan (use ONLY when remedy is explicitly asked — see REMEDY RULE above): ${fs?.remedyPlan ? JSON.stringify(fs.remedyPlan) : 'N/A'}`;
+Remedy plan (use ONLY when remedy is explicitly asked — see REMEDY RULE above): ${fs?.remedyPlan ? JSON.stringify(fs.remedyPlan) : 'N/A'}` : ''}`;
 
       // Inject specialist patterns if available
       if (kundliContext.specialist?.matchedYogas?.length > 0) {
