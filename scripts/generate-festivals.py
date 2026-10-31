@@ -84,7 +84,13 @@ RULES = {
  'karwa_chauth': ('kartika','krishna',4,'moonrise'), 'ahoi_ashtami': ('kartika','krishna',8,'pradosh'), 'dhanteras': ('kartika','krishna',13,'pradosh'),
  'naraka_chaturdashi': ('kartika','krishna',14,'moonrise'), 'diwali': ('kartika','krishna',15,'pradosh'), 'govardhan': ('kartika','shukla',1,'sunrise'),
  'bhai_dooj': ('kartika','shukla',2,'aparahna'), 'chhath_sandhya': ('kartika','shukla',6,'sunset'), 'dev_uthani': ('kartika','shukla',11,'sunrise'), 'kartik_purnima': ('kartika','shukla',15,'pradosh'),
- 'vivah_panchami': ('margashirsha','shukla',5,'madhyahna'), 'sakat_chauth': ('magha','krishna',4,'moonrise'), 'mauni_amavasya': ('magha','krishna',15,'sunrise'),
+ 'vivah_panchami': ('margashirsha','shukla',5,'madhyahna'), 'sakat_chauth': ('magha','krishna',4,'moonrise'),
+ # added later (checked against published 2026 calendars: Tulsi Vivah 21 Nov, Gita Jayanti 20 Dec, Datta Jayanti 23 Dec, Kalabhairav 1 Dec, Buddha Purnima 1 May, Shani Jayanti 16 May)
+ 'tulsi_vivah': ('kartika','shukla',12,'sunrise'), 'gopashtami': ('kartika','shukla',8,'sunrise'), 'vaikuntha_chaturdashi': ('kartika','shukla',14,'pradosh'),
+ 'gita_jayanti': ('margashirsha','shukla',11,'sunrise'), 'datta_jayanti': ('margashirsha','shukla',15,'pradosh'), 'kalabhairav_jayanti': ('margashirsha','krishna',8,'pradosh'),
+ 'ratha_saptami': ('magha','shukla',7,'sunrise'), 'bhishma_ashtami': ('magha','shukla',8,'madhyahna'), 'mahavir_jayanti': ('chaitra','shukla',13,'sunrise'),
+ 'ganga_saptami': ('vaishakha','shukla',7,'madhyahna'), 'parshuram_jayanti': ('vaishakha','shukla',3,'pradosh'), 'buddha_purnima': ('vaishakha','shukla',15,'madhyahna'),
+ 'shani_jayanti': ('jyeshtha','krishna',15,'madhyahna'), 'vat_purnima': ('jyeshtha','shukla',15,'sunrise'), 'maha_ashtami': ('ashvina','shukla',8,'madhyahna'), 'mauni_amavasya': ('magha','krishna',15,'sunrise'),
  'basant_panchami': ('magha','shukla',5,'madhyahna'), 'maha_shivratri': ('phalguna','krishna',14,'nishita'), 'holika_dahan': ('phalguna','shukla',15,'pradosh'),
 }
 
@@ -105,6 +111,60 @@ def tithi_span_around(jd):
     return ist_of(start).strftime('%Y-%m-%d %H:%M'), ist_of(hi).strftime('%Y-%m-%d %H:%M')
 
 KINDS = ['sunrise', 'madhyahna', 'aparahna', 'sunset', 'pradosh', 'nishita', 'moonrise']
+
+# Monthly vrats: one per lunar month, any month (adhika months included). id: (paksha, tithi 1-15, 'at')
+MONTHLY = {
+ 'masik_shivaratri': ('krishna', 14, 'nishita'), 'kalashtami': ('krishna', 8, 'sunrise'), 'vinayaka_chaturthi': ('shukla', 4, 'madhyahna'),
+ 'skanda_shashthi': ('shukla', 6, 'sunrise'), 'masik_durgashtami': ('shukla', 8, 'sunrise'),
+}
+
+def tithi_runs(want, jd0, jd1):
+    """[(start_jd, end_jd)] of every stretch of time in which tithi `want` is running"""
+    runs, jd, step = [], jd0, 0.1
+    inside = tithi_n(jd) == want; start = jd0 if inside else None
+    while jd < jd1:
+        n = jd + step; now = tithi_n(n) == want
+        if now != inside:
+            lo, hi = jd, n
+            for _ in range(30):
+                mid = (lo + hi) / 2
+                if (tithi_n(mid) == want) == inside: lo = mid
+                else: hi = mid
+            if now: start = hi
+            elif start is not None: runs.append((start, hi)); start = None
+            inside = now
+        jd = n
+    return runs
+
+def run_monthly(days, inst):
+    out, jd0, jd1 = {}, jd_of(days[0] - IST), jd_of(days[-1] + dt.timedelta(days=1) - IST)
+    for key, (paksha, tip, at) in MONTHLY.items():
+        want = tip if paksha == 'shukla' else tip + 15
+        rows = []
+        for s_jd, e_jd in tithi_runs(want, jd0, jd1):
+            s_ist, e_ist = ist_of(s_jd), ist_of(e_jd)
+            span = [d for d in days if d.date() >= s_ist.date() and d.date() <= e_ist.date()]
+            pick = next((d for d in span if tithi_n(inst[d][at]) == want), None)
+            f = 0
+            if pick is None:                                         # kshaya: the tithi never prevails at that moment -> the day it begins
+                pick = dt.datetime(s_ist.year, s_ist.month, s_ist.day) + (dt.timedelta(days=1) if s_ist.hour >= 15 else dt.timedelta(0)); f = 1
+                if pick not in inst: continue
+            rows.append({'p': pick.strftime('%Y-%m-%d'), 'c': [pick.strftime('%Y-%m-%d')], 's': s_ist.strftime('%Y-%m-%d %H:%M'), 'e': e_ist.strftime('%Y-%m-%d %H:%M'), 'f': f})
+        rows.sort(key=lambda r: r['p']); out[key] = rows
+    return out
+
+def lohri(y0, y1):
+    """Lohri = the civil day before the one on which the Sun enters Makara (sidereal 270 deg, IST)"""
+    rows = []
+    for y in range(y0, y1 + 1):
+        lo, hi = jd_of(dt.datetime(y, 1, 1) - IST), jd_of(dt.datetime(y, 1, 31) - IST)
+        for _ in range(50):
+            mid = (lo + hi) / 2
+            if sun(mid) > 200 and sun(mid) < 270: lo = mid
+            else: hi = mid
+        d = ist_of(hi); p = (dt.datetime(d.year, d.month, d.day) - dt.timedelta(days=1)).strftime('%Y-%m-%d')
+        rows.append({'p': p, 'c': [p], 's': d.strftime('%Y-%m-%d %H:%M') + ' (Sun enters Makara)', 'e': '', 'f': 0})
+    return rows
 
 def run(y0, y1):
     months = build(y0, y1)
@@ -156,6 +216,7 @@ def run(y0, y1):
             else: jd += 0.25
         rows.sort(key=lambda r: r['p'])
         out[key] = rows
+    out.update(run_monthly(days, inst)); out['lohri'] = lohri(y0, y1)
     adhik = [(ist_of(s).strftime('%Y-%m-%d'), ist_of(e).strftime('%Y-%m-%d'), MONTHS[n]) for s, e, n, a in months if a and y0 <= ist_of(s).year <= y1]
     return out, adhik
 

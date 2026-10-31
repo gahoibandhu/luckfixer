@@ -16,6 +16,9 @@ const iso = (y, m, d) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStar
 const dnum = (s) => Number(s.slice(8, 10));
 const wdOf = (s) => new Date(s + 'T00:00:00Z').getUTCDay();
 const hrefOf = (y, m) => `/calendar/${y}/${m}`;
+// tithi name as printed on a calendar: "शुक्ल पंचमी", but Purnima / Amavasya stand alone
+const PK = { shukla: ['शुक्ल ', 'Shukla '], krishna: ['कृष्ण ', 'Krishna '] };
+const tName = (idx, paksha, t) => { const sp = idx === 14 || idx === 29, pk = sp ? ['', ''] : PK[paksha]; return { hi: pk[0] + t.hi, en: pk[1] + t.en }; };
 const chip = (on) => ({ padding: '7px 13px', borderRadius: '999px', fontSize: '13px', textDecoration: 'none', border: '1px solid ' + (on ? 'var(--pub-gold)' : 'var(--color-border-secondary)'), background: on ? 'var(--color-background-warning)' : 'var(--color-background-primary)', color: 'var(--color-text-primary)', fontWeight: on ? 700 : 400, whiteSpace: 'nowrap' });
 
 export default function HinduMonth({ year, month, isIndex = false }) {
@@ -79,12 +82,12 @@ export default function HinduMonth({ year, month, isIndex = false }) {
                   <span className="cal-tf"><Bi hi={`${pHi}${c.tithi.hi}`} en={`${pEn}${c.tithi.en}`} /></span>
                   <span className="cal-ts"><Bi hi={special ? (special === 'purnima' ? 'पू' : 'अ') : `${c.paksha === 'shukla' ? 'शु' : 'कृ'}${DN(c.num)}`} en={special ? (special === 'purnima' ? 'Pur' : 'Ama') : `${c.paksha === 'shukla' ? 'S' : 'K'}${c.num}`} /></span>
                   <span className="cal-te">→ {fmt(c.tithiEnd.min)}{c.tithiEnd.dayOff ? ' +1' : ''}</span>
+                  {c.t2 && <span className="cal-t2"><Bi hi={`फिर ${tName(c.t2.idx, c.t2.paksha, c.t2).hi}`} en={`then ${tName(c.t2.idx, c.t2.paksha, c.t2).en}`} /></span>}
                   <span className="cal-nk"><Bi hi={c.nak.hi} en={c.nak.en} /></span>
                 </>
               )}
               {ev.slice(0, 2).map((e, k) => <span key={k} className="cal-e" style={{ color: TYPES[e.type].color }}><Bi hi={e.hi} en={e.en} /></span>)}
-              {ev.length > 2 && <span className="cal-e cal-more">+{ev.length - 2}</span>}
-              {ev.length > 0 && <span className="cal-dots" aria-hidden="true">{[...new Set(ev.map((e) => e.type))].slice(0, 3).map((t) => <i key={t} style={{ background: TYPES[t].color }} />)}</span>}
+              {ev.length > 2 && <span className="cal-more">+{ev.length - 2}</span>}
             </Link>
           );
         })}
@@ -98,7 +101,31 @@ export default function HinduMonth({ year, month, isIndex = false }) {
       </p>
 
       {/* this month's observances */}
-      <section style={{ ...card, padding: '6px 14px', marginTop: '14px' }}>
+      {/* phones: every day of the month with its full panchang and observances */}
+      <section className="cal-dlist" style={{ ...card, padding: '6px 10px', marginTop: '14px' }}>
+        <h3 className="display" style={{ margin: '10px 4px 4px', fontSize: '17px' }}><Bi hi={`${MON[month - 1][0]} ${year} — दिन-वार पंचांग`} en={`${MON[month - 1][1]} ${year} — day by day`} /></h3>
+        {days.map((c) => {
+          const s = iso(year, month, c.d), ev = byDate[s] || [], dow = (lead + c.d - 1) % 7;
+          const t1 = c.ok ? tName(c.idx, c.paksha, c.tithi) : null, t2 = c.ok && c.t2 ? tName(c.t2.idx, c.t2.paksha, c.t2) : null;
+          return (
+            <Link key={s} href={`/panchang/${s}`} data-d={s} className={`cal-row${dow === 0 ? ' cal-sun' : ''}${ev.length ? ' cal-has' : ''}`} style={ev.length ? { '--ec': TYPES[ev[0].type].color } : undefined}>
+              <span className="cal-rd"><b>{c.d}</b><small><Bi hi={WD[dow][0]} en={WD[dow][1]} /></small></span>
+              <span className="cal-rb">
+                {ev.map((e, k) => <span key={k} className="cal-rev" style={{ color: TYPES[e.type].color }}><span aria-hidden="true">{TYPES[e.type].glyph}</span> <Bi hi={e.hi} en={e.en} /></span>)}
+                {c.ok && (
+                  <span className="cal-rp">
+                    <span><Bi hi={t1.hi} en={t1.en} /> <em>→ {fmt(c.tithiEnd.min)}{c.tithiEnd.dayOff ? ' +1' : ''}</em></span>
+                    {t2 && <span className="cal-r2"><Bi hi={`फिर ${t2.hi}`} en={`then ${t2.en}`} /></span>}
+                    <span className="cal-rn"><Bi hi={`नक्षत्र ${c.nak.hi}`} en={`Nakshatra ${c.nak.en}`} /></span>
+                  </span>
+                )}
+              </span>
+            </Link>
+          );
+        })}
+      </section>
+
+      <section className="cal-flist" style={{ ...card, padding: '6px 14px', marginTop: '14px' }}>
         <h3 className="display" style={{ margin: '10px 0 2px', fontSize: '17px' }}><Bi hi={`${MON[month - 1][0]} ${year} के व्रत और त्योहार`} en={`Fasts and festivals — ${MON[month - 1][1]} ${year}`} /></h3>
         {monthEvents.length === 0
           ? <p style={{ margin: '12px 0', color: 'var(--color-text-secondary)', fontSize: '14px' }}><Bi hi="इस महीने में कोई व्रत/त्योहार नहीं।" en="No fasts or festivals this month." /></p>
