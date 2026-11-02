@@ -8,6 +8,7 @@ import CalendarToday from '@/components/CalendarToday';
 import { eventsForYear, eventsByDate, TYPES, TYPE_ORDER, CAL_RANGE } from '@/lib/calendar-events';
 import { monthPanchang, MON } from '@/lib/calendar-month';
 import { fmt } from '@/lib/panchang';
+import { masaSegments, MASA_NAMES } from '@/lib/masa';
 
 const MON_S = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const WD = [['रवि', 'Sun'], ['सोम', 'Mon'], ['मंगल', 'Tue'], ['बुध', 'Wed'], ['गुरु', 'Thu'], ['शुक्र', 'Fri'], ['शनि', 'Sat']];
@@ -21,6 +22,18 @@ const PK = { shukla: ['शुक्ल ', 'Shukla '], krishna: ['कृष्ण
 const tName = (idx, paksha, t) => { const sp = idx === 14 || idx === 29, pk = sp ? ['', ''] : PK[paksha]; return { hi: pk[0] + t.hi, en: pk[1] + t.en }; };
 const chip = (on) => ({ padding: '7px 13px', borderRadius: '999px', fontSize: '13px', textDecoration: 'none', border: '1px solid ' + (on ? 'var(--pub-gold)' : 'var(--color-border-secondary)'), background: on ? 'var(--color-background-warning)' : 'var(--color-background-primary)', color: 'var(--color-text-primary)', fontWeight: on ? 700 : 400, whiteSpace: 'nowrap' });
 
+// "Kartika 1–24 → Margashirsha 25–30" (the day numbers are only shown when the Gregorian month passes through more than one lunar month)
+function MasaLine({ label, segs }) {
+  return (
+    <span><b><Bi hi={label[0]} en={label[1]} /></b>{' '}
+      {segs.map((r, i) => (
+        <span key={i}>{i > 0 && ' → '}<Bi hi={`${r.adhika ? 'अधिक ' : ''}${MASA_NAMES[r.idx][0]}`} en={`${r.adhika ? 'Adhika ' : ''}${MASA_NAMES[r.idx][1]}`} />
+          {segs.length > 1 && <em> ({r.from}{r.to !== r.from ? `–${r.to}` : ''})</em>}</span>
+      ))}
+    </span>
+  );
+}
+
 export default function HinduMonth({ year, month, isIndex = false }) {
   const [y0, y1] = CAL_RANGE;
   const days = monthPanchang(year, month);
@@ -30,6 +43,7 @@ export default function HinduMonth({ year, month, isIndex = false }) {
   const prev = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 };
   const next = month === 12 ? { y: year + 1, m: 1 } : { y: year, m: month + 1 };
   const monthEvents = eventsForYear(year).filter((e) => Number(e.date.slice(5, 7)) === month);
+  const masa = masaSegments(year, month);
 
   return (
     <PublicShell>
@@ -60,6 +74,20 @@ export default function HinduMonth({ year, month, isIndex = false }) {
         <h2 className="display" style={{ margin: 0, fontSize: '20px' }}><Bi hi={`${MON[month - 1][0]} ${year}`} en={`${MON[month - 1][1]} ${year}`} /></h2>
         {next.y <= y1 ? <Link href={hrefOf(next.y, next.m)} prefetch={false} style={{ color: 'var(--color-text-info)', fontSize: '14px' }}><Bi hi="अगला" en="Next" /> →</Link> : <span />}
       </div>
+
+      {/* the Hindu month(s) and the era years */}
+      {masa && (
+        <div className="cal-masa">
+          <MasaLine label={['पूर्णिमांत माह', 'Purnimanta month']} segs={masa.purnimanta} />
+          <MasaLine label={['अमांत माह', 'Amanta month']} segs={masa.amanta} />
+          <span>
+            {masa.samvat.length === 1
+              ? <Bi hi={`विक्रम संवत् ${masa.samvat[0].vikram} · शक संवत् ${masa.samvat[0].shaka}`} en={`Vikram Samvat ${masa.samvat[0].vikram} · Shaka ${masa.samvat[0].shaka}`} />
+              : <Bi hi={`विक्रम संवत् ${masa.samvat[0].vikram} → ${masa.samvat[1].vikram} (${masa.samvat[1].from} तारीख़ से) · शक ${masa.samvat[0].shaka} → ${masa.samvat[1].shaka}`}
+                    en={`Vikram Samvat ${masa.samvat[0].vikram} → ${masa.samvat[1].vikram} (from the ${masa.samvat[1].from}th) · Shaka ${masa.samvat[0].shaka} → ${masa.samvat[1].shaka}`} />}
+          </span>
+        </div>
+      )}
 
       {/* the month */}
       <div className="cal-grid" role="grid" aria-label={`${MON[month - 1][1]} ${year}`}>
