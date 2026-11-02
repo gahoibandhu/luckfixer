@@ -167,6 +167,15 @@ const MAX_WORD_LIMIT_MULTI_PART = 320; // ceiling even for very multi-part quest
 // replies to crisp, focused questions. Reject before the usage guard and
 // AI call even run, so it doesn't cost the user a free chat/minute.
 const LONG_INPUT_SOFT_CHARS = 600;   // above this: still answered, but in "long message" mode (below)
+const MAX_HISTORY_MESSAGES  = 12;      // the chat page sends the last 10
+const MAX_HISTORY_MSG_CHARS = 4000;    // one answer is at most ~2,500 characters
+const MAX_CONTEXT_CHARS     = 400000;  // a real chart is ~70,000 — this only stops a hand-made request from turning into a huge, paid prompt
+function capHistory(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(-MAX_HISTORY_MESSAGES)
+    .filter(m => m && typeof m.content === 'string')
+    .map(m => (m.content.length > MAX_HISTORY_MSG_CHARS ? { ...m, content: m.content.slice(0, MAX_HISTORY_MSG_CHARS) } : m));
+}
 const MAX_USER_INPUT_CHARS  = 1500;  // hard ceiling — an essay/life story is still rejected, before it costs a credit
 
 function tooLongInputMessage(lang) {
@@ -777,13 +786,18 @@ export async function POST(req) {
 
     const userId = user.id;
     const body = await req.json();
-    const { messages, sessionId, kundliId, kundliContext, isGreeting, langPref: langPrefRaw, uiLang, pendingFollowUpId, skipLifeAsk } = body;
+    const { messages: messagesRaw, sessionId, kundliId, kundliContext, isGreeting, langPref: langPrefRaw, uiLang, pendingFollowUpId, skipLifeAsk } = body;
     // Portal language rule: when the user has NOT picked a reply language (Auto) and the portal is Hindi, replies are Hindi in Devanagari.
     // An explicit pick (Hinglish / हिंदी / English) always wins. English portal + Auto = mirror the user (Roman Hinglish stays Roman).
     // Flip PORTAL_LANG_DRIVES_AUTO to false to bring back the old Auto behaviour (mirror whatever the user typed).
     const PORTAL_LANG_DRIVES_AUTO = true;
     const langPref = (langPrefRaw && langPrefRaw !== 'auto') ? langPrefRaw : (PORTAL_LANG_DRIVES_AUTO && uiLang === 'hi' ? 'hi' : 'auto');
 
+    // Size limits, enforced here rather than trusting the browser (it already sends only the last 10 messages and one chart)
+    const messages = capHistory(messagesRaw);
+    if (kundliContext && JSON.stringify(kundliContext).length > MAX_CONTEXT_CHARS) {
+      return Response.json({ error: 'Request too large' }, { status: 413 });
+    }
     if (!messages || messages.length === 0) {
       return Response.json({ error: 'No messages provided' }, { status: 400 });
     }
