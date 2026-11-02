@@ -1,13 +1,12 @@
 {
-  "name": "AstroBharat — वैदिक ज्योतिष AI",
+  "name": "AstroBharat",
   "short_name": "AstroBharat",
-  "description": "Parashari, Lal Kitab और Jaimini पर आधारित AI ज्योतिष सहायक — सभी के लिए",
-  "start_url": "/chat",
+  "description": "Kundli, Panchang, Rashifal aur AI Jyotishi chat",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#001f4c",
-  "theme_color": "#0d0d0f",
-  "orientation": "portrait-primary",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0A1668",
   "lang": "hi",
   "icons": [
     {
